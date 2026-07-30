@@ -11,9 +11,10 @@ llama-index-readers-obsidian
 llama-index-embeddings-huggingface
 llama-index-llms-gemini
 
-# Embeddings & ML Support
+# Embeddings, ML & Local OCR Support
 sentence-transformers
 huggingface-hub
+torchvision
 
 # Web Application Server
 fastapi>=0.110.0
