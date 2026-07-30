@@ -15,6 +15,11 @@ llama-index-llms-gemini
 sentence-transformers
 huggingface-hub
 
+# Web Application Server
+fastapi>=0.110.0
+uvicorn[standard]>=0.28.0
+python-multipart>=0.0.9
+
 # Configuration & Utilities
 pydantic>=2.6.0
 pydantic-settings>=2.2.0

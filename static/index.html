@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comeback Helper | Math Knowledge Graph & Assistant</title>
+    
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <!-- KaTeX CSS & JS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
+    <!-- Marked JS (Markdown Parser) -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <!-- Vis.js Network (Knowledge Graph Visualizer) -->
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+
+    <!-- App Styles -->
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="dark-theme">
+    <div class="app-layout">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="logo-icon">∑</div>
+                <div class="brand-text">
+                    <h2>Comeback Helper</h2>
+                    <span>Math RAG & Graph Assistant</span>
+                </div>
+            </div>
+
+            <nav class="nav-menu">
+                <button class="nav-item active" data-tab="tab-query">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                    <span>Math Assistant</span>
+                </button>
+                <button class="nav-item" data-tab="tab-ingest">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                    <span>Ingest Course PDF</span>
+                </button>
+                <button class="nav-item" data-tab="tab-graph">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+                    <span>Knowledge Graph</span>
+                </button>
+                <button class="nav-item" data-tab="tab-vault">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+                    <span>Obsidian Vault</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="status-indicator">
+                    <span class="status-dot online"></span>
+                    <span class="status-label">Gemini Vision & RAG Active</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="content-area">
+            <!-- TAB 1: MATH ASSISTANT -->
+            <section id="tab-query" class="tab-page active">
+                <header class="page-header">
+                    <h1>Math & Coursework Assistant</h1>
+                    <p>Ask conceptual questions, request derivations, or explore cross-course connections.</p>
+                </header>
+
+                <div class="query-container">
+                    <div class="quick-prompts">
+                        <span class="quick-label">Sample Queries:</span>
+                        <button class="quick-btn" onclick="setQueryPrompt('How does Spectral Theorem connect to Principal Component Analysis?')">Spectral Theorem ↔ PCA</button>
+                        <button class="quick-btn" onclick="setQueryPrompt('Derive Singular Value Decomposition (SVD) from eigenvalues.')">Derive SVD</button>
+                        <button class="quick-btn" onclick="setQueryPrompt('State and prove Cauchy-Schwarz Inequality with vector inner products.')">Cauchy-Schwarz Proof</button>
+                    </div>
+
+                    <div class="input-card">
+                        <textarea id="query-input" placeholder="Enter your math question, theorem inquiry, or proof request..." rows="4"></textarea>
+                        <div class="input-actions">
+                            <span class="hint">LaTeX math formulas will render automatically ($...$ and $$...$$)</span>
+                            <button id="btn-submit-query" class="btn-primary">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                                <span>Ask Assistant</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="query-loading" class="loading-spinner hidden">
+                        <div class="spinner"></div>
+                        <p>Traversing Knowledge Graph & Synthesizing Derivation with Gemini...</p>
+                    </div>
+
+                    <div id="query-response-card" class="response-card hidden">
+                        <div class="card-header">
+                            <h3>Assistant Explanation & Derivation</h3>
+                            <button class="btn-icon" onclick="copyResponseText()" title="Copy Response">📋</button>
+                        </div>
+                        <div id="response-content" class="markdown-body"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 2: INGEST PDF -->
+            <section id="tab-ingest" class="tab-page">
+                <header class="page-header">
+                    <h1>Ingest Course Materials</h1>
+                    <p>Upload lecture slides, homework, or textbook PDFs to convert into LaTeX Markdown in Obsidian.</p>
+                </header>
+
+                <div class="ingest-container">
+                    <div class="form-card">
+                        <div class="form-group">
+                            <label for="course-name-input">Course Name</label>
+                            <input type="text" id="course-name-input" placeholder="e.g. Machine Learning, Linear Algebra, Real Analysis" value="Machine Learning">
+                        </div>
+
+                        <div id="drop-zone" class="drop-zone">
+                            <div class="drop-icon">📄</div>
+                            <h3>Drag & Drop Course PDF here</h3>
+                            <p>or click to browse local files</p>
+                            <input type="file" id="pdf-file-input" accept=".pdf" class="hidden">
+                        </div>
+
+                        <div id="selected-file-info" class="selected-file hidden">
+                            <span id="selected-file-name">filename.pdf</span>
+                            <button id="btn-clear-file" class="btn-text">Remove</button>
+                        </div>
+
+                        <button id="btn-start-ingest" class="btn-primary btn-block">
+                            <span>Process & Save to Obsidian Vault</span>
+                        </button>
+
+                        <div id="ingest-loading" class="loading-spinner hidden">
+                            <div class="spinner"></div>
+                            <p>Rendering pages with PyMuPDF & Running Gemini Vision Math OCR...</p>
+                        </div>
+
+                        <div id="ingest-result" class="alert-box hidden"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 3: KNOWLEDGE GRAPH -->
+            <section id="tab-graph" class="tab-page">
+                <header class="page-header">
+                    <div class="header-flex">
+                        <div>
+                            <h1>Visual Knowledge Graph</h1>
+                            <p>Interactive map of theorems, concepts, and note links in your Obsidian Vault.</p>
+                        </div>
+                        <button id="btn-refresh-graph" class="btn-secondary">Refresh Graph</button>
+                    </div>
+                </header>
+
+                <div class="graph-container">
+                    <div id="vis-graph-canvas" class="graph-canvas"></div>
+                </div>
+            </section>
+
+            <!-- TAB 4: OBSIDIAN VAULT -->
+            <section id="tab-vault" class="tab-page">
+                <header class="page-header">
+                    <div class="header-flex">
+                        <div>
+                            <h1>Obsidian Vault Browser</h1>
+                            <p>Explore your organized course directories and Markdown notes.</p>
+                        </div>
+                        <button id="btn-refresh-vault" class="btn-secondary">Refresh Vault</button>
+                    </div>
+                </header>
+
+                <div id="vault-list-container" class="vault-grid"></div>
+            </section>
+        </main>
+    </div>
+
+    <!-- App JavaScript -->
+    <script src="/static/app.js"></script>
+</body>
+</html>
