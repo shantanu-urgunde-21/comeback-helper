@@ -16,6 +16,10 @@ class Settings(BaseSettings):
             "obsidian_vault_location"
         )
     )
+    gemini_model: str = Field(
+        default="gemini-2.0-flash",
+        validation_alias=AliasChoices("GEMINI_MODEL", "gemini_model")
+    )
     embed_model: str = Field(
         default="BAAI/bge-m3",
         validation_alias=AliasChoices("EMBED_MODEL", "embed_model")

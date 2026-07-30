@@ -30,8 +30,13 @@ class MathQueryEngine:
         self.settings = get_settings()
         self.indexer = MathGraphIndexer()
         self.index: PropertyGraphIndex = self.indexer.build_or_update_index()
+
+        model_name = self.settings.gemini_model
+        if not model_name.startswith("models/"):
+            model_name = f"models/{model_name}"
+
         self.llm = Gemini(
-            model="models/gemini-2.5-flash",
+            model=model_name,
             api_key=self.settings.gemini_api_key
         )
 

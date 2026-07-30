@@ -21,9 +21,13 @@ class MathGraphIndexer:
         self.vault_manager = ObsidianVaultManager(self.settings.vault_path)
         self.state_tracker = VaultStateTracker(self.settings.storage_path / "vault_state.json")
         
-        # Initialize Gemini LLM for extraction
+        # Initialize Gemini LLM using configurable model
+        model_name = self.settings.gemini_model
+        if not model_name.startswith("models/"):
+            model_name = f"models/{model_name}"
+
         self.llm = Gemini(
-            model="models/gemini-2.5-flash",
+            model=model_name,
             api_key=self.settings.gemini_api_key
         )
         

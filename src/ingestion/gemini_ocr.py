@@ -1,4 +1,5 @@
 import io
+import time
 from PIL import Image
 from google import genai
 from google.genai import types
@@ -20,38 +21,57 @@ Rules:
 
 class GeminiOCRProvider(BaseOCRProvider):
     """
-    OCR provider using Google Gemini Vision API.
+    OCR provider using Google Gemini Vision API with automatic model fallback.
     """
-    def __init__(self, model_name: str = "gemini-2.5-flash"):
+    def __init__(self, model_name: str | None = None):
         settings = get_settings()
         self.client = genai.Client(api_key=settings.gemini_api_key)
-        self.model_name = model_name
+        primary_model = model_name or settings.gemini_model
+        
+        # Fallback list if primary model hits 404 or quota limits
+        self.candidate_models = [
+            primary_model,
+            "gemini-2.0-flash",
+            "gemini-1.5-flash",
+            "gemini-2.5-flash",
+            "gemini-2.5-pro"
+        ]
+        # Remove duplicates preserving order
+        self.candidate_models = list(dict.fromkeys(self.candidate_models))
 
     def process_image(self, image: Image.Image) -> str:
         """
-        Parses a single page image into Markdown + LaTeX.
+        Parses a single page image into Markdown + LaTeX with model fallback.
         """
-        # Convert PIL Image to PNG bytes
         buffer = io.BytesIO()
         image.save(buffer, format="PNG")
         image_bytes = buffer.getvalue()
 
-        response = self.client.models.generate_content(
-            model=self.model_name,
-            contents=[
-                types.Part.from_bytes(
-                    data=image_bytes,
-                    mime_type="image/png"
-                ),
-                MATH_OCR_SYSTEM_PROMPT
-            ]
-        )
-        raw_md = response.text or ""
-        return LaTeXSanitizer.sanitize(raw_md)
+        last_exception = None
+        for model in self.candidate_models:
+            try:
+                response = self.client.models.generate_content(
+                    model=model,
+                    contents=[
+                        types.Part.from_bytes(
+                            data=image_bytes,
+                            mime_type="image/png"
+                        ),
+                        MATH_OCR_SYSTEM_PROMPT
+                    ]
+                )
+                raw_md = response.text or ""
+                return LaTeXSanitizer.sanitize(raw_md)
+            except Exception as e:
+                print(f"[Gemini OCR] Model {model} failed: {e}. Trying fallback...")
+                last_exception = e
+                time.sleep(1)
+
+        raise RuntimeError(f"All Gemini OCR models failed. Last error: {last_exception}")
 
     def process_images_batch(self, images: list[Image.Image]) -> str:
         """
-        Processes a list of page images sequentially or in multi-part prompt.
+        Processes a list of page images sequentially.
         """
         results = []
         for idx, img in enumerate(images, start=1):
