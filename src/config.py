@@ -16,6 +16,10 @@ class Settings(BaseSettings):
             "obsidian_vault_location"
         )
     )
+    ocr_provider: str = Field(
+        default="gemini",
+        validation_alias=AliasChoices("OCR_PROVIDER", "ocr_provider")
+    )
     gemini_model: str = Field(
         default="gemini-2.0-flash",
         validation_alias=AliasChoices("GEMINI_MODEL", "gemini_model")

@@ -9,11 +9,20 @@ from src.ingestion.gemini_ocr import GeminiOCRProvider
 class IngestionPipeline:
     """
     Handles PDF loading, page rendering, OCR parsing, and vault output generation.
+    Supports both Cloud Gemini OCR and Local LightOnOCR-2-1B providers.
     """
 
     def __init__(self, ocr_provider: BaseOCRProvider | None = None):
-        self.ocr_provider = ocr_provider or GeminiOCRProvider()
         self.settings = get_settings()
+        
+        if ocr_provider is not None:
+            self.ocr_provider = ocr_provider
+        else:
+            if self.settings.ocr_provider.lower() == "local":
+                from src.ingestion.local_ocr import LightOnOCRProvider
+                self.ocr_provider = LightOnOCRProvider()
+            else:
+                self.ocr_provider = GeminiOCRProvider()
 
     def pdf_to_images(self, pdf_path: Path, dpi: int = 200) -> list[Image.Image]:
         """
@@ -47,7 +56,7 @@ class IngestionPipeline:
 
         print(f"[Ingestion] Extracting pages from: {pdf_path.name}...")
         images = self.pdf_to_images(pdf_path)
-        print(f"[Ingestion] Rendered {len(images)} pages. Running OCR...")
+        print(f"[Ingestion] Rendered {len(images)} pages. Running OCR ({self.ocr_provider.__class__.__name__})...")
 
         parsed_markdown = self.ocr_provider.process_images_batch(images)
 
