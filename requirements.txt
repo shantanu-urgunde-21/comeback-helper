@@ -1,0 +1,23 @@
+# Core LLM & Vision API
+google-genai>=0.1.0
+
+# Document & Image Processing
+pymupdf>=1.23.0
+pillow>=10.0.0
+
+# GraphRAG & LlamaIndex Ecosystem
+llama-index-core
+llama-index-readers-obsidian
+llama-index-embeddings-huggingface
+llama-index-llms-gemini
+
+# Embeddings & ML Support
+sentence-transformers
+huggingface-hub
+
+# Configuration & Utilities
+pydantic>=2.6.0
+pydantic-settings>=2.2.0
+python-dotenv>=1.0.0
+click>=8.1.0
+rich>=13.7.0
