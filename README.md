@@ -187,4 +187,4 @@ python -m unittest discover -s tests
 
 ## License
 
-[MIT License](LICENSE)
+[Apache License](LICENSE)
