@@ -15,6 +15,7 @@ __pycache__/
 
 # Storage & Cache
 .storage/
+temp_uploads/
 .cache/
 data/
 *.log

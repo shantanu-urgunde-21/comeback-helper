@@ -15,6 +15,9 @@ llama-index-llms-gemini
 # Embeddings, ML & Local OCR Support
 sentencepiece
 pix2tex
+verovio
+accelerate
+qwen-vl-utils
 sentence-transformers
 huggingface-hub
 torchvision

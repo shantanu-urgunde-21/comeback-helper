@@ -1,6 +1,6 @@
 import gc
 from pathlib import Path
-from typing import List
+from typing import List, Optional, Any
 from PIL import Image
 import torch
 
@@ -11,7 +11,7 @@ from src.logger import log
 class SpecializedOCREngine:
     """
     Executes specialized OCR routing per region type with VRAM memory safety for 4GB GPUs.
-    Routes BLOCK_MATH -> pix2tex / Math model.
+    Routes BLOCK_MATH -> pix2tex (LaTeX-OCR).
     Routes DIAGRAM -> Image export to attachments.
     Routes TEXT_BLOCK -> TrOCR / VLM text provider.
     """
@@ -47,19 +47,20 @@ class SpecializedOCREngine:
             latex_str = self.pix2tex_model(image)
             return f"\n$$\n{latex_str}\n$$\n"
         except Exception as e:
-            log.warning(f"pix2tex unavailable or failed ({e}). Using VLM/sanitizer fallback.")
-            return "\n$$\n% [Math Block Equation Crop]\n$$\n"
+            log.warning(f"pix2tex unavailable or failed ({e}). Using fallback.")
+            return "\n$$\n% [Math Block Equation]\n$$\n"
 
     def process_text_block(self, image: Image.Image) -> str:
         """
-        Processes handwritten text paragraph block using TrOCR (microsoft/trocr-base-handwritten) or HuggingFace fallback.
+        Processes handwritten text paragraph block using TrOCR.
         """
         try:
-            from transformers import TrOCRProcessor, VisionEncoderDecoderModel
+            from transformers import TrOCRProcessor, VisionEncoderDecoderModel, RobertaTokenizer, ViTImageProcessor
             if self.trocr_model is None or self.trocr_processor is None:
                 log.info(f"Loading TrOCR model ('microsoft/trocr-base-handwritten') on device: {self.device}...")
-                from transformers import TrOCRProcessor, VisionEncoderDecoderModel
-                self.trocr_processor = TrOCRProcessor.from_pretrained("microsoft/trocr-base-handwritten", backend="pil")
+                tokenizer = RobertaTokenizer.from_pretrained("roberta-base")
+                img_proc = ViTImageProcessor.from_pretrained("microsoft/trocr-base-handwritten")
+                self.trocr_processor = TrOCRProcessor(image_processor=img_proc, tokenizer=tokenizer)
                 self.trocr_model = VisionEncoderDecoderModel.from_pretrained("microsoft/trocr-base-handwritten").to(self.device)
 
             pixel_values = self.trocr_processor(image.convert("RGB"), return_tensors="pt").pixel_values.to(self.device)
@@ -69,7 +70,7 @@ class SpecializedOCREngine:
 
             return generated_text
         except Exception as e:
-            log.warning(f"TrOCR execution warning ({e}). Falling back to clean text placeholder.")
+            log.warning(f"TrOCR execution warning ({e}). Falling back to placeholder.")
             return "[Handwritten text block]"
 
     def process_diagram(self, image: Image.Image, page_idx: int, region_idx: int) -> str:
@@ -84,14 +85,19 @@ class SpecializedOCREngine:
             return f"\n![Diagram Page {page_idx} Figure {region_idx}](attachments/{file_name})\n"
         return "\n![Handwritten Diagram](attachments/diagram.png)\n"
 
-    def process_regions(self, regions: List[RegionBox], page_idx: int = 1) -> str:
+    def process_regions(self, regions: List[RegionBox], page_idx: int = 1, logger: Optional[Any] = None) -> str:
         """
-        Sequentially routes regions, accumulates Markdown output, and recycles VRAM.
+        Sequentially routes regions, logs real-time granular progress, accumulates Markdown output, and recycles VRAM.
         """
         output_chunks = []
+        total_regs = len(regions)
+
         for idx, reg in enumerate(regions, start=1):
-            log.info(f"Processing region {idx}/{len(regions)}: {reg.region_type.value}")
+            reg_info = f"Region [{idx}/{total_regs}] | Type: {reg.region_type.value} | Crop size: {reg.cropped_image.size}"
             
+            if logger:
+                logger.log_step(reg_info)
+
             if reg.region_type == RegionType.BLOCK_MATH:
                 chunk = self.process_block_math(reg.cropped_image)
             elif reg.region_type == RegionType.DIAGRAM:
