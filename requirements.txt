@@ -4,6 +4,7 @@ google-genai>=0.1.0
 # Document & Image Processing
 pymupdf>=1.23.0
 pillow>=10.0.0
+opencv-python>=4.9.0
 
 # GraphRAG & LlamaIndex Ecosystem
 llama-index-core
@@ -12,6 +13,8 @@ llama-index-embeddings-huggingface
 llama-index-llms-gemini
 
 # Embeddings, ML & Local OCR Support
+sentencepiece
+pix2tex
 sentence-transformers
 huggingface-hub
 torchvision

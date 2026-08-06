@@ -23,6 +23,11 @@ class IngestionPipeline:
             if provider_type == "marker":
                 from src.ingestion.marker_provider import MarkerOCRProvider
                 self.ocr_provider = MarkerOCRProvider()
+            elif provider_type == "handwriting":
+                from src.ingestion.handwriting_provider import HandwritingOCRProvider
+                self.ocr_provider = HandwritingOCRProvider(
+                    vault_attachments_dir=self.settings.vault_path / course_name / "attachments" if hasattr(self, "settings") else None
+                )
             elif provider_type == "local":
                 from src.ingestion.local_ocr import LightOnOCRProvider
                 self.ocr_provider = LightOnOCRProvider()
