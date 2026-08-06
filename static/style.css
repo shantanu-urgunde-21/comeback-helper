@@ -143,8 +143,16 @@ body.dark-theme {
     width: 8px;
     height: 8px;
     border-radius: 50%;
+}
+
+.status-dot.online {
     background-color: var(--success);
     box-shadow: 0 0 8px var(--success);
+}
+
+.status-dot.offline {
+    background-color: var(--error);
+    box-shadow: 0 0 8px var(--error);
 }
 
 /* Content Area */
@@ -318,13 +326,29 @@ textarea:focus {
     margin-top: 16px;
 }
 
+/* Custom Select */
+.custom-select {
+    background-color: var(--bg-input);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    color: var(--text-main);
+    font-size: 14px;
+    outline: none;
+    cursor: pointer;
+}
+
+.custom-select:focus {
+    border-color: var(--primary);
+}
+
 /* Response Card */
 .response-card {
     background-color: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
     padding: 24px;
-    margin-top: 10px;
+    margin-top: 20px;
 }
 
 .card-header {
@@ -338,6 +362,16 @@ textarea:focus {
 
 .card-header h3 {
     font-size: 18px;
+    font-weight: 600;
+}
+
+.badge {
+    background-color: rgba(16, 185, 129, 0.2);
+    border: 1px solid var(--success);
+    color: #6ee7b7;
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 12px;
     font-weight: 600;
 }
 
@@ -374,7 +408,7 @@ textarea:focus {
 
 /* Ingest Drop Zone */
 .ingest-container {
-    max-width: 600px;
+    max-width: 650px;
 }
 
 .form-card {

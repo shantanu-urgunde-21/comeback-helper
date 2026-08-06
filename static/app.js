@@ -1,4 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // --- Initial Health Check ---
+    checkOllamaHealth();
+
     // --- Navigation Tabs ---
     const navItems = document.querySelectorAll('.nav-item');
     const tabPages = document.querySelectorAll('.tab-page');
@@ -18,6 +21,31 @@ document.addEventListener('DOMContentLoaded', () => {
             if (targetTab === 'tab-vault') loadVaultNotes();
         });
     });
+
+    // --- Ollama Health Check Helper ---
+    async function checkOllamaHealth() {
+        const dot = document.getElementById('ollama-status-dot');
+        const label = document.getElementById('ollama-status-label');
+        if (!dot || !label) return;
+
+        try {
+            const res = await fetch('/api/health/ollama');
+            const data = await res.json();
+            if (data.service_online && data.model_available) {
+                dot.className = 'status-dot online';
+                label.textContent = `Local VLM Ready (${data.target_model})`;
+            } else if (data.service_online) {
+                dot.className = 'status-dot offline';
+                label.textContent = `Ollama Online (${data.target_model} missing)`;
+            } else {
+                dot.className = 'status-dot offline';
+                label.textContent = 'Ollama Service Offline';
+            }
+        } catch (e) {
+            dot.className = 'status-dot offline';
+            label.textContent = 'Ollama Offline';
+        }
+    }
 
     // --- Query Assistant ---
     const queryInput = document.getElementById('query-input');
@@ -77,6 +105,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnStartIngest = document.getElementById('btn-start-ingest');
     const ingestLoading = document.getElementById('ingest-loading');
     const ingestResult = document.getElementById('ingest-result');
+    const ingestPreviewCard = document.getElementById('ingest-preview-card');
+    const previewMarkdownBody = document.getElementById('preview-markdown-body');
+    const previewPathBadge = document.getElementById('preview-path-badge');
+    const ocrModeSelect = document.getElementById('ocr-mode-select');
+
     let currentPdfFile = null;
 
     dropZone.addEventListener('click', () => pdfFileInput.click());
@@ -124,14 +157,17 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const courseName = document.getElementById('course-name-input').value.trim() || 'General Math';
+        const courseName = document.getElementById('course-name-input').value.trim() || 'Handwritten Coursework';
+        const ocrMode = ocrModeSelect ? ocrModeSelect.value : 'local_handwriting';
 
         const formData = new FormData();
         formData.append('file', currentPdfFile);
         formData.append('course', courseName);
+        formData.append('ocr_mode', ocrMode);
 
         ingestLoading.classList.remove('hidden');
         ingestResult.classList.add('hidden');
+        ingestPreviewCard.classList.add('hidden');
         btnStartIngest.disabled = true;
 
         try {
@@ -145,6 +181,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 ingestResult.className = 'alert-box success';
                 ingestResult.innerHTML = `<strong>Successfully Ingested!</strong><br>Note saved in Obsidian Vault: <code>${data.note_path}</code>`;
                 ingestResult.classList.remove('hidden');
+
+                // Render Live Note KaTeX Markdown Preview
+                if (data.content) {
+                    previewMarkdownBody.innerHTML = marked.parse(data.content);
+                    previewPathBadge.textContent = `${courseName} Note Saved`;
+                    renderMathInElement(previewMarkdownBody, {
+                        delimiters: [
+                            { left: '$$', right: '$$', display: true },
+                            { left: '$', right: '$', display: false },
+                            { left: '\\(', right: '\\)', display: false },
+                            { left: '\\[', right: '\\]', display: true }
+                        ],
+                        throwOnError: false
+                    });
+                    ingestPreviewCard.classList.remove('hidden');
+                }
             } else {
                 ingestResult.className = 'alert-box error';
                 ingestResult.innerHTML = `<strong>Ingestion Failed:</strong> ${data.detail || 'Unknown error'}`;
