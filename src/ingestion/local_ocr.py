@@ -4,6 +4,7 @@ from transformers import LightOnOcrForConditionalGeneration, LightOnOcrProcessor
 
 from src.ingestion.base import BaseOCRProvider
 from src.ingestion.sanitizer import LaTeXSanitizer
+from src.logger import log
 
 class LightOnOCRProvider(BaseOCRProvider):
     """
@@ -21,7 +22,7 @@ class LightOnOCRProvider(BaseOCRProvider):
         if self.model is not None and self.processor is not None:
             return
 
-        print(f"[LightOnOCR] Loading local model '{self.model_id}' on device: {self.device} ({self.dtype})...")
+        log.info(f"Loading local model '{self.model_id}' on device: {self.device} ({self.dtype})...")
         self.processor = LightOnOcrProcessor.from_pretrained(self.model_id)
         self.model = LightOnOcrForConditionalGeneration.from_pretrained(
             self.model_id,
@@ -37,7 +38,7 @@ class LightOnOCRProvider(BaseOCRProvider):
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
         gc.collect()
-        print("[LightOnOCR] Unloaded model and cleared PyTorch memory cache.")
+        log.info("Unloaded model and cleared PyTorch memory cache.")
 
     def process_image(self, image: Image.Image) -> str:
         """
@@ -75,7 +76,7 @@ class LightOnOCRProvider(BaseOCRProvider):
         """
         results = []
         for idx, img in enumerate(images, start=1):
-            print(f"[LightOnOCR] Processing page {idx}/{len(images)}...")
+            log.info(f"Processing page {idx}/{len(images)}...")
             parsed_page = self.process_image(img)
             results.append(f"<!-- Page {idx} -->\n{parsed_page}")
         return "\n\n".join(results)

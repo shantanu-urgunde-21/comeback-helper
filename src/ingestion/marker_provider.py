@@ -6,7 +6,8 @@ from pathlib import Path
 from PIL import Image
 
 from src.ingestion.base import BaseOCRProvider
-from src.ingestion.sanitizer import MarkdownSanitizer
+from src.ingestion.sanitizer import LaTeXSanitizer
+from src.logger import log
 
 class MarkerOCRProvider(BaseOCRProvider):
     """
@@ -15,14 +16,13 @@ class MarkerOCRProvider(BaseOCRProvider):
     """
 
     def __init__(self):
-        self.sanitizer = MarkdownSanitizer()
+        self.sanitizer = LaTeXSanitizer
         self._check_availability()
 
     def _check_availability(self):
         self.marker_cmd = shutil.which("marker_single") or shutil.which("marker")
         if not self.marker_cmd:
-            print("[MarkerOCRProvider] Warning: 'marker_single' CLI tool not found in PATH.")
-            print("[MarkerOCRProvider] Install via: pip install marker-pdf")
+            log.warning("'marker_single' CLI tool not found in PATH. Install via: pip install marker-pdf")
 
     def process_pdf_direct(self, pdf_path: Path) -> str:
         """
@@ -44,7 +44,7 @@ class MarkerOCRProvider(BaseOCRProvider):
                 "--output_format", "markdown"
             ]
 
-            print(f"[MarkerOCRProvider] Running Marker CLI on: {pdf_path.name}...")
+            log.info(f"Running Marker CLI on: {pdf_path.name}...")
             result = subprocess.run(cmd, capture_output=True, text=True)
 
             if result.returncode != 0:

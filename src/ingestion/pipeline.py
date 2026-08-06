@@ -25,9 +25,7 @@ class IngestionPipeline:
                 self.ocr_provider = MarkerOCRProvider()
             elif provider_type == "handwriting":
                 from src.ingestion.handwriting_provider import HandwritingOCRProvider
-                self.ocr_provider = HandwritingOCRProvider(
-                    vault_attachments_dir=self.settings.vault_path / course_name / "attachments" if hasattr(self, "settings") else None
-                )
+                self.ocr_provider = HandwritingOCRProvider()
             elif provider_type == "local":
                 from src.ingestion.local_ocr import LightOnOCRProvider
                 self.ocr_provider = LightOnOCRProvider()
@@ -109,17 +107,13 @@ class IngestionPipeline:
         total_pages = len(images)
         log.info(f"Processing {total_pages} pages incrementally via {self.ocr_provider.__class__.__name__}...")
 
-        for idx, img in enumerate(images, start=1):
-            log.info(f"Processing page {idx}/{total_pages}...")
-            page_md = self.ocr_provider.process_image(img)
-            
-            page_chunk = f"<!-- Page {idx} -->\n{page_md}\n\n"
-            
-            with open(target_path, "a", encoding="utf-8") as f:
-                f.write(page_chunk)
+        with open(target_path, "a", encoding="utf-8") as f:
+            for idx, img in enumerate(images, start=1):
+                log.info(f"Processing page {idx}/{total_pages}...")
+                page_md = self.ocr_provider.process_image(img)
+                f.write(f"<!-- Page {idx} -->\n{page_md}\n\n")
                 f.flush()
-
-            log.info(f"Page {idx}/{total_pages} saved to vault note.")
+                log.info(f"Page {idx}/{total_pages} saved to vault note.")
 
         if hasattr(self.ocr_provider, "unload_model"):
             self.ocr_provider.unload_model()

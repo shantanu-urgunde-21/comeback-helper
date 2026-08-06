@@ -53,6 +53,10 @@
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
                     <span>Obsidian Vault</span>
                 </button>
+                <button class="nav-item" data-tab="tab-settings">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                    <span>Settings</span>
+                </button>
             </nav>
 
             <div class="sidebar-footer">
@@ -79,6 +83,41 @@
                         <button class="quick-btn" onclick="setQueryPrompt('How do you solve separable differential equations?')">Separable ODEs</button>
                         <button class="quick-btn" onclick="setQueryPrompt('Explain Spectral Theorem in Linear Algebra.')">Spectral Theorem</button>
                     </div>
+
+                    <!-- Retrieval Settings Panel -->
+                    <details class="settings-panel" id="retrieval-settings">
+                        <summary class="settings-toggle">⚙ Retrieval Settings</summary>
+                        <div class="settings-grid">
+                            <div class="setting-item">
+                                <label for="query-topk">Top-K Chunks</label>
+                                <div class="slider-row">
+                                    <input type="range" id="query-topk" min="1" max="20" value="5" class="range-slider">
+                                    <span id="query-topk-val" class="slider-value">5</span>
+                                </div>
+                            </div>
+                            <div class="setting-item">
+                                <label for="query-temp">Temperature</label>
+                                <div class="slider-row">
+                                    <input type="range" id="query-temp" min="0" max="100" value="30" class="range-slider">
+                                    <span id="query-temp-val" class="slider-value">0.3</span>
+                                </div>
+                            </div>
+                            <div class="setting-item">
+                                <label for="query-course">Course Filter</label>
+                                <select id="query-course" class="custom-select">
+                                    <option value="">All Courses</option>
+                                </select>
+                            </div>
+                            <div class="setting-item">
+                                <label for="query-use-graph">Graph Context</label>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="query-use-graph" checked>
+                                    <span class="toggle-slider"></span>
+                                    <span class="toggle-label" id="graph-toggle-label">Enabled</span>
+                                </label>
+                            </div>
+                        </div>
+                    </details>
 
                     <div class="input-card">
                         <textarea id="query-input" placeholder="Enter your math question, theorem inquiry, or proof request..." rows="4"></textarea>
@@ -128,6 +167,28 @@
                             </select>
                         </div>
 
+                        <!-- Processing Options -->
+                        <details class="settings-panel" id="ingest-settings">
+                            <summary class="settings-toggle">⚙ Processing Options</summary>
+                            <div class="settings-grid">
+                                <div class="setting-item">
+                                    <label for="ingest-dpi">Render DPI</label>
+                                    <div class="slider-row">
+                                        <input type="range" id="ingest-dpi" min="100" max="400" value="200" step="50" class="range-slider">
+                                        <span id="ingest-dpi-val" class="slider-value">200</span>
+                                    </div>
+                                </div>
+                                <div class="setting-item">
+                                    <label for="ingest-autoindex">Auto-Index after Ingestion</label>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="ingest-autoindex" checked>
+                                        <span class="toggle-slider"></span>
+                                        <span class="toggle-label" id="autoindex-toggle-label">Enabled</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </details>
+
                         <div id="drop-zone" class="drop-zone">
                             <div class="drop-icon">📄</div>
                             <h3>Drag & Drop Course PDF here</h3>
@@ -175,6 +236,25 @@
                     </div>
                 </header>
 
+                <!-- Graph Filter Controls -->
+                <div class="graph-filters" id="graph-filters">
+                    <div class="filter-group">
+                        <span class="filter-label">Filter by Type:</span>
+                        <label class="chip-check"><input type="checkbox" value="Note" checked class="graph-type-filter"><span class="chip">📝 Notes</span></label>
+                        <label class="chip-check"><input type="checkbox" value="Concept" checked class="graph-type-filter"><span class="chip">💡 Concepts</span></label>
+                        <label class="chip-check"><input type="checkbox" value="Theorem" checked class="graph-type-filter"><span class="chip">📐 Theorems</span></label>
+                        <label class="chip-check"><input type="checkbox" value="Definition" checked class="graph-type-filter"><span class="chip">📖 Definitions</span></label>
+                        <label class="chip-check"><input type="checkbox" value="Formula" checked class="graph-type-filter"><span class="chip">🔣 Formulas</span></label>
+                        <label class="chip-check"><input type="checkbox" value="Proof" checked class="graph-type-filter"><span class="chip">✏️ Proofs</span></label>
+                    </div>
+                    <div class="filter-group">
+                        <span class="filter-label">Course:</span>
+                        <select id="graph-course-filter" class="custom-select custom-select-sm">
+                            <option value="">All Courses</option>
+                        </select>
+                    </div>
+                </div>
+
                 <div class="graph-container">
                     <div id="vis-graph-canvas" class="graph-canvas"></div>
                 </div>
@@ -193,6 +273,59 @@
                 </header>
 
                 <div id="vault-list-container" class="vault-grid"></div>
+            </section>
+
+            <!-- TAB 5: SETTINGS -->
+            <section id="tab-settings" class="tab-page">
+                <header class="page-header">
+                    <h1>System Settings & Index Management</h1>
+                    <p>View configuration, monitor index health, and trigger manual re-indexing.</p>
+                </header>
+
+                <div class="settings-dashboard">
+                    <!-- Config Info Cards -->
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-label">Gemini Model</div>
+                            <div class="stat-value" id="stat-gemini-model">—</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Embedding Model</div>
+                            <div class="stat-value" id="stat-embed-model">—</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Vector Chunks</div>
+                            <div class="stat-value" id="stat-vector-chunks">—</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Graph Nodes</div>
+                            <div class="stat-value" id="stat-graph-nodes">—</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Graph Edges</div>
+                            <div class="stat-value" id="stat-graph-edges">—</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Courses</div>
+                            <div class="stat-value" id="stat-courses">—</div>
+                        </div>
+                    </div>
+
+                    <!-- Rebuild Actions -->
+                    <div class="rebuild-section">
+                        <h3>Index Management</h3>
+                        <p class="rebuild-desc">Re-index vault notes if the graph or vector store seems out of date.</p>
+                        <div class="rebuild-actions">
+                            <button id="btn-rebuild-graph" class="btn-secondary">
+                                🕸️ Rebuild Knowledge Graph
+                            </button>
+                            <button id="btn-rebuild-vectors" class="btn-secondary">
+                                📊 Rebuild Vector Index
+                            </button>
+                        </div>
+                        <div id="rebuild-result" class="alert-box hidden"></div>
+                    </div>
+                </div>
             </section>
         </main>
     </div>

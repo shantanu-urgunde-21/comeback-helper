@@ -25,7 +25,7 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("GEMINI_MODEL", "gemini_model")
     )
     embed_model: str = Field(
-        default="BAAI/bge-m3",
+        default="BAAI/bge-small-en-v1.5",
         validation_alias=AliasChoices("EMBED_MODEL", "embed_model")
     )
     storage_dir: str = Field(

@@ -1,42 +1,44 @@
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import lancedb
 from fastembed import TextEmbedding
 
 from src.config import get_settings
 from src.logger import log
 
+
 class LocalVectorStore:
     """
-    Local vector database using LanceDB and FastEmbed for high-speed offline similarity search over Markdown notes.
-    Accelerated with CUDA GPU execution provider.
+    Local vector database using LanceDB and FastEmbed for high-speed offline
+    similarity search over Markdown notes.  Accelerated with CUDA GPU
+    execution provider when available.
     """
 
     def __init__(self):
         self.settings = get_settings()
         self.db_path = self.settings.storage_path / "lancedb"
         self.db_path.mkdir(parents=True, exist_ok=True)
-        
+
         self.db = lancedb.connect(str(self.db_path))
-        # Enable CUDA GPU execution provider for FastEmbed
+
+        # Use the configured embed model rather than a hardcoded one
+        model_name = self.settings.embed_model
         try:
             self.embed_model = TextEmbedding(
-                model_name="BAAI/bge-small-en-v1.5",
-                providers=["CUDAExecutionProvider", "CPUExecutionProvider"]
+                model_name=model_name,
+                providers=["CUDAExecutionProvider", "CPUExecutionProvider"],
             )
-            log.info("Initialized FastEmbed (BAAI/bge-small-en-v1.5) with CUDA GPU execution provider")
+            log.info(f"Initialized FastEmbed ({model_name}) with CUDA GPU execution provider")
         except Exception as e:
             log.warning(f"CUDA provider unavailable ({e}). Falling back to FastEmbed CPU provider.")
-            self.embed_model = TextEmbedding(model_name="BAAI/bge-small-en-v1.5")
-            
+            self.embed_model = TextEmbedding(model_name=model_name)
+
         self.table_name = "notes"
         self.table = self._get_or_create_table()
         log.info(f"Connected to LanceDB vector table '{self.table_name}' at: {self.db_path}")
 
     def _get_or_create_table(self):
-        """
-        Gets existing LanceDB table or creates new one.
-        """
+        """Gets existing LanceDB table or creates new one."""
         try:
             return self.db.open_table(self.table_name)
         except Exception:
@@ -45,9 +47,13 @@ class LocalVectorStore:
                 "text": "Initialization text",
                 "course": "init",
                 "source": "init.md",
-                "vector": list(self.embed_model.embed(["Initialization text"]))[0]
+                "vector": list(self.embed_model.embed(["Initialization text"]))[0],
             }]
             return self.db.create_table(self.table_name, data=dummy_data, exist_ok=True)
+
+    # ------------------------------------------------------------------
+    # Write
+    # ------------------------------------------------------------------
 
     def add_chunks(self, chunks: List[Dict[str, Any]]):
         """
@@ -67,19 +73,72 @@ class LocalVectorStore:
                 "text": chunk.get("text", ""),
                 "course": chunk.get("course", "General"),
                 "source": chunk.get("source", ""),
-                "vector": emb.tolist() if hasattr(emb, "tolist") else list(emb)
+                "vector": emb.tolist() if hasattr(emb, "tolist") else list(emb),
             })
 
         self.table.add(records)
-        print(f"[LocalVectorStore] Successfully indexed {len(records)} text chunks into LanceDB.")
+        log.info(f"Successfully indexed {len(records)} text chunks into LanceDB.")
 
-    def search_similar(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
+    # ------------------------------------------------------------------
+    # Read
+    # ------------------------------------------------------------------
+
+    def search_similar(
+        self,
+        query: str,
+        top_k: int = 5,
+        course: Optional[str] = None,
+        score_threshold: Optional[float] = None,
+    ) -> List[Dict[str, Any]]:
         """
-        Searches for top_k semantically similar text chunks for a query string.
+        Searches for top_k semantically similar text chunks for a query
+        string, optionally scoped to a single course.
         """
         query_emb = list(self.embed_model.embed([query]))[0]
-        results = self.table.search(query_emb.tolist()).limit(top_k).to_list()
-        
-        # Filter out initialization placeholder chunk if present
+        search = self.table.search(query_emb.tolist()).limit(top_k)
+
+        # Apply optional course filter via LanceDB SQL where-clause
+        if course and course.lower() not in ("all", "all courses", ""):
+            search = search.where(f"course = '{course}'")
+
+        results = search.to_list()
+
+        # Filter out initialization placeholder chunk
         filtered = [r for r in results if r.get("id") != "init_0"]
+
+        # Optional score threshold (lower _distance = more similar)
+        if score_threshold is not None:
+            filtered = [r for r in filtered if r.get("_distance", 999) <= score_threshold]
+
         return filtered
+
+    def embed_texts(self, texts: List[str]) -> List[List[float]]:
+        """Utility to embed arbitrary text strings (used for graph node matching)."""
+        return [
+            emb.tolist() if hasattr(emb, "tolist") else list(emb)
+            for emb in self.embed_model.embed(texts)
+        ]
+
+    # ------------------------------------------------------------------
+    # Stats
+    # ------------------------------------------------------------------
+
+    def get_stats(self) -> Dict[str, Any]:
+        """Returns basic statistics about the vector store."""
+        try:
+            total_rows = self.table.count_rows()
+            courses = set()
+            # Sample a few rows to find distinct courses
+            sample = self.table.search().limit(200).to_list()
+            for row in sample:
+                c = row.get("course", "")
+                if c and c != "init":
+                    courses.add(c)
+            return {
+                "total_chunks": total_rows,
+                "courses": sorted(courses),
+                "embed_model": self.settings.embed_model,
+                "db_path": str(self.db_path),
+            }
+        except Exception:
+            return {"total_chunks": 0, "courses": [], "embed_model": self.settings.embed_model}

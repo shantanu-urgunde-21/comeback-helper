@@ -1,119 +1,190 @@
+<div align="center">
+
 # 🧠 Comeback Helper
 
-> **Local RAG & Knowledge Graph Engine for Mathematics & Technical Coursework**
+**Local RAG & Knowledge Graph Engine for Mathematics & Technical Coursework**
 
-**Comeback Helper** is an advanced learning assistant designed for math and technical subjects. It ingests lecture notes and PDFs (including handwritten notes), parses mathematical LaTeX formulas, constructs a structured **Math PropertyGraph**, indices vector embeddings locally, and provides **Hybrid RAG Retrieval** paired with an interactive **Vis.js Knowledge Graph Dashboard**.
+[![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](https://python.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![LanceDB](https://img.shields.io/badge/LanceDB-Vector%20Store-blueviolet)](https://lancedb.com)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+*Ingest handwritten notes & PDFs → Build a Math Knowledge Graph → Query with Hybrid RAG*
+
+</div>
 
 ---
 
-## 🏗️ Architecture Overview
+## What is this?
+
+Comeback Helper is a study assistant for math-heavy and technical coursework. Drop in your lecture PDFs (typed or handwritten), and it will:
+
+1. **OCR & Parse** — Convert pages into clean LaTeX Markdown using Gemini Vision or a local Qwen2.5-VL model
+2. **Build a Knowledge Graph** — Extract math concepts, theorems, definitions, and their prerequisite relationships
+3. **Index for Search** — Embed chunks into a local LanceDB vector store with math-aware chunking
+4. **Answer Questions** — Hybrid RAG combines vector similarity + graph traversal + Gemini synthesis
+
+Everything runs locally except Gemini API calls. Your notes stay on your machine.
+
+---
+
+## Architecture
 
 ```
- ┌─────────────────┐      ┌─────────────────────────┐      ┌─────────────────────────────┐
- │  Coursework PDF │ ───► │ Ingestion Pipeline      │ ───► │ Markdown Vault Note         │
- │  (Handwritten)  │      │ (Gemini / Marker / VLM) │      │ (LaTeX Math Preservation)   │
- └─────────────────┘      └─────────────────────────┘      └─────────────────────────────┘
-                                       │                                  │
-                                       ▼                                  ▼
-                          ┌─────────────────────────┐      ┌─────────────────────────────┐
-                          │ Math PropertyGraph      │      │ LanceDB Vector Store        │
-                          │ (Instructor + NetworkX) │      │ (FastEmbed BAAI/bge-small)  │
-                          └─────────────────────────┘      └─────────────────────────────┘
-                                       │                                  │
-                                       └────────────────┬─────────────────┘
-                                                        ▼
-                                           ┌───────────────────────────┐
-                                           │ Hybrid Retrieval Engine   │
-                                           │ (Vector + Graph Context)  │
-                                           └───────────────────────────┘
-                                                        │
-                                                        ▼
-                                           ┌───────────────────────────┐
-                                           │ FastAPI Dashboard & Web UI│
-                                           │ (Vis.js Graph + KaTeX)    │
-                                           └───────────────────────────┘
+ ┌──────────────────┐     ┌──────────────────────────┐     ┌──────────────────────────────┐
+ │  Coursework PDF  │ ──► │ Ingestion Pipeline       │ ──► │ Markdown Vault Note          │
+ │  (Handwritten)   │     │ (Gemini / Qwen VL / Mkr) │     │ (LaTeX Math Preservation)    │
+ └──────────────────┘     └──────────────────────────┘     └──────────────────────────────┘
+                                     │                                   │
+                                     ▼                                   ▼
+                          ┌──────────────────────────┐     ┌──────────────────────────────┐
+                          │ Math PropertyGraph       │     │ LanceDB Vector Store         │
+                          │ (Pydantic + NetworkX)    │     │ (FastEmbed BAAI/bge-m3)      │
+                          └──────────────────────────┘     └──────────────────────────────┘
+                                     │                                   │
+                                     └───────────────┬──────────────────┘
+                                                      ▼
+                                         ┌───────────────────────────┐
+                                         │ Hybrid Retrieval Engine   │
+                                         │ Semantic Graph Matching   │
+                                         └───────────────────────────┘
+                                                      │
+                                                      ▼
+                                         ┌───────────────────────────┐
+                                         │ FastAPI Dashboard & UI    │
+                                         │ (Vis.js Graph + KaTeX)    │
+                                         └───────────────────────────┘
 ```
 
 ---
 
-## 🌟 Key Features
+## Features
 
-* **✍️ Handwritten & Vision OCR Ingestion:** Uses **Google Gemini 2.0/2.5 Flash VLM** or local **LightOnOCR-2-1B** to translate handwritten equations, matrices, and diagrams into clean LaTeX Markdown.
-* **🕸️ Math PropertyGraph Indexer:** Uses **Instructor** and **Pydantic** schemas (`MathEntityExtraction`, `GraphNode`, `GraphEdge`) to extract concept prerequisites (`Spectral Theorem --[DEPENDS_ON]--> Symmetric Matrix`) persisted to NetworkX JSON (`.storage/graph.json`).
-* **⚡ High-Speed Local Vector Search:** Uses embedded **LanceDB** and **FastEmbed** (`BAAI/bge-small-en-v1.5`) for local, zero-API vector retrieval.
-* **🎮 CUDA GPU Acceleration & RAM Management:** Runs ONNX embeddings on NVIDIA GPUs (`CUDAExecutionProvider`). Includes `unload_model()` and `torch.cuda.empty_cache()` memory release hooks to prevent RAM spikes (< 4 GB RAM footprint).
-* **🪵 Centralized Loguru Logging:** Formatted, colorized terminal logs and rotating file logs stored at `.storage/logs/app.log`.
-* **🌐 Web Dashboard & Vis.js Visualizer:** Embedded FastAPI web server serving an interactive node graph visualizer and KaTeX math viewer.
+| Feature | Details |
+|---------|---------|
+| **Handwriting OCR** | Google Gemini Vision or 100% local Qwen2.5-VL (3B) via Ollama (~2 GB VRAM) |
+| **Math PropertyGraph** | Pydantic schema extraction → typed nodes (Theorem, Definition, Proof, Formula) with directed edges (DEPENDS_ON, PROVES, DERIVED_FROM) |
+| **Local Vector Search** | LanceDB + FastEmbed with configurable embedding model, CUDA GPU acceleration, and course-scoped filtering |
+| **Math-Aware Chunking** | Splits on page markers → headings → paragraphs while preserving `$$...$$` blocks intact and adding overlap for theorem→proof continuity |
+| **Hybrid RAG** | Combines vector similarity + semantic graph node matching + Gemini synthesis with tunable top-K, temperature, and course scope |
+| **Interactive Dashboard** | Vis.js knowledge graph with entity type/course filters, retrieval settings panel, and KaTeX math rendering |
+| **Obsidian Compatible** | Notes saved as standard Markdown with YAML frontmatter and `[[wikilinks]]` |
 
 ---
 
-## 🚀 Quick Start Guide
+## Quick Start
 
-### 1. Environment Setup
-
-Clone the repository and install dependencies:
+### 1. Clone & Install
 
 ```bash
-# Install Python dependencies
+git clone https://github.com/your-username/comeback-helper.git
+cd comeback-helper
+python -m venv .venv
+.venv\Scripts\activate   # Windows
 pip install -r requirements.txt
 ```
 
-Create a `.env` file from `.env.example`:
+### 2. Configure
+
+Copy `.env.example` to `.env` and add your Gemini API key:
 
 ```ini
-GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_API_KEY=your_key_here
 GEMINI_MODEL=gemini-2.0-flash
-OCR_PROVIDER=gemini  # Options: gemini, marker, local
-STORAGE_PATH=./.storage
+OCR_PROVIDER=gemini
 OBSIDIAN_VAULT_LOCATION=./.storage/vault
+STORAGE_DIR=./.storage
 ```
 
-### 2. Start the FastAPI Web Dashboard
-
-Run the server:
+### 3. Run
 
 ```bash
 python -m src.server
 ```
 
-Open your browser and navigate to:
-* **Web Dashboard:** `http://127.0.0.1:8000`
-* **API Documentation:** `http://127.0.0.1:8000/docs`
+Open **http://127.0.0.1:8000** — you're ready to go.
 
 ---
 
-## 🔌 API Endpoints Reference
+## API Reference
 
 | Endpoint | Method | Description |
-| :--- | :--- | :--- |
-| `/api/ingest` | `POST` | Uploads a PDF file, parses OCR, generates Vault note, updates Math Graph & Vector index. |
-| `/api/vault` | `GET` | Returns list of ingested courses and notes. |
-| `/api/graph` | `GET` | Serves `.storage/graph.json` node & edge data for the Vis.js interactive graph UI. |
-| `/api/query` | `POST` | Executes Hybrid RAG search (Vector similarity + Graph context assembly). |
-| `/health` | `GET` | Returns system health and OCR provider status. |
+|----------|--------|-------------|
+| `/api/ingest` | `POST` | Upload PDF, run OCR, save to vault, index into graph & vectors |
+| `/api/query` | `POST` | Hybrid RAG query with configurable top-K, temperature, course filter |
+| `/api/vault` | `GET` | List all courses and notes in the vault |
+| `/api/graph` | `GET` | Get knowledge graph nodes & edges as JSON |
+| `/api/courses` | `GET` | List available course names |
+| `/api/settings` | `GET` | System config, index stats |
+| `/api/rebuild/graph` | `POST` | Re-index all vault notes into the knowledge graph |
+| `/api/rebuild/vectors` | `POST` | Re-embed all vault notes into the vector store |
+| `/api/health/ollama` | `GET` | Local Ollama service & model health check |
+
+Full API docs available at **http://127.0.0.1:8000/docs** (auto-generated Swagger UI).
 
 ---
 
-## 🧪 Diagnostic Test Suite
+## Project Structure
 
-Run unit tests and component diagnostic suites:
-
-```bash
-# Run all unit tests
-python -m unittest discover -s tests
-
-# Run Master Integration Check
-python scripts/test_full_system_integration.py
+```
+comeback_helper/
+├── src/
+│   ├── server.py            # FastAPI app with lifespan singletons
+│   ├── config.py            # Pydantic settings (.env driven)
+│   ├── logger.py            # Loguru centralized logging
+│   ├── cli.py               # Click CLI (ingest, query)
+│   ├── chunker.py           # Math-aware Markdown chunking
+│   ├── ingestion/           # OCR providers & pipeline
+│   │   ├── pipeline.py      # PDF → page images → OCR → vault
+│   │   ├── gemini_ocr.py    # Google Gemini Vision provider
+│   │   ├── handwriting_provider.py
+│   │   └── handwriting/     # Local Qwen VLM pipeline
+│   ├── graph/               # Knowledge graph
+│   │   ├── schema.py        # Pydantic entity/relation models
+│   │   └── indexer.py       # Gemini extraction → NetworkX
+│   ├── vector/
+│   │   └── store.py         # LanceDB + FastEmbed store
+│   ├── retrieval/
+│   │   └── engine.py        # Hybrid RAG engine
+│   └── vault/
+│       ├── manager.py       # Vault file & wikilink parsing
+│       └── state.py         # SHA-256 incremental change tracker
+├── static/                  # Web dashboard (HTML/JS/CSS)
+├── tests/                   # Unit tests
+├── docs/                    # Public documentation
+├── private_docs/            # Internal architecture & test reports
+└── requirements.txt
 ```
 
-Process reports are generated in `docs/test_reports/`:
-* [`docs/test_reports/overall_system_integration_report.md`](file:///d:/programming/comeback_helper/docs/test_reports/overall_system_integration_report.md)
-* [`docs/test_reports/process_1_ingestion_report.md`](file:///d:/programming/comeback_helper/docs/test_reports/process_1_ingestion_report.md)
-* [`docs/test_reports/process_2_graph_report.md`](file:///d:/programming/comeback_helper/docs/test_reports/process_2_graph_report.md)
-* [`docs/test_reports/process_3_vector_store_report.md`](file:///d:/programming/comeback_helper/docs/test_reports/process_3_vector_store_report.md)
-* [`docs/test_reports/process_4_hybrid_retrieval_report.md`](file:///d:/programming/comeback_helper/docs/test_reports/process_4_hybrid_retrieval_report.md)
+---
+
+## Configuration Options
+
+All settings are read from `.env` via Pydantic:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `GEMINI_API_KEY` | *required* | Google AI Studio API key |
+| `GEMINI_MODEL` | `gemini-2.0-flash` | Model for OCR and RAG synthesis |
+| `OCR_PROVIDER` | `gemini` | `gemini`, `marker`, `handwriting`, or `local` |
+| `OBSIDIAN_VAULT_LOCATION` | `./.storage/vault` | Path to Obsidian vault directory |
+| `STORAGE_DIR` | `./.storage` | Path for graph, vector DB, logs |
+| `EMBED_MODEL` | `BAAI/bge-small-en-v1.5` | FastEmbed model for vector embeddings |
 
 ---
 
-## 📜 License
-MIT License - see [`LICENSE`](file:///d:/programming/comeback_helper/LICENSE) for details.
+## Testing
+
+```bash
+# Unit tests
+python -m pytest tests/
+
+# Or with unittest
+python -m unittest discover -s tests
+```
+
+---
+
+## License
+
+[MIT License](LICENSE)

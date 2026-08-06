@@ -7,8 +7,7 @@ from src.logger import log
 class OllamaVisionOCR:
     """
     100% Local Vision-Language OCR Provider using GGUF Quantized models via Ollama.
-    Processes full handwritten page images natively with ~2GB VRAM usage, eliminating OOM paging freezes.
-    Automatically constrains image dimensions to max 1024px to ensure blazingly fast inference (~15-20s/page).
+    Uses Ollama's per-request `num_gpu` and `main_gpu` options for GPU layer offloading.
     """
 
     def __init__(self, model_name: str = "qwen2.5vl:3b", host: str = "http://localhost:11434", max_dim: int = 1024):
@@ -17,7 +16,6 @@ class OllamaVisionOCR:
         self.max_dim = max_dim
 
     def _pil_to_base64(self, image: Image.Image) -> str:
-        # Resize image so max dimension is max_dim (dramatically accelerates VLM visual patch encoding)
         img_copy = image.copy()
         img_copy.thumbnail((self.max_dim, self.max_dim), Image.Resampling.LANCZOS)
         
@@ -27,7 +25,8 @@ class OllamaVisionOCR:
 
     def process_image(self, image: Image.Image) -> str:
         """
-        Sends the full handwritten page image directly to local Ollama Vision model.
+        Sends the full handwritten page image directly to local Ollama Vision model
+        with explicit NVIDIA Discrete GPU layer offloading (num_gpu: 99, main_gpu: 0).
         """
         img_b64 = self._pil_to_base64(image)
         prompt = (
@@ -48,6 +47,8 @@ class OllamaVisionOCR:
                 }
             ],
             "options": {
+                "num_gpu": 99,       # Offload ALL layers to NVIDIA Discrete GPU
+                "main_gpu": 0,      # Select NVIDIA GTX 1650
                 "temperature": 0.1,
                 "num_predict": 1024
             },
@@ -55,7 +56,7 @@ class OllamaVisionOCR:
         }
 
         try:
-            log.info(f"Sending page image to local Ollama Vision model ('{self.model_name}')...")
+            log.info(f"Sending page image to local Ollama Vision model ('{self.model_name}') [Forcing NVIDIA GPU 1 Offload]...")
             response = requests.post(url, json=payload, timeout=300)
             response.raise_for_status()
             data = response.json()
