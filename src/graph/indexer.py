@@ -1,83 +1,156 @@
+import json
+import os
 from pathlib import Path
-from typing import List
-
-from llama_index.core import SimpleDirectoryReader, PropertyGraphIndex, StorageContext
-from llama_index.core.indices.property_graph import ImplicitPathExtractor, SimpleLLMPathExtractor
-from llama_index.embeddings.huggingface import HuggingFaceEmbedding
-from llama_index.llms.gemini import Gemini
+from typing import Dict, Any, List
+import networkx as nx
+from google import genai
 
 from src.config import get_settings
-from src.graph.schema import ALLOWED_ENTITIES, ALLOWED_RELATIONS, SCHEMA_SYSTEM_PROMPT
+from src.graph.schema import MathEntityExtraction, GraphNode, GraphEdge
+from src.logger import log
 from src.vault.state import VaultStateTracker
 from src.vault.manager import ObsidianVaultManager
 
 class MathGraphIndexer:
     """
-    Builds and updates the PropertyGraphIndex over the Obsidian Vault.
+    Indexes mathematical Markdown notes into a NetworkX Property Graph (.storage/graph.json).
+    Uses native Google Gemini Pydantic structured output for zero-error schema extraction.
     """
 
-    def __init__(self):
+    def __init__(self, storage_path: Path | None = None, vault_path: Path | None = None):
         self.settings = get_settings()
-        self.vault_manager = ObsidianVaultManager(self.settings.vault_path)
-        self.state_tracker = VaultStateTracker(self.settings.storage_path / "vault_state.json")
+        self.storage_path = storage_path or self.settings.storage_path
+        self.vault_path = vault_path or self.settings.vault_path
         
-        # Initialize Gemini LLM using configurable model
-        model_name = self.settings.gemini_model
-        if not model_name.startswith("models/"):
-            model_name = f"models/{model_name}"
-
-        self.llm = Gemini(
-            model=model_name,
-            api_key=self.settings.gemini_api_key
-        )
+        self.graph_file = self.storage_path / "graph.json"
+        self.graph = self._load_graph()
+        self.state_tracker = VaultStateTracker(state_file_path=self.storage_path / "vault_state.json")
         
-        # Local BGE-M3 Embedder on CPU
-        self.embed_model = HuggingFaceEmbedding(model_name=self.settings.embed_model)
+        self.client = None
+        self._init_genai_client()
 
-    def build_or_update_index(self) -> PropertyGraphIndex:
+    def _init_genai_client(self):
         """
-        Loads vault notes, runs incremental PropertyGraph extraction, and saves to storage.
+        Initializes Google GenAI client for Pydantic schema extraction.
         """
-        vault_files = self.vault_manager.get_all_notes()
-        modified_files = [f for f in vault_files if self.state_tracker.is_file_modified(f)]
+        try:
+            self.client = genai.Client(api_key=self.settings.gemini_api_key)
+            self.has_instructor = True
+            log.info("Gemini GenAI client successfully initialized for native Pydantic graph extraction.")
+        except Exception as e:
+            log.warning(f"Failed to initialize GenAI client ({e}). Graph extraction disabled.")
+            self.has_instructor = False
 
-        if not modified_files:
-            print("[Indexer] Vault is up-to-date. Loading index from storage...")
-            storage_context = StorageContext.from_defaults(persist_dir=str(self.settings.storage_path))
-            return PropertyGraphIndex.from_existing(
-                storage_context=storage_context,
-                embed_model=self.embed_model,
-                llm=self.llm
+    def _load_graph(self) -> nx.DiGraph:
+        """
+        Loads networkx graph from .storage/graph.json if exists.
+        """
+        G = nx.DiGraph()
+        if self.graph_file.exists():
+            try:
+                data = json.loads(self.graph_file.read_text(encoding="utf-8"))
+                for node in data.get("nodes", []):
+                    G.add_node(node["id"], **node)
+                for edge in data.get("edges", []):
+                    G.add_edge(edge["source"], edge["target"], relation=edge.get("relation", "DEPENDS_ON"))
+                log.info(f"Loaded existing Math PropertyGraph ({G.number_of_nodes()} nodes, {G.number_of_edges()} edges)")
+            except Exception as e:
+                log.warning(f"Failed to load graph.json ({e}), initializing empty graph.")
+        return G
+
+    def save_graph(self):
+        """
+        Saves networkx graph to .storage/graph.json.
+        """
+        data = {
+            "nodes": [
+                {
+                    "id": n,
+                    "label": n,
+                    "type": self.graph.nodes[n].get("entity_type", "Concept"),
+                    "description": self.graph.nodes[n].get("description", "")
+                }
+                for n in self.graph.nodes
+            ],
+            "edges": [
+                {
+                    "from": u,
+                    "to": v,
+                    "source": u,
+                    "target": v,
+                    "relation": d.get("relation", "DEPENDS_ON"),
+                    "label": d.get("relation", "DEPENDS_ON")
+                }
+                for u, v, d in self.graph.edges(data=True)
+            ]
+        }
+        self.graph_file.parent.mkdir(parents=True, exist_ok=True)
+        self.graph_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        log.info(f"Persisted PropertyGraph ({len(data['nodes'])} nodes, {len(data['edges'])} edges) to: {self.graph_file}")
+
+    def extract_from_text(self, text: str) -> MathEntityExtraction:
+        """
+        Extracts structured nodes and edges from text chunk using native Gemini Pydantic output.
+        """
+        if not self.has_instructor or not self.client:
+            return MathEntityExtraction(nodes=[], edges=[])
+
+        try:
+            model_name = self.settings.gemini_model.replace("models/", "")
+            response = self.client.models.generate_content(
+                model=model_name,
+                contents=f"Extract mathematical entities and prerequisite relationships from this text:\n\n{text}",
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=MathEntityExtraction,
+                    temperature=0.1
+                )
+            )
+            # Response text is guaranteed to match Pydantic schema
+            data = json.loads(response.text)
+            return MathEntityExtraction(**data)
+        except Exception as e:
+            log.warning(f"Math PropertyGraph extraction warning ({e})")
+            return MathEntityExtraction(nodes=[], edges=[])
+
+    def index_note(self, note_path: Path):
+        """
+        Indexes a single Markdown file into the NetworkX graph.
+        """
+        content = note_path.read_text(encoding="utf-8")
+        extraction = self.extract_from_text(content)
+
+        for node in extraction.nodes:
+            self.graph.add_node(
+                node.name,
+                entity_type=node.entity_type.value,
+                description=node.description
             )
 
-        print(f"[Indexer] Processing {len(modified_files)} new/modified notes for PropertyGraph...")
-        
-        # Load modified documents
-        reader = SimpleDirectoryReader(input_files=[str(f) for f in modified_files])
-        documents = reader.load_data()
+        for edge in extraction.edges:
+            self.graph.add_edge(
+                edge.source,
+                edge.target,
+                relation=edge.relation.value
+            )
 
-        # Schema-guided path extractor for math triplets
-        kg_extractor = SimpleLLMPathExtractor(
-            llm=self.llm,
-            possible_entities=ALLOWED_ENTITIES,
-            possible_relations=ALLOWED_RELATIONS,
-            prompt_template=SCHEMA_SYSTEM_PROMPT,
-            num_workers=2
-        )
+    def build_or_update_index(self) -> nx.DiGraph:
+        """
+        Processes new or modified Markdown files in the Obsidian vault and updates graph.
+        """
+        notes = self.vault_manager.get_all_notes()
+        modified_notes = [n for n in notes if self.state_tracker.is_file_modified(n)]
 
-        index = PropertyGraphIndex.from_documents(
-            documents,
-            embed_model=self.embed_model,
-            kg_extractors=[ImplicitPathExtractor(), kg_extractor],
-            llm=self.llm
-        )
+        if not modified_notes:
+            print("[MathGraphIndexer] Vault graph is up-to-date.")
+            return self.graph
 
-        index.storage_context.persist(persist_dir=str(self.settings.storage_path))
+        print(f"[MathGraphIndexer] Indexing {len(modified_notes)} new/modified notes into Graph...")
+        for note in modified_notes:
+            print(f"[MathGraphIndexer] Extracting schema entities from: {note.name}")
+            self.index_note(note)
+            self.state_tracker.update_file_hash(note)
 
-        # Update state hash for processed files
-        for f in modified_files:
-            self.state_tracker.update_file_hash(f)
         self.state_tracker.save_state()
-
-        print("[Indexer] Index successfully updated and persisted to storage.")
-        return index
+        self.save_graph()
+        return self.graph

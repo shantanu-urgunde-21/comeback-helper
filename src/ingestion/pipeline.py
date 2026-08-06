@@ -5,11 +5,12 @@ import fitz  # PyMuPDF
 from src.config import get_settings
 from src.ingestion.base import BaseOCRProvider
 from src.ingestion.gemini_ocr import GeminiOCRProvider
+from src.logger import log
 
 class IngestionPipeline:
     """
-    Handles PDF loading, page rendering, OCR parsing, and vault output generation.
-    Supports both Cloud Gemini OCR and Local LightOnOCR-2-1B providers.
+    Handles PDF loading, page rendering, OCR parsing, and real-time vault output generation.
+    Supports real-time incremental file writing page-by-page.
     """
 
     def __init__(self, ocr_provider: BaseOCRProvider | None = None):
@@ -18,16 +19,23 @@ class IngestionPipeline:
         if ocr_provider is not None:
             self.ocr_provider = ocr_provider
         else:
-            if self.settings.ocr_provider.lower() == "local":
+            provider_type = self.settings.ocr_provider.lower()
+            if provider_type == "marker":
+                from src.ingestion.marker_provider import MarkerOCRProvider
+                self.ocr_provider = MarkerOCRProvider()
+            elif provider_type == "local":
                 from src.ingestion.local_ocr import LightOnOCRProvider
                 self.ocr_provider = LightOnOCRProvider()
             else:
                 self.ocr_provider = GeminiOCRProvider()
+        
+        log.info(f"Initialized IngestionPipeline with OCR provider: {self.ocr_provider.__class__.__name__}")
 
     def pdf_to_images(self, pdf_path: Path, dpi: int = 200) -> list[Image.Image]:
         """
         Renders a PDF file into a list of PIL Images.
         """
+        log.debug(f"Rendering PDF to images (dpi={dpi}): {pdf_path.name}")
         doc = fitz.open(pdf_path)
         images = []
         zoom = dpi / 72  # Standard 72 dpi baseline
@@ -39,6 +47,7 @@ class IngestionPipeline:
             images.append(img)
 
         doc.close()
+        log.info(f"Rendered {len(images)} pages from PDF: {pdf_path.name}")
         return images
 
     def process_pdf(
@@ -48,19 +57,16 @@ class IngestionPipeline:
         output_filename: str | None = None
     ) -> Path:
         """
-        Processes a PDF document, runs OCR, and saves the Markdown file to the Obsidian Vault.
+        Processes a PDF document page-by-page, appending results incrementally to Obsidian Vault in real-time.
         """
         pdf_path = Path(pdf_path).resolve()
         if not pdf_path.exists():
+            log.error(f"PDF file not found at: {pdf_path}")
             raise FileNotFoundError(f"PDF file not found at: {pdf_path}")
 
-        print(f"[Ingestion] Extracting pages from: {pdf_path.name}...")
-        images = self.pdf_to_images(pdf_path)
-        print(f"[Ingestion] Rendered {len(images)} pages. Running OCR ({self.ocr_provider.__class__.__name__})...")
+        log.info(f"Starting PDF ingestion for: {pdf_path.name} (Course: {course_name})")
 
-        parsed_markdown = self.ocr_provider.process_images_batch(images)
-
-        # Prepare Obsidian target directory
+        # Prepare Obsidian target file path
         vault_path = self.settings.vault_path
         course_dir = vault_path / course_name
         course_dir.mkdir(parents=True, exist_ok=True)
@@ -71,11 +77,47 @@ class IngestionPipeline:
 
         target_path = course_dir / filename
         
-        # Add metadata header
+        # Write initial metadata header
         header = f"---\ncourse: \"{course_name}\"\nsource_file: \"{pdf_path.name}\"\ntags: [\"math\", \"coursework\", \"{course_name.lower().replace(' ', '-')}\"]\n---\n\n# {pdf_path.stem}\n\n"
-        full_content = header + parsed_markdown
+        
+        with open(target_path, "w", encoding="utf-8") as f:
+            f.write(header)
+            f.flush()
 
-        target_path.write_text(full_content, encoding="utf-8")
-        print(f"[Ingestion] Saved Markdown note to Obsidian Vault: {target_path}")
+        log.info(f"Initialized output vault file: {target_path}")
 
+        # Check for fast direct PDF processing (e.g. Marker)
+        if hasattr(self.ocr_provider, "process_pdf_direct"):
+            try:
+                log.info(f"Executing direct PDF parsing via {self.ocr_provider.__class__.__name__}...")
+                parsed_md = self.ocr_provider.process_pdf_direct(pdf_path)
+                with open(target_path, "a", encoding="utf-8") as f:
+                    f.write(parsed_md)
+                    f.flush()
+                log.info(f"Direct PDF processing completed: {target_path}")
+                return target_path
+            except Exception as e:
+                log.warning(f"Direct PDF processing failed ({e}). Falling back to page-by-page image rendering...")
+
+        # Incremental processing and real-time append (Gemini / LightOnOCR fallbacks)
+        images = self.pdf_to_images(pdf_path)
+        total_pages = len(images)
+        log.info(f"Processing {total_pages} pages incrementally via {self.ocr_provider.__class__.__name__}...")
+
+        for idx, img in enumerate(images, start=1):
+            log.info(f"Processing page {idx}/{total_pages}...")
+            page_md = self.ocr_provider.process_image(img)
+            
+            page_chunk = f"<!-- Page {idx} -->\n{page_md}\n\n"
+            
+            with open(target_path, "a", encoding="utf-8") as f:
+                f.write(page_chunk)
+                f.flush()
+
+            log.info(f"Page {idx}/{total_pages} saved to vault note.")
+
+        if hasattr(self.ocr_provider, "unload_model"):
+            self.ocr_provider.unload_model()
+
+        log.info(f"PDF Ingestion complete! Vault note ready at: {target_path}")
         return target_path

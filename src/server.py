@@ -10,6 +10,7 @@ from pydantic import BaseModel
 
 from src.config import get_settings
 from src.vault.manager import ObsidianVaultManager
+from src.logger import log
 
 app = FastAPI(title="Comeback Helper - Math Knowledge Base API")
 
@@ -33,7 +34,9 @@ async def ingest_pdf(file: UploadFile = File(...), course: str = Form(...)):
     """
     Endpoint to upload a PDF file, run Gemini Vision OCR, and save Markdown to Obsidian Vault.
     """
+    log.info(f"Received API ingestion request for file '{file.filename}' in course '{course}'")
     if not file.filename.endswith(".pdf"):
+        log.warning(f"Rejected non-PDF upload attempt: {file.filename}")
         raise HTTPException(status_code=400, detail="Only PDF files are supported.")
 
     temp_dir = Path("./temp_uploads")
@@ -113,9 +116,22 @@ async def get_vault_notes():
 @app.get("/api/graph")
 async def get_graph_data():
     """
-    Extracts notes, wikilinks, and headers to construct a visual graph JSON for Vis.js.
+    Extracts nodes and edges from MathGraphIndexer (.storage/graph.json) or Obsidian Vault wikilinks.
     """
     settings = get_settings()
+    graph_file = settings.storage_path / "graph.json"
+
+    # 1. Check for persisted MathPropertyGraph JSON from MathGraphIndexer
+    if graph_file.exists():
+        try:
+            import json
+            data = json.loads(graph_file.read_text(encoding="utf-8"))
+            if data.get("nodes"):
+                return JSONResponse(data)
+        except Exception:
+            pass
+
+    # 2. Fallback to Obsidian Vault Wikilink Graph
     manager = ObsidianVaultManager(settings.vault_path)
     notes = manager.get_all_notes()
 

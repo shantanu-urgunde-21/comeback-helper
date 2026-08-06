@@ -7,6 +7,7 @@ from google.genai import types
 from src.config import get_settings
 from src.ingestion.base import BaseOCRProvider
 from src.ingestion.sanitizer import LaTeXSanitizer
+from src.logger import log
 
 MATH_OCR_SYSTEM_PROMPT = """
 You are an expert mathematical OCR and document parsing engine.
@@ -28,20 +29,13 @@ class GeminiOCRProvider(BaseOCRProvider):
         self.client = genai.Client(api_key=settings.gemini_api_key)
         primary_model = model_name or settings.gemini_model
         
-        # Fallback list if primary model hits 404 or quota limits
-        self.candidate_models = [
-            primary_model,
-            "gemini-2.0-flash",
-            "gemini-1.5-flash",
-            "gemini-2.5-flash",
-            "gemini-2.5-pro"
-        ]
-        # Remove duplicates preserving order
-        self.candidate_models = list(dict.fromkeys(self.candidate_models))
+        # Active valid Gemini models for free tier (including flash-lite and 8b)
+        self.candidate_models = ["gemini-2.0-flash-lite", "gemini-2.0-flash", "gemini-1.5-flash-8b"]
+        log.info(f"Initialized GeminiOCRProvider with candidate models: {self.candidate_models}")
 
     def process_image(self, image: Image.Image) -> str:
         """
-        Parses a single page image into Markdown + LaTeX with model fallback.
+        Parses a single page image into Markdown + LaTeX with model fallback and rate limit retries.
         """
         buffer = io.BytesIO()
         image.save(buffer, format="PNG")
@@ -49,24 +43,39 @@ class GeminiOCRProvider(BaseOCRProvider):
 
         last_exception = None
         for model in self.candidate_models:
-            try:
-                response = self.client.models.generate_content(
-                    model=model,
-                    contents=[
-                        types.Part.from_bytes(
-                            data=image_bytes,
-                            mime_type="image/png"
-                        ),
-                        MATH_OCR_SYSTEM_PROMPT
-                    ]
-                )
-                raw_md = response.text or ""
-                return LaTeXSanitizer.sanitize(raw_md)
-            except Exception as e:
-                print(f"[Gemini OCR] Model {model} failed: {e}. Trying fallback...")
-                last_exception = e
-                time.sleep(1)
+            for retry in range(4):
+                try:
+                    log.debug(f"Sending OCR image to Gemini model '{model}' (attempt {retry+1})...")
+                    response = self.client.models.generate_content(
+                        model=model,
+                        contents=[
+                            types.Part.from_bytes(
+                                data=image_bytes,
+                                mime_type="image/png"
+                            ),
+                            MATH_OCR_SYSTEM_PROMPT
+                        ]
+                    )
+                    raw_md = response.text or ""
+                    log.info(f"Successfully processed image via '{model}' ({len(raw_md)} chars)")
+                    time.sleep(1.5)
+                    return LaTeXSanitizer.sanitize(raw_md)
+                except Exception as e:
+                    err_str = str(e)
+                    log.warning(f"Gemini OCR model '{model}' attempt {retry+1} failed: {e}")
+                    last_exception = e
+                    if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+                        wait_sec = 30
+                        import re
+                        m = re.search(r"retry in (\d+\.?\d*)s", err_str)
+                        if m:
+                            wait_sec = int(float(m.group(1))) + 2
+                        log.warning(f"Rate limit quota hit. Pausing for {wait_sec}s for API quota reset...")
+                        time.sleep(wait_sec)
+                    else:
+                        break  # If non-rate error, try next candidate model
 
+        log.error(f"All Gemini OCR models failed. Last error: {last_exception}")
         raise RuntimeError(f"All Gemini OCR models failed. Last error: {last_exception}")
 
     def process_images_batch(self, images: list[Image.Image]) -> str:

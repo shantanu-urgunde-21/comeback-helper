@@ -27,7 +27,17 @@ class LightOnOCRProvider(BaseOCRProvider):
             self.model_id,
             torch_dtype=self.dtype
         ).to(self.device)
-        print("[LightOnOCR] Model loaded successfully!")
+    def unload_model(self):
+        """
+        Unloads model from RAM/VRAM and clears PyTorch CUDA memory cache.
+        """
+        import gc
+        self.model = None
+        self.processor = None
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        gc.collect()
+        print("[LightOnOCR] Unloaded model and cleared PyTorch memory cache.")
 
     def process_image(self, image: Image.Image) -> str:
         """
