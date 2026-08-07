@@ -1,12 +1,12 @@
 import numpy as np
 from typing import Optional
 
-from google import genai
 from google.genai import types as genai_types
 
 from src.config import get_settings
 from src.graph.indexer import MathGraphIndexer
 from src.vector.store import LocalVectorStore
+from src.llm.gemini import get_gemini_client, get_gemini_model_name
 from src.logger import log
 
 
@@ -33,21 +33,25 @@ class MathQueryEngine:
     """
     Hybrid RAG query engine combining LanceDB Vector Similarity
     + Math PropertyGraph Traversal + Gemini Synthesis.
+
+    Accepts shared singletons via constructor to avoid creating
+    duplicate instances of expensive objects.
     """
 
-    def __init__(self):
+    def __init__(
+        self,
+        graph_indexer: Optional[MathGraphIndexer] = None,
+        vector_store: Optional[LocalVectorStore] = None,
+    ):
         self.settings = get_settings()
-        self.indexer = MathGraphIndexer()
-        self.vector_store = LocalVectorStore()
-
-        # Initialize Gemini Client
-        self.client = genai.Client(api_key=self.settings.gemini_api_key)
+        self.indexer = graph_indexer or MathGraphIndexer()
+        self.vector_store = vector_store or LocalVectorStore()
 
         # Pre-compute graph node embeddings for semantic matching
         self._node_embeddings: dict[str, list[float]] = {}
         self._build_node_embeddings()
 
-        log.info("Initialized MathQueryEngine with hybrid vector + graph retrieval engine.")
+        log.info("Initialized MathQueryEngine with hybrid vector + graph retrieval.")
 
     # ------------------------------------------------------------------
     # Graph node embedding index
@@ -71,7 +75,7 @@ class MathQueryEngine:
                 self._node_embeddings[nid] = emb
             log.info(f"Pre-computed embeddings for {len(node_ids)} graph nodes.")
         except Exception as e:
-            log.warning(f"Could not embed graph nodes ({e}). Falling back to keyword matching.")
+            log.warning(f"Could not embed graph nodes ({e}).")
 
     def refresh_node_embeddings(self):
         """Re-build node embeddings (called after graph updates)."""
@@ -81,8 +85,7 @@ class MathQueryEngine:
     def _find_similar_nodes(self, query: str, top_k: int = 3) -> list[str]:
         """Find graph nodes semantically closest to the query."""
         if not self._node_embeddings:
-            # Fallback: keyword matching
-            return self._keyword_match_nodes(query, top_k)
+            return []
 
         try:
             query_emb = self.vector_store.embed_texts([query])[0]
@@ -91,22 +94,16 @@ class MathQueryEngine:
             scored: list[tuple[str, float]] = []
             for nid, emb in self._node_embeddings.items():
                 e = np.array(emb)
-                # Cosine similarity
-                sim = float(np.dot(q, e) / (np.linalg.norm(q) * np.linalg.norm(e) + 1e-9))
+                sim = float(
+                    np.dot(q, e) / (np.linalg.norm(q) * np.linalg.norm(e) + 1e-9)
+                )
                 scored.append((nid, sim))
 
             scored.sort(key=lambda x: x[1], reverse=True)
-            # Only return nodes with meaningful similarity
             return [nid for nid, sim in scored[:top_k] if sim > 0.3]
         except Exception as e:
-            log.warning(f"Semantic node matching failed ({e}). Using keyword fallback.")
-            return self._keyword_match_nodes(query, top_k)
-
-    @staticmethod
-    def _keyword_match_nodes(query: str, top_k: int = 3) -> list[str]:
-        """Legacy keyword substring matching as fallback."""
-        # This won't be used normally, but keeps things working if embeddings fail
-        return []
+            log.warning(f"Semantic node matching failed ({e}).")
+            return []
 
     # ------------------------------------------------------------------
     # Context retrieval
@@ -136,7 +133,7 @@ class MathQueryEngine:
                 f"[Chunk {idx} — {source} ({course_tag})]\n{text}"
             )
 
-        # 2. Graph Traversal via NetworkX & KùzuDB PropertyGraph
+        # 2. Graph Traversal via NetworkX PropertyGraph
         graph_context = []
         if use_graph:
             graph = self.indexer.graph
@@ -171,7 +168,8 @@ class MathQueryEngine:
             )
         if graph_context:
             context_parts.append(
-                "### Math PropertyGraph Nodes & Relations:\n" + "\n".join(graph_context)
+                "### Math PropertyGraph Nodes & Relations:\n"
+                + "\n".join(graph_context)
             )
 
         if not context_parts:
@@ -197,7 +195,8 @@ class MathQueryEngine:
         """
         log.info(
             f"Processing hybrid RAG query: '{prompt}' "
-            f"(top_k={top_k}, temp={temperature}, course={course or 'all'}, graph={use_graph})"
+            f"(top_k={top_k}, temp={temperature}, course={course or 'all'}, "
+            f"graph={use_graph})"
         )
         context_str = self.retrieve_context(
             prompt, top_k=top_k, course=course, use_graph=use_graph
@@ -209,9 +208,16 @@ class MathQueryEngine:
             query_str=prompt,
         )
 
-        model_name = self.settings.gemini_model.replace("models/", "")
-        log.info(f"Synthesizing RAG response via Gemini model '{model_name}'...")
-        response = self.client.models.generate_content(
+        client = get_gemini_client()
+        if not client:
+            return (
+                "Gemini API unavailable. Cannot synthesize answer. "
+                "Retrieved context:\n\n" + context_str
+            )
+
+        model_name = get_gemini_model_name()
+        log.info(f"Synthesizing RAG response via Gemini '{model_name}'...")
+        response = client.models.generate_content(
             model=model_name,
             contents=full_prompt,
             config=genai_types.GenerateContentConfig(

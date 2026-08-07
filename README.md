@@ -75,15 +75,9 @@ Everything runs locally except Gemini API calls. Your notes stay on your machine
 | **Go Microservice Backend** | High-performance concurrent vault scanner in Go (`:8080`) with goroutines and zero-latency file watching |
 | **KùzuDB Graph Database** | Dual-persists NetworkX property graphs into embedded C++ Cypher database (`.storage/kuzu_graph.db`) |
 | **Handwriting OCR** | Google Gemini Vision or 100% local Qwen2.5-VL (3B) via Ollama (~2 GB VRAM) |
-| **Math PropertyGraph** | Typed nodes (`Theorem`, `Definition`, `Proof`, `Formula`) with directed edges (`DEPENDS_ON`, `PROVES`, `PREREQUISITE_FOR`) |
-| **Local Vector Search** | LanceDB + FastEmbed with configurable embedding model and course-scoped filtering |
-| **Math-Aware Chunking** | Splits on page markers → headings → paragraphs while preserving `$$...$$` blocks intact |
-| **Hybrid RAG** | Combines vector similarity + semantic graph node matching + Gemini synthesis (`gemini-flash-latest`) |
-| **Interactive Dashboard** | Vis.js knowledge graph with entity type/course filters, retrieval settings panel, and KaTeX rendering |
-| **Handwriting OCR** | Google Gemini Vision or 100% local Qwen2.5-VL (3B) via Ollama (~2 GB VRAM) |
-| **Math PropertyGraph** | Pydantic schema extraction → typed nodes (Theorem, Definition, Proof, Formula) with directed edges (DEPENDS_ON, PROVES, DERIVED_FROM) |
+| **Math PropertyGraph** | Pydantic schema extraction → typed nodes (`Theorem`, `Definition`, `Proof`, `Formula`) with directed edges (`DEPENDS_ON`, `PROVES`, `PREREQUISITE_FOR`) |
 | **Local Vector Search** | LanceDB + FastEmbed with configurable embedding model, CUDA GPU acceleration, and course-scoped filtering |
-| **Math-Aware Chunking** | Splits on page markers → headings → paragraphs while preserving `$$...$$` blocks intact and adding overlap for theorem→proof continuity |
+| **Math-Aware Chunking** | Splits on page markers → headings → paragraphs while preserving `$$...$$` blocks intact with overlap for theorem→proof continuity |
 | **Hybrid RAG** | Combines vector similarity + semantic graph node matching + Gemini synthesis with tunable top-K, temperature, and course scope |
 | **Interactive Dashboard** | Vis.js knowledge graph with entity type/course filters, retrieval settings panel, and KaTeX math rendering |
 | **Obsidian Compatible** | Notes saved as standard Markdown with YAML frontmatter and `[[wikilinks]]` |
@@ -152,6 +146,9 @@ comeback_helper/
 │   ├── logger.py            # Loguru centralized logging
 │   ├── cli.py               # Click CLI (ingest, query)
 │   ├── chunker.py           # Math-aware Markdown chunking
+│   ├── llm/                 # Centralized LLM clients
+│   │   ├── gemini.py        # Gemini client singleton
+│   │   └── ollama.py        # Ollama client (text + vision + health)
 │   ├── ingestion/           # OCR providers & pipeline
 │   │   ├── pipeline.py      # PDF → page images → OCR → vault
 │   │   ├── gemini_ocr.py    # Google Gemini Vision provider
@@ -159,7 +156,7 @@ comeback_helper/
 │   │   └── handwriting/     # Local Qwen VLM pipeline
 │   ├── graph/               # Knowledge graph
 │   │   ├── schema.py        # Pydantic entity/relation models
-│   │   └── indexer.py       # Gemini extraction → NetworkX
+│   │   └── indexer.py       # 3-tier extraction → NetworkX
 │   ├── vector/
 │   │   └── store.py         # LanceDB + FastEmbed store
 │   ├── retrieval/
@@ -205,4 +202,4 @@ python -m unittest discover -s tests
 
 ## License
 
-[Apache License](LICENSE)
+[Apache License 2.0](LICENSE)

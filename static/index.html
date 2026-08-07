@@ -53,6 +53,10 @@
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
                     <span>Obsidian Vault</span>
                 </button>
+                <button class="nav-item" data-tab="tab-backend">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"></path><circle cx="8" cy="6" r="2"></circle><circle cx="16" cy="12" r="2"></circle><circle cx="10" cy="18" r="2"></circle></svg>
+                    <span>Backend & Entities</span>
+                </button>
                 <button class="nav-item" data-tab="tab-settings">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
                     <span>Settings</span>
@@ -275,7 +279,55 @@
                 <div id="vault-list-container" class="vault-grid"></div>
             </section>
 
-            <!-- TAB 5: SETTINGS -->
+            <!-- TAB 5: BACKEND & ENTITY CATALOG -->
+            <section id="tab-backend" class="tab-page">
+                <header class="page-header">
+                    <div class="header-flex">
+                        <div>
+                            <h1>Backend Entity Catalog & Storage Inspector</h1>
+                            <p>Inspect extracted mathematical entities, domain taxonomy tags, and database health.</p>
+                        </div>
+                        <div class="header-actions">
+                            <button id="btn-refresh-backend" class="btn-secondary">🔄 Refresh Catalog</button>
+                            <button id="btn-clear-all-dbs" class="btn-secondary" style="background-color: #ef4444; color: white;">🗑️ Clear All Databases</button>
+                        </div>
+                    </div>
+                </header>
+
+                <div class="backend-container">
+                    <!-- Tag Summary Chips -->
+                    <div class="form-card" style="margin-bottom: 1.5rem;">
+                        <h3>Active Role & Domain Tags Summary</h3>
+                        <div id="backend-tags-container" class="tag-badges-grid" style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem;"></div>
+                    </div>
+
+                    <!-- Entity Catalog Table Card -->
+                    <div class="form-card">
+                        <div class="header-flex" style="margin-bottom: 1rem;">
+                            <h3>Extracted Entity Catalog (<span id="backend-entity-count">0</span> Entities)</h3>
+                            <input type="text" id="backend-search-input" placeholder="Search entity name, tag, or description..." class="custom-select" style="max-width: 300px;">
+                        </div>
+
+                        <div class="table-scroll-container" style="overflow-x: auto;">
+                            <table class="catalog-table" style="width: 100%; border-collapse: collapse; text-align: left;">
+                                <thead>
+                                    <tr style="border-bottom: 1px solid var(--border-color); color: var(--text-muted); font-size: 0.85rem;">
+                                        <th style="padding: 0.75rem;">Entity Name</th>
+                                        <th style="padding: 0.75rem;">Role / Type</th>
+                                        <th style="padding: 0.75rem;">Domain Taxonomy</th>
+                                        <th style="padding: 0.75rem;">Description</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="backend-entity-table-body">
+                                    <tr><td colspan="4" style="padding: 1.5rem; text-align: center; color: var(--text-muted);">Click Refresh to load entity catalog...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 6: SETTINGS -->
             <section id="tab-settings" class="tab-page">
                 <header class="page-header">
                     <h1>System Settings & Index Management</h1>

@@ -35,3 +35,6 @@ Thumbs.db
 # scripts
 .scripts/
 scripts/
+
+# docs
+docs/session_handover_context.md

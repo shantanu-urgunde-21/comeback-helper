@@ -42,6 +42,7 @@ func (s *Server) RegisterRoutes(mux *http.ServeMux) {
 	mux.Handle("POST /api/ingest", pyProxy)
 	mux.Handle("POST /api/query", pyProxy)
 	mux.Handle("POST /api/rebuild/", pyProxy)
+	mux.Handle("POST /api/clear", pyProxy)
 }
 
 func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
@@ -87,7 +88,10 @@ func (s *Server) handleGraph(w http.ResponseWriter, r *http.Request) {
 			"id":          n.ID,
 			"label":       n.Name,
 			"type":        n.EntityType,
+			"taxonomy":    n.Taxonomy,
+			"aliases":     n.Aliases,
 			"description": n.Description,
+			"provenance":  n.Provenance,
 		})
 	}
 

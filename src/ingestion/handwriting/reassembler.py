@@ -1,16 +1,16 @@
-import requests
-from src.config import get_settings
+from src.llm.ollama import get_ollama_client
 from src.logger import log
+
 
 class ContextualReassembler:
     """
-    Optional Contextual Repair Pass. Passes draft Markdown extracted from coarse blocks through a lightweight
-    local LLM (e.g. Ollama running qwen2.5:3b or phi3:mini) to repair broken sentence boundaries and normalize LaTeX syntax.
+    Optional Contextual Repair Pass. Passes draft Markdown through a lightweight
+    local LLM to repair broken sentence boundaries and normalize LaTeX syntax.
     """
 
-    def __init__(self, ollama_url: str = "http://localhost:11434/api/generate", model_name: str = "qwen2.5-coder:3b"):
-        self.ollama_url = ollama_url
+    def __init__(self, model_name: str = "qwen2.5-coder:3b"):
         self.model_name = model_name
+        self.client = get_ollama_client()
 
     def refine_markdown(self, raw_md: str) -> str:
         """
@@ -30,20 +30,14 @@ Draft Handwritten OCR Markdown:
 
 Output ONLY the corrected Markdown:"""
 
-        try:
-            payload = {
-                "model": self.model_name,
-                "prompt": prompt,
-                "stream": False
-            }
-            response = requests.post(self.ollama_url, json=payload, timeout=10)
-            if response.status_code == 200:
-                data = response.json()
-                refined = data.get("response", "").strip()
-                if refined:
-                    log.info(f"Successfully refined handwritten Markdown via local Ollama model '{self.model_name}'")
-                    return refined
-        except Exception as e:
-            log.debug(f"Local Ollama refinement unavailable ({e}). Retaining structured draft Markdown.")
+        result = self.client.chat(
+            prompt=prompt,
+            model=self.model_name,
+            timeout=10,
+        )
+
+        if result:
+            log.info(f"Refined handwritten Markdown via Ollama '{self.model_name}'")
+            return result
 
         return raw_md

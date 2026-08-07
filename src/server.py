@@ -22,18 +22,28 @@ from src.logger import log
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Create heavy singletons once at startup and tear down on shutdown."""
+    """Create heavy singletons once at startup, sharing dependencies."""
     from src.retrieval.engine import MathQueryEngine
     from src.graph.indexer import MathGraphIndexer
     from src.vector.store import LocalVectorStore
 
-    log.info("Initializing app-scoped singletons (query engine, graph indexer, vector store)...")
-    app.state.query_engine = MathQueryEngine()
-    app.state.graph_indexer = MathGraphIndexer()
-    app.state.vector_store = LocalVectorStore()
+    log.info("Initializing app-scoped singletons...")
+
+    # Create in dependency order: vector store → indexer → query engine
+    vector_store = LocalVectorStore()
+    graph_indexer = MathGraphIndexer(vector_store=vector_store)
+    query_engine = MathQueryEngine(
+        graph_indexer=graph_indexer, vector_store=vector_store
+    )
+
+    app.state.vector_store = vector_store
+    app.state.graph_indexer = graph_indexer
+    app.state.query_engine = query_engine
+
     log.info("Singletons ready.")
     yield
     log.info("Shutting down Comeback Helper server.")
+
 
 
 app = FastAPI(
@@ -359,7 +369,7 @@ async def rebuild_graph_index():
     """Re-indexes all vault notes into the graph using LLM schema extraction."""
     try:
         indexer = app.state.graph_indexer
-        result = indexer.build_or_update_index(use_llm=True)
+        result = indexer.build_or_update_index(use_llm=True, force=True)
         app.state.query_engine.refresh_node_embeddings()
         return JSONResponse({
             "status": "success",
@@ -399,6 +409,32 @@ async def rebuild_vector_index():
                 total_chunks += len(chunks)
 
         return JSONResponse({"status": "success", "chunks": total_chunks})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/clear")
+async def clear_all_databases():
+    """Wipes all knowledge graph, KùzuDB, LanceDB vector store, and state tracker databases."""
+    try:
+        # Clear Graph Indexer & KuzuDB
+        app.state.graph_indexer.clear_graph()
+
+        # Wipe LanceDB Vector Store
+        try:
+            import shutil
+            settings = get_settings()
+            lancedb_dir = settings.storage_path / "lancedb"
+            if lancedb_dir.exists():
+                shutil.rmtree(lancedb_dir, ignore_errors=True)
+                log.info("LanceDB vector store directory wiped.")
+        except Exception as e:
+            log.warning(f"Failed to wipe LanceDB directory: {e}")
+
+        return JSONResponse({
+            "status": "success",
+            "message": "All Knowledge Graph, KùzuDB, LanceDB vector store, and state tracking databases have been completely cleared."
+        })
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

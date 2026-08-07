@@ -1,12 +1,12 @@
 import io
 import time
 from PIL import Image
-from google import genai
 from google.genai import types
 
 from src.config import get_settings
 from src.ingestion.base import BaseOCRProvider
 from src.ingestion.sanitizer import LaTeXSanitizer
+from src.llm.gemini import get_gemini_client
 from src.logger import log
 
 MATH_OCR_SYSTEM_PROMPT = """
@@ -26,7 +26,9 @@ class GeminiOCRProvider(BaseOCRProvider):
     """
     def __init__(self, model_name: str | None = None):
         settings = get_settings()
-        self.client = genai.Client(api_key=settings.gemini_api_key)
+        self.client = get_gemini_client()
+        if not self.client:
+            raise RuntimeError("No valid Gemini API key configured for OCR.")
         primary_model = model_name or settings.gemini_model.replace("models/", "")
         self.candidate_models = [primary_model, "gemini-flash-latest", "gemini-flash-lite-latest"]
         log.info(f"Initialized GeminiOCRProvider with candidate models: {self.candidate_models}")

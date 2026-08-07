@@ -20,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (targetTab === 'tab-graph') loadKnowledgeGraph();
             if (targetTab === 'tab-vault') loadVaultNotes();
+            if (targetTab === 'tab-backend') loadBackendCatalog();
             if (targetTab === 'tab-settings') loadSystemSettings();
         });
     });
@@ -333,26 +334,46 @@ document.addEventListener('DOMContentLoaded', () => {
         // Filter edges to only include visible nodes
         const filteredEdges = currentGraphData.edges.filter(e => nodeIds.has(e.from) && nodeIds.has(e.to));
 
-        const typeColors = {
-            'Note':       '#6366f1',
-            'Concept':    '#ec4899',
-            'Theorem':    '#f59e0b',
-            'Definition': '#10b981',
-            'Formula':    '#3b82f6',
-            'Proof':      '#8b5cf6',
-            'Example':    '#14b8a6',
-            'Course':     '#f43f5e',
+        const domainColors = {
+            'Differential Equations': '#8b5cf6',
+            'Calculus':               '#10b981',
+            'Linear Algebra':         '#3b82f6',
+            'Handwritten Coursework': '#f43f5e',
+            'General':                '#6366f1',
         };
 
-        const nodesArray = filteredNodes.map(n => ({
-            id: n.id,
-            label: n.label,
-            color: typeColors[n.type] || '#6366f1',
-            font: { color: '#ffffff', face: 'Inter', size: 13 },
-            shape: 'dot',
-            size: n.type === 'Note' ? 22 : 16,
-            title: `[${n.type}] ${n.label}${n.group ? ' (' + n.group + ')' : ''}`
-        }));
+        const roleBorderColors = {
+            'Theorem':    '#f59e0b',
+            'Definition': '#10b981',
+            'Formula':    '#06b6d4',
+            'Proof':      '#ec4899',
+            'Lemma':      '#eab308',
+            'Note':       '#818cf8',
+            'Concept':    '#94a3b8',
+        };
+
+        const nodesArray = filteredNodes.map(n => {
+            const domain = (n.taxonomy && n.taxonomy.domain) ? n.taxonomy.domain : 'Differential Equations';
+            const role = n.type || n.entity_type || 'Concept';
+            const fillColor = domainColors[domain] || '#6366f1';
+            const borderColor = roleBorderColors[role] || '#94a3b8';
+            const borderWidth = role === 'Theorem' ? 4 : (role === 'Definition' ? 3 : 2);
+
+            return {
+                id: n.id,
+                label: n.label || n.name || n.id,
+                color: {
+                    background: fillColor,
+                    border: borderColor,
+                    highlight: { background: fillColor, border: '#ffffff' }
+                },
+                borderWidth: borderWidth,
+                font: { color: '#ffffff', face: 'Inter', size: 13 },
+                shape: 'dot',
+                size: role === 'Note' ? 24 : 17,
+                title: `[${role}] ${n.label || n.id}\nDomain: ${domain}`
+            };
+        });
 
         const edgesArray = filteredEdges.map(e => ({
             from: e.from,
@@ -492,6 +513,134 @@ document.addEventListener('DOMContentLoaded', () => {
                 btnRebuildVectors.textContent = '📊 Rebuild Vector Index';
             }
         });
+    }
+
+    // =====================================================================
+    // Backend & Entity Catalog Inspector
+    // =====================================================================
+    const btnRefreshBackend = document.getElementById('btn-refresh-backend');
+    const btnClearAllDbs   = document.getElementById('btn-clear-all-dbs');
+    const searchInput      = document.getElementById('backend-search-input');
+
+    if (btnRefreshBackend) btnRefreshBackend.addEventListener('click', loadBackendCatalog);
+    if (searchInput) searchInput.addEventListener('input', filterBackendTable);
+
+    if (btnClearAllDbs) {
+        btnClearAllDbs.addEventListener('click', async () => {
+            if (!confirm('Are you sure you want to clear all databases (Knowledge Graph, KùzuDB, LanceDB Vector Store, Vault Tracker)?')) {
+                return;
+            }
+            btnClearAllDbs.disabled = true;
+            btnClearAllDbs.textContent = '⏳ Clearing...';
+
+            try {
+                const res = await fetch('/api/clear', { method: 'POST' });
+                const data = await res.json();
+                alert(data.message || 'All databases cleared successfully.');
+                loadBackendCatalog();
+                loadSystemSettings();
+            } catch (e) {
+                alert('Failed to clear databases: ' + e.message);
+            } finally {
+                btnClearAllDbs.disabled = false;
+                btnClearAllDbs.textContent = '🗑️ Clear All Databases';
+            }
+        });
+    }
+
+    let currentBackendNodes = [];
+
+    async function loadBackendCatalog() {
+        const tableBody = document.getElementById('backend-entity-table-body');
+        const countSpan = document.getElementById('backend-entity-count');
+        const tagsContainer = document.getElementById('backend-tags-container');
+        if (!tableBody) return;
+
+        try {
+            const res = await fetch('/api/graph');
+            const data = await res.json();
+            currentBackendNodes = data.nodes || [];
+
+            if (countSpan) countSpan.textContent = currentBackendNodes.length.toString();
+
+            // Compute tag summary frequencies
+            const tagCounts = {};
+            currentBackendNodes.forEach(n => {
+                const role = n.type || n.entity_type || 'Concept';
+                tagCounts[role] = (tagCounts[role] || 0) + 1;
+
+                if (n.taxonomy && n.taxonomy.domain) {
+                    const dom = n.taxonomy.domain;
+                    tagCounts[dom] = (tagCounts[dom] || 0) + 1;
+                }
+            });
+
+            if (tagsContainer) {
+                tagsContainer.innerHTML = '';
+                if (Object.keys(tagCounts).length === 0) {
+                    tagsContainer.innerHTML = '<span style="color: var(--text-muted); font-size: 0.85rem;">No tags extracted yet. Ingest a note to populate.</span>';
+                } else {
+                    for (const [tag, count] of Object.entries(tagCounts)) {
+                        const badge = document.createElement('span');
+                        badge.className = 'chip';
+                        badge.style.backgroundColor = 'var(--surface-color)';
+                        badge.style.border = '1px solid var(--border-color)';
+                        badge.style.padding = '0.25rem 0.6rem';
+                        badge.style.borderRadius = '12px';
+                        badge.style.fontSize = '0.8rem';
+                        badge.textContent = `${tag}: ${count}`;
+                        tagsContainer.appendChild(badge);
+                    }
+                }
+            }
+
+            renderBackendTable(currentBackendNodes);
+        } catch (e) {
+            console.error('Failed to load backend catalog:', e);
+            if (tableBody) {
+                tableBody.innerHTML = `<tr><td colspan="4" style="padding: 1.5rem; text-align: center; color: #ef4444;">Error loading catalog: ${e.message}</td></tr>`;
+            }
+        }
+    }
+
+    function renderBackendTable(nodes) {
+        const tableBody = document.getElementById('backend-entity-table-body');
+        if (!tableBody) return;
+
+        tableBody.innerHTML = '';
+        if (nodes.length === 0) {
+            tableBody.innerHTML = '<tr><td colspan="4" style="padding: 1.5rem; text-align: center; color: var(--text-muted);">Database is clean and empty. Ingest a note to populate!</td></tr>';
+            return;
+        }
+
+        nodes.forEach(n => {
+            const tr = document.createElement('tr');
+            tr.style.borderBottom = '1px solid var(--border-color)';
+
+            const role = n.type || n.entity_type || 'Concept';
+            const domain = n.taxonomy ? `${n.taxonomy.domain} › ${n.taxonomy.subdomain}` : 'General';
+            const desc = n.description || '—';
+
+            tr.innerHTML = `
+                <td style="padding: 0.75rem; font-weight: 500; color: var(--text-primary);">${n.label || n.name || n.id}</td>
+                <td style="padding: 0.75rem;"><span class="chip" style="font-size: 0.75rem; background: var(--surface-color); padding: 0.15rem 0.4rem; border-radius: 4px; border: 1px solid var(--border-color);">${role}</span></td>
+                <td style="padding: 0.75rem; color: var(--text-secondary); font-size: 0.85rem;">${domain}</td>
+                <td style="padding: 0.75rem; color: var(--text-muted); font-size: 0.85rem;">${desc}</td>
+            `;
+            tableBody.appendChild(tr);
+        });
+    }
+
+    function filterBackendTable() {
+        const query = (document.getElementById('backend-search-input')?.value || '').toLowerCase();
+        const filtered = currentBackendNodes.filter(n => {
+            const name = (n.label || n.name || n.id || '').toLowerCase();
+            const role = (n.type || n.entity_type || '').toLowerCase();
+            const desc = (n.description || '').toLowerCase();
+            const domain = n.taxonomy ? (n.taxonomy.domain || '').toLowerCase() : '';
+            return name.includes(query) || role.includes(query) || desc.includes(query) || domain.includes(query);
+        });
+        renderBackendTable(filtered);
     }
 });
 

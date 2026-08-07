@@ -84,21 +84,30 @@ func (idx *MathGraphIndexer) ExtractLocal(text string) MathEntityExtraction {
 	var edges []GraphEdge
 	nodeNames := make(map[string]bool)
 
+	var noiseRegex = regexp.MustCompile(`(?i)^(Exercise|Solution|Hint|Problem|Conclusion|Page \d+|Lecture notes).*`)
+
 	headingMatches := headingExtractRegex.FindAllStringSubmatch(text, -1)
 	for _, match := range headingMatches {
 		if len(match) >= 4 {
 			entityTypeStr := match[2]
 			name := strings.TrimSpace(strings.TrimSuffix(match[3], ":"))
-			if name != "" && !strings.HasPrefix(name, "<!--") && !nodeNames[name] {
+
+			// Skip noise headings
+			if name != "" && !strings.HasPrefix(name, "<!--") && !nodeNames[name] && !noiseRegex.MatchString(name) {
 				nodeNames[name] = true
 				eType := Concept
 				if entityTypeStr != "" {
 					eType = MathEntityType(strings.Title(strings.ToLower(entityTypeStr)))
 				}
 				nodes = append(nodes, GraphNode{
-					ID:          name,
-					Name:        name,
-					EntityType:  eType,
+					ID:         name,
+					Name:       name,
+					EntityType: eType,
+					Taxonomy: ConceptTaxonomy{
+						Domain:    "Differential Equations",
+						Subdomain: "Course Notes",
+						Topic:     name,
+					},
 					Description: "Extracted from heading: " + name,
 				})
 			}
@@ -109,13 +118,18 @@ func (idx *MathGraphIndexer) ExtractLocal(text string) MathEntityExtraction {
 	for _, match := range wikilinks {
 		if len(match) >= 2 {
 			linkClean := strings.TrimSpace(strings.Split(match[1], "|")[0])
-			if linkClean != "" && !strings.HasSuffix(linkClean, ".png") && !strings.HasSuffix(linkClean, ".jpg") {
+			if linkClean != "" && !strings.HasSuffix(linkClean, ".png") && !strings.HasSuffix(linkClean, ".jpg") && !noiseRegex.MatchString(linkClean) {
 				if !nodeNames[linkClean] {
 					nodeNames[linkClean] = true
 					nodes = append(nodes, GraphNode{
-						ID:          linkClean,
-						Name:        linkClean,
-						EntityType:  Concept,
+						ID:         linkClean,
+						Name:       linkClean,
+						EntityType: Concept,
+						Taxonomy: ConceptTaxonomy{
+							Domain:    "Differential Equations",
+							Subdomain: "Wikilinks",
+							Topic:     linkClean,
+						},
 						Description: "Wikilink reference from note",
 					})
 				}
