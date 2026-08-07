@@ -3,22 +3,23 @@ from typing import List
 from pydantic import BaseModel, Field
 
 class MathEntityType(str, Enum):
-    CONCEPT = "Concept"
-    THEOREM = "Theorem"
+    AXIOM = "Axiom"
     DEFINITION = "Definition"
+    LEMMA = "Lemma"
+    THEOREM = "Theorem"
+    COROLLARY = "Corollary"
     PROOF = "Proof"
-    FORMULA = "Formula"
-    COURSE = "Course"
     EXAMPLE = "Example"
+    CONCEPT = "Concept"
 
 class MathRelationType(str, Enum):
-    DEPENDS_ON = "DEPENDS_ON"
+    USES_AXIOM = "USES_AXIOM"
+    USES_DEFINITION = "USES_DEFINITION"
+    USES_LEMMA = "USES_LEMMA"
     PROVES = "PROVES"
-    USES_FORMULA = "USES_FORMULA"
-    DERIVED_FROM = "DERIVED_FROM"
-    APPLIES_TO = "APPLIES_TO"
-    EQUIVALENT_TO = "EQUIVALENT_TO"
+    COROLLARY_OF = "COROLLARY_OF"
     PREREQUISITE_FOR = "PREREQUISITE_FOR"
+    DEPENDS_ON = "DEPENDS_ON"
 
 class GraphNode(BaseModel):
     name: str = Field(..., description="Name of the mathematical concept, theorem, definition, formula, etc.")

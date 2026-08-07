@@ -136,7 +136,7 @@ class MathQueryEngine:
                 f"[Chunk {idx} — {source} ({course_tag})]\n{text}"
             )
 
-        # 2. Graph Traversal via NetworkX Math PropertyGraph
+        # 2. Graph Traversal via NetworkX & KùzuDB PropertyGraph
         graph_context = []
         if use_graph:
             graph = self.indexer.graph
@@ -149,24 +149,18 @@ class MathQueryEngine:
                 node_type = node_data.get("entity_type", "Concept")
                 desc = node_data.get("description", "")
 
-                # Get prerequisites / outgoing relations
-                neighbors = list(graph.neighbors(n))
                 rel_info = []
-                for nbr in neighbors:
+                for nbr in list(graph.neighbors(n))[:4]:
                     rel = graph.edges[n, nbr].get("relation", "DEPENDS_ON")
                     rel_info.append(f"{n} --[{rel}]--> {nbr}")
 
-                # Also get incoming (predecessors)
-                preds = list(graph.predecessors(n))
-                for pred in preds:
+                for pred in list(graph.predecessors(n))[:4]:
                     rel = graph.edges[pred, n].get("relation", "DEPENDS_ON")
                     rel_info.append(f"{pred} --[{rel}]--> {n}")
 
-                node_str = f"• [{node_type}] {n}"
-                if desc:
-                    node_str += f" — {desc}"
+                node_str = f"• [{node_type}] {n}" + (f" — {desc}" if desc else "")
                 if rel_info:
-                    node_str += "\n  Relations: " + " | ".join(rel_info[:6])
+                    node_str += "\n  Relations: " + " | ".join(rel_info)
                 graph_context.append(node_str)
 
         # Assemble unified context string

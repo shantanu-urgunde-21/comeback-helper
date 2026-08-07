@@ -63,8 +63,44 @@ class MathGraphIndexer:
                 log.warning(f"Failed to load graph.json ({e}), initializing empty graph.")
         return G
 
+    def _sync_to_kuzu(self):
+        """Syncs in-memory NetworkX graph nodes and edges into embedded KùzuDB."""
+        try:
+            import kuzu
+            kuzu_file = self.storage_path / "kuzu_graph.db"
+            db = kuzu.Database(str(kuzu_file))
+            conn = kuzu.Connection(db)
+
+            # Create tables if not exist
+            conn.execute("CREATE NODE TABLE IF NOT EXISTS Concept(name STRING, entity_type STRING, description STRING, PRIMARY KEY (name))")
+            conn.execute("CREATE REL TABLE IF NOT EXISTS RELATES(FROM Concept TO Concept, relation STRING)")
+
+            # Insert/upsert nodes
+            for n in self.graph.nodes:
+                entity_type = str(self.graph.nodes[n].get("entity_type", "Concept")).replace("'", "''")
+                desc = str(self.graph.nodes[n].get("description", "")).replace("'", "''")
+                node_name = str(n).replace("'", "''")
+                try:
+                    conn.execute(f"MERGE (c:Concept {{name: '{node_name}'}}) SET c.entity_type = '{entity_type}', c.description = '{desc}'")
+                except Exception:
+                    pass
+
+            # Insert edges
+            for u, v, d in self.graph.edges(data=True):
+                src = str(u).replace("'", "''")
+                dst = str(v).replace("'", "''")
+                rel = str(d.get("relation", "DEPENDS_ON")).replace("'", "''")
+                try:
+                    conn.execute(f"MATCH (a:Concept {{name: '{src}'}}), (b:Concept {{name: '{dst}'}}) MERGE (a)-[r:RELATES {{relation: '{rel}'}}]->(b)")
+                except Exception:
+                    pass
+
+            log.info(f"Persisted PropertyGraph nodes & edges into embedded KùzuDB at: {kuzu_file}")
+        except Exception as e:
+            log.warning(f"KùzuDB sync skipped ({e}).")
+
     def save_graph(self):
-        """Saves NetworkX graph to .storage/graph.json."""
+        """Saves NetworkX graph to .storage/graph.json and syncs to embedded KùzuDB."""
         data = {
             "nodes": [
                 {
@@ -90,6 +126,7 @@ class MathGraphIndexer:
         self.graph_file.parent.mkdir(parents=True, exist_ok=True)
         self.graph_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
         log.info(f"Persisted PropertyGraph ({len(data['nodes'])} nodes, {len(data['edges'])} edges) to: {self.graph_file}")
+        self._sync_to_kuzu()
 
     def _fallback_regex_extraction(self, text: str) -> MathEntityExtraction:
         """
@@ -142,12 +179,13 @@ class MathGraphIndexer:
         log.info(f"Local regex & wikilink graph extraction found {len(nodes)} nodes and {len(edges)} edges.")
         return MathEntityExtraction(nodes=nodes, edges=edges)
 
-    def extract_from_text(self, text: str) -> MathEntityExtraction:
+    def extract_from_text(self, text: str, use_llm: bool = False) -> MathEntityExtraction:
         """
-        Extracts structured nodes and edges from text chunk using Gemini Pydantic output,
-        with automatic fallback to local regex/wikilink extraction on HTTP 429 quota exhaustion.
+        Extracts structured nodes and edges from text chunk.
+        Uses fast 100% local regex parser by default (use_llm=False) to prevent API quota burnout.
+        Uses Gemini Pydantic schema extraction when use_llm=True.
         """
-        if not self.has_instructor or not self.client:
+        if not use_llm or not self.has_instructor or not self.client:
             return self._fallback_regex_extraction(text)
 
         try:
@@ -167,7 +205,7 @@ class MathGraphIndexer:
             log.warning(f"Gemini Graph Extraction API unavailable/rate-limited ({e}). Switching to local fallback parser...")
             return self._fallback_regex_extraction(text)
 
-    def index_note(self, note_path: Path):
+    def index_note(self, note_path: Path, use_llm: bool = False):
         """Indexes a single Markdown file into the NetworkX graph."""
         content = note_path.read_text(encoding="utf-8")
 
@@ -177,7 +215,7 @@ class MathGraphIndexer:
             course = note_path.parent.name if note_path.parent != self.vault_path else "General"
             self.graph.add_node(main_node, entity_type="Note", description=f"Course Note ({course})")
 
-        extraction = self.extract_from_text(content)
+        extraction = self.extract_from_text(content, use_llm=use_llm)
 
         for node in extraction.nodes:
             self.graph.add_node(
@@ -196,7 +234,7 @@ class MathGraphIndexer:
                 relation=edge.relation.value if hasattr(edge.relation, "value") else str(edge.relation),
             )
 
-    def build_or_update_index(self) -> nx.DiGraph:
+    def build_or_update_index(self, use_llm: bool = False) -> nx.DiGraph:
         """Processes new or modified Markdown files in the vault and updates graph."""
         notes = self.vault_manager.get_all_notes()
         modified_notes = [n for n in notes if self.state_tracker.is_file_modified(n)]
@@ -205,10 +243,10 @@ class MathGraphIndexer:
             log.info("Vault graph is up-to-date.")
             return self.graph
 
-        log.info(f"Indexing {len(modified_notes)} new/modified notes into Graph...")
+        log.info(f"Indexing {len(modified_notes)} new/modified notes into Graph (use_llm={use_llm})...")
         for note in modified_notes:
             log.info(f"Extracting schema entities from: {note.name}")
-            self.index_note(note)
+            self.index_note(note, use_llm=use_llm)
             self.state_tracker.update_file_hash(note)
 
         self.state_tracker.save_state()

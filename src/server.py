@@ -143,7 +143,7 @@ async def ingest_pdf(
             vector_store = app.state.vector_store
 
             try:
-                graph_indexer.index_note(target_note_path)
+                graph_indexer.index_note(target_note_path, use_llm=True)
                 graph_indexer.save_graph()
                 index_results["graph_indexed"] = True
                 log.info(f"Graph index updated with note: {target_note_path.name}")
@@ -356,10 +356,10 @@ async def get_courses():
 
 @app.post("/api/rebuild/graph")
 async def rebuild_graph_index():
-    """Re-indexes all vault notes into the graph."""
+    """Re-indexes all vault notes into the graph using LLM schema extraction."""
     try:
         indexer = app.state.graph_indexer
-        result = indexer.build_or_update_index()
+        result = indexer.build_or_update_index(use_llm=True)
         app.state.query_engine.refresh_node_embeddings()
         return JSONResponse({
             "status": "success",

@@ -12,6 +12,7 @@ fastembed>=0.2.0
 
 # Graph Store
 networkx>=3.2.0
+kuzu>=0.3.0
 
 # Local OCR Support (optional - only needed for local_ocr provider)
 # pix2tex

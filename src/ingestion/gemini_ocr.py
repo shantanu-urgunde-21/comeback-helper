@@ -27,10 +27,8 @@ class GeminiOCRProvider(BaseOCRProvider):
     def __init__(self, model_name: str | None = None):
         settings = get_settings()
         self.client = genai.Client(api_key=settings.gemini_api_key)
-        primary_model = model_name or settings.gemini_model
-        
-        # Active valid Gemini models for free tier (including flash-lite and 8b)
-        self.candidate_models = ["gemini-2.0-flash-lite", "gemini-2.0-flash", "gemini-1.5-flash-8b"]
+        primary_model = model_name or settings.gemini_model.replace("models/", "")
+        self.candidate_models = [primary_model, "gemini-flash-latest", "gemini-flash-lite-latest"]
         log.info(f"Initialized GeminiOCRProvider with candidate models: {self.candidate_models}")
 
     def process_image(self, image: Image.Image) -> str:

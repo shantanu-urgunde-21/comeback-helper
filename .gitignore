@@ -26,6 +26,12 @@ data/
 .DS_Store
 Thumbs.db
 
+# Executables & Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+
 # scripts
 .scripts/
 scripts/

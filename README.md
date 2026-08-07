@@ -39,20 +39,20 @@ Everything runs locally except Gemini API calls. Your notes stay on your machine
                                      ▼                                   ▼
                           ┌──────────────────────────┐     ┌──────────────────────────────┐
                           │ Math PropertyGraph       │     │ LanceDB Vector Store         │
-                          │ (Pydantic + NetworkX)    │     │ (FastEmbed BAAI/bge-m3)      │
+                          │ (NetworkX + KùzuDB C++)  │     │ (FastEmbed BAAI/bge-small)   │
                           └──────────────────────────┘     └──────────────────────────────┘
                                      │                                   │
                                      └───────────────┬──────────────────┘
-                                                      ▼
+                                                     ▼
                                          ┌───────────────────────────┐
-                                         │ Hybrid Retrieval Engine   │
-                                         │ Semantic Graph Matching   │
+                                         │ Go Backend Reverse Proxy  │
+                                         │ (:8080 Concurrent Server) │
                                          └───────────────────────────┘
-                                                      │
-                                                      ▼
+                                                     │
+                                                     ▼
                                          ┌───────────────────────────┐
-                                         │ FastAPI Dashboard & UI    │
-                                         │ (Vis.js Graph + KaTeX)    │
+                                         │ Vis.js Dashboard & Web UI │
+                                         │ (KaTeX + Graph Visualizer)│
                                          └───────────────────────────┘
 ```
 
@@ -62,6 +62,14 @@ Everything runs locally except Gemini API calls. Your notes stay on your machine
 
 | Feature | Details |
 |---------|---------|
+| **Go Microservice Backend** | High-performance concurrent vault scanner in Go (`:8080`) with goroutines and zero-latency file watching |
+| **KùzuDB Graph Database** | Dual-persists NetworkX property graphs into embedded C++ Cypher database (`.storage/kuzu_graph.db`) |
+| **Handwriting OCR** | Google Gemini Vision or 100% local Qwen2.5-VL (3B) via Ollama (~2 GB VRAM) |
+| **Math PropertyGraph** | Typed nodes (`Theorem`, `Definition`, `Proof`, `Formula`) with directed edges (`DEPENDS_ON`, `PROVES`, `PREREQUISITE_FOR`) |
+| **Local Vector Search** | LanceDB + FastEmbed with configurable embedding model and course-scoped filtering |
+| **Math-Aware Chunking** | Splits on page markers → headings → paragraphs while preserving `$$...$$` blocks intact |
+| **Hybrid RAG** | Combines vector similarity + semantic graph node matching + Gemini synthesis (`gemini-flash-latest`) |
+| **Interactive Dashboard** | Vis.js knowledge graph with entity type/course filters, retrieval settings panel, and KaTeX rendering |
 | **Handwriting OCR** | Google Gemini Vision or 100% local Qwen2.5-VL (3B) via Ollama (~2 GB VRAM) |
 | **Math PropertyGraph** | Pydantic schema extraction → typed nodes (Theorem, Definition, Proof, Formula) with directed edges (DEPENDS_ON, PROVES, DERIVED_FROM) |
 | **Local Vector Search** | LanceDB + FastEmbed with configurable embedding model, CUDA GPU acceleration, and course-scoped filtering |
@@ -90,7 +98,7 @@ Copy `.env.example` to `.env` and add your Gemini API key:
 
 ```ini
 GEMINI_API_KEY=your_key_here
-GEMINI_MODEL=gemini-2.0-flash
+GEMINI_MODEL=gemini-flash-latest
 OCR_PROVIDER=gemini
 OBSIDIAN_VAULT_LOCATION=./.storage/vault
 STORAGE_DIR=./.storage
@@ -165,7 +173,7 @@ All settings are read from `.env` via Pydantic:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `GEMINI_API_KEY` | *required* | Google AI Studio API key |
-| `GEMINI_MODEL` | `gemini-2.0-flash` | Model for OCR and RAG synthesis |
+| `GEMINI_MODEL` | `gemini-flash-latest` | Model for OCR and RAG synthesis |
 | `OCR_PROVIDER` | `gemini` | `gemini`, `marker`, `handwriting`, or `local` |
 | `OBSIDIAN_VAULT_LOCATION` | `./.storage/vault` | Path to Obsidian vault directory |
 | `STORAGE_DIR` | `./.storage` | Path for graph, vector DB, logs |

@@ -4,6 +4,29 @@ All notable changes, refactorings, and architectural improvements to **Comeback 
 
 ---
 
+## [2.1.0] - 2026-08-08 (Go Microservice & KùzuDB Graph Engine)
+
+### 🚀 Highlights
+- **Go Microservice Backend (`go_backend/`)**: Built a zero-latency, concurrent vault scanning service in Go using goroutines and standard library `filepath.WalkDir`. Serves `/api/vault`, `/api/graph`, `/api/settings`, and static assets on port `8080`.
+- **API Reverse Proxy**: Go server acts as high-speed static asset and vault scanner server on port `8080`, transparently reverse-proxying heavy AI endpoints (`POST /api/ingest`, `POST /api/query`, `POST /api/rebuild/`) to Python FastAPI worker on port `8000`.
+- **KùzuDB Embedded Graph Store**: Integrated embedded C++ Cypher graph database (`kuzu`) dual-persisting NetworkX property graph nodes and edges into `.storage/kuzu_graph.db`.
+- **Gemini Rate Limit & Quota Fix**: Updated model defaults to `gemini-flash-latest` and set `use_llm=False` for startup vault indexing, making vault startup 100% offline with 0 API calls burnt.
+
+### 🔨 Detailed Changes
+
+#### 1. Go Backend Microservice (`go_backend/`)
+- **`vault/scanner.go`**: Concurrent SHA-256 vault file scanner utilizing goroutines for multi-core directory traversal.
+- **`vault/chunker.go`**: Native math-aware Markdown section chunker preserving `$$...$$` blocks.
+- **`graph/indexer.go`**: Fast local regex entity and wikilink relation extractor.
+- **`server/router.go`**: `net/http` router with `httputil.SingleHostReverseProxy` forwarding heavy AI POST calls to Python.
+
+#### 2. Graph & Vault API Schema Formatting
+- **`/api/graph`**: Formatted `nodes` as a JSON array (`[ {id, label, type, description}, ... ]`) for Vis.js UI rendering.
+- **`/api/vault`**: Formatted `vault` as a course-grouped JSON dictionary (`{"course_name": [...]}`).
+- **`/api/health/ollama`**: Added strict `Cache-Control: no-store` headers to prevent stale browser disk caching.
+
+---
+
 ## [2.0.0] - 2026-08-05 (Architectural Refactoring & High-Performance Optimization)
 
 ### 🚀 Highlights

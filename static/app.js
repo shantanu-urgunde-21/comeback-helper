@@ -33,7 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!dot || !label) return;
 
         try {
-            const res = await fetch('/api/health/ollama');
+            const res = await fetch('/api/health/ollama?t=' + Date.now(), { cache: 'no-store' });
             const data = await res.json();
             if (data.service_online && data.model_available) {
                 dot.className = 'status-dot online';
