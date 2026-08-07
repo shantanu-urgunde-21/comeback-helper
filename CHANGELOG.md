@@ -2,6 +2,54 @@
 
 All notable changes, refactorings, and architectural improvements to **Comeback Helper** are documented in this file.
 
+## [2.3.0] - 2026-08-08 (Decoupled 2-Pass Graph Extraction & Architecture Consolidation)
+
+### 🚀 Highlights
+- **Decoupled 2-Pass Graph Extraction Pipeline**: Refactored graph extraction in `src/graph/indexer.py` into a 2-pass LLM pipeline:
+  - **Pass 1 (`MathNodeExtraction`)**: Concept & SKOS Taxonomy Extractor — identifies formal entities, roles (`Theorem`, `Definition`), descriptions, and 3-tier SKOS taxonomy.
+  - **Pass 2 (`MathEdgeExtraction`)**: Relationship & Prerequisite Linker — inputs Pass 1 nodes + Top-20 vector candidates to wire directional edges (`DEPENDS_ON`, `PROVES`, `PREREQUISITE_FOR`).
+- **Automatic Model Candidate Fallbacks**: Added fallback candidate loop (`gemini-3.6-flash` $\rightarrow$ `gemini-flash-latest` $\rightarrow$ `gemini-flash-lite-latest` $\rightarrow$ `Ollama`) in `src/llm/gemini.py` and `src/graph/indexer.py` to seamlessly handle API rate limits (429).
+- **Single-Process FastAPI Server**: Consolidated the server architecture into a single, high-speed Python FastAPI server running on port `:8000`. Retired `go_backend`.
+- **Consolidated Vault State Management**: Merged `VaultStateTracker` (SHA-256 state tracking) directly into `ObsidianVaultManager` (`src/vault/manager.py`). Purged standalone `src/vault/state.py`.
+- **LanceDB Native BM25 Hybrid Search**: Enabled native FTS BM25 full-text indexing (`create_index("text", config=FTS())`) and hybrid query mode (`query_type="hybrid"`) in `src/vector/store.py`.
+
+### 🔨 Detailed Changes
+
+#### 1. Ingestion & Vault (`src/vault/`, `src/ingestion/`)
+- **`src/vault/manager.py`**: Integrated SHA-256 file hashing, modification detection, and state JSON persistence directly into `ObsidianVaultManager`.
+- **`src/vault/state.py`**: Retired standalone module.
+- **`src/ingestion/handwriting/health.py`**: Consolidated health telemetry to wrap `src/llm/ollama.py`.
+
+#### 2. Network & Storage
+- **`src/graph/indexer.py`**: Purged KùzuDB C++ sync dead code (`_sync_to_kuzu()`). NetworkX `graph.json` is the sole source of truth.
+- **`requirements.txt`**: Dropped `kuzu` dependency.
+
+---
+
+## [2.2.0] - 2026-08-08 (3-Tier Extraction Cascade, LLM Consolidation & Singleton Lifecycle)
+
+### 🚀 Highlights
+- **3-Tier Extraction Cascade**: Replaced single-pass regex fallback with a robust 3-tier fallback hierarchy (`Gemini API` $\rightarrow$ `Local Ollama LLM JSON` $\rightarrow$ `Deterministic LaTeX Block Parser`). Eliminates garbage string slicing fragments like `"From Calculus"` and `"If The Equation"`.
+- **Centralized LLM Module (`src/llm/`)**: Created unified client singletons for Gemini (`src/llm/gemini.py`) and Ollama (`src/llm/ollama.py`), eliminating 6+ redundant initialization and HTTP call sites across OCR, Graph, and RAG modules.
+- **Shared Singleton Lifecycle**: Refactored FastAPI `lifespan` in `src/server.py` to instantiate `LocalVectorStore` $\rightarrow$ `MathGraphIndexer` $\rightarrow$ `MathQueryEngine` in strict dependency order, removing double memory overhead and out-of-sync store states.
+- **Vector Candidate Context Injection**: Injected Top-25 semantically nearest existing graph concepts into LLM extraction prompts, establishing cross-note prerequisite edges across isolated lecture note files.
+- **Post-Extraction Entity Resolution**: Added FastEmbed cosine-similarity deduplication ($>0.88$ threshold) to automatically merge entity synonyms and maintain alias lists.
+
+### 🔨 Detailed Changes
+
+#### 1. Knowledge Graph Engine (`src/graph/`)
+- **`src/graph/indexer.py`**: Fully rewritten to implement the 3-tier cascade, noise filtering regex, vector candidate context injection, and cosine entity resolution.
+- **`src/graph/schema.py`**: Purged unused `SCHEMA_SYSTEM_PROMPT`, `ALLOWED_ENTITIES`, and `ALLOWED_RELATIONS` dead code constants.
+
+#### 2. LLM Client Architecture (`src/llm/`)
+- **`src/llm/gemini.py`**: Lazy-initialized singleton wrapper for `google.genai.Client`.
+- **`src/llm/ollama.py`**: Unified client supporting text chat, vision chat (Qwen2.5-VL), and health telemetry.
+- Refactored `GeminiOCRProvider`, `OllamaVisionOCR`, `ContextualReassembler`, and `MathQueryEngine` to consume `src/llm/`.
+
+#### 3. Core Engine & Server (`src/server.py`, `src/retrieval/engine.py`, `src/__init__.py`)
+- **`src/retrieval/engine.py`**: Accepts shared `MathGraphIndexer` and `LocalVectorStore` instances via constructor dependency injection. Removed dead `_keyword_match_nodes()` stub.
+- **`src/__init__.py`**: Bumped package `__version__` to `"2.1.0"` $\rightarrow$ `"2.2.0"`.
+
 ---
 
 ## [2.1.0] - 2026-08-08 (Go Microservice & KùzuDB Graph Engine)

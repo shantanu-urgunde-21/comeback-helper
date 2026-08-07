@@ -1,23 +1,24 @@
 import json
 import re
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 
 import networkx as nx
 from google.genai import types
 
 from src.config import get_settings
 from src.graph.schema import (
+    MathNodeExtraction,
+    MathEdgeExtraction,
     MathEntityExtraction,
     GraphNode,
     GraphEdge,
     ConceptTaxonomy,
     Provenance,
 )
-from src.llm.gemini import get_gemini_client, get_gemini_model_name
+from src.llm.gemini import get_gemini_client, get_gemini_model_name, get_gemini_candidate_models
 from src.llm.ollama import get_ollama_client
 from src.logger import log
-from src.vault.state import VaultStateTracker
 from src.vault.manager import ObsidianVaultManager
 
 
@@ -47,7 +48,6 @@ def _is_valid_entity(name: str) -> bool:
         return False
     if NOISE_PATTERN.match(clean):
         return False
-    # Must have at least 2 meaningful words (rejects "From Calculus", "If The Equation")
     words = [w for w in clean.split() if w.lower() not in _STRIP_WORDS]
     if len(words) < 1:
         return False
@@ -55,20 +55,39 @@ def _is_valid_entity(name: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Extraction prompt
+# 2-Pass Extraction Prompts
 # ---------------------------------------------------------------------------
 
-EXTRACTION_PROMPT_TEMPLATE = """\
-You are an expert mathematical knowledge graph extractor.
-TASK: Extract formal mathematical entities (Theorems, Definitions, Concepts, Formulas, Proofs, Lemmas) and relationships from the text below.
+PASS1_NODE_PROMPT = """\
+You are an expert mathematical entity and taxonomy extractor.
+TASK: Extract formal mathematical entities (Theorems, Definitions, Concepts, Formulas, Proofs, Lemmas) and their 3-tier SKOS taxonomy from the text.
 
 STRICT RULES:
 1. DO NOT extract structural terms (e.g. 'Exercise 1', 'Problem', 'Solution', 'Hint', 'Example', 'Conclusion', 'Page 1', 'Lecture notes').
 2. EXTRACT ONLY formal mathematical concept names (e.g. 'Exact Differential Equation', 'Total Differential', 'Mixed Partials Theorem', 'Integrating Factor', 'Separable ODE').
 3. Capitalize formal math concept names properly.
-4. Each node MUST have a meaningful description (1-2 sentences defining the concept).
-5. Create directed edges using these relations: DEPENDS_ON, USES_DEFINITION, PROVES, PREREQUISITE_FOR, COROLLARY_OF, USES_AXIOM, USES_LEMMA.
-{candidate_context}
+4. Each node MUST have a formal 1-2 sentence definition description.
+5. Assign domain taxonomy (domain, subdomain, topic).
+
+TEXT:
+{text}
+"""
+
+PASS2_EDGE_PROMPT = """\
+You are an expert mathematical relationship and prerequisite linker.
+TASK: Establish directional relationships between the newly extracted concepts from this note AND existing knowledge base concepts.
+
+NEW CONCEPTS IN THIS NOTE:
+{new_concepts}
+
+EXISTING KNOWLEDGE BASE CONCEPTS:
+{existing_concepts}
+
+STRICT RULES:
+1. Create directed edges connecting new concepts to existing concepts or among new concepts.
+2. Valid relation types: DEPENDS_ON, USES_DEFINITION, PROVES, PREREQUISITE_FOR, COROLLARY_OF, USES_AXIOM, USES_LEMMA.
+3. Provide evidence quotes where applicable.
+
 TEXT:
 {text}
 """
@@ -78,13 +97,11 @@ class MathGraphIndexer:
     """
     Indexes mathematical Markdown notes into a NetworkX Property Graph.
 
-    Uses a 3-tier extraction cascade:
-      1. Gemini API (structured Pydantic output)
-      2. Local Ollama LLM (JSON mode)
-      3. LaTeX block + heading parser (deterministic, no prose regex)
+    Uses a decoupled 2-Pass extraction architecture:
+      Pass 1: Concept & SKOS Taxonomy Extractor (LLM Call #1)
+      Pass 2: Relationship & Prerequisite Linker (LLM Call #2)
 
-    Supports vector-based candidate injection for cross-note linking
-    and post-extraction entity resolution via embedding similarity.
+    Fallback hierarchy: Gemini API → Local Ollama LLM → Deterministic Block Parser.
     """
 
     def __init__(
@@ -99,15 +116,13 @@ class MathGraphIndexer:
 
         self.graph_file = self.storage_path / "graph.json"
         self.graph = self._load_graph()
-        self.vault_manager = ObsidianVaultManager(self.vault_path)
-        self.state_tracker = VaultStateTracker(
-            state_file_path=self.storage_path / "vault_state.json"
+        self.vault_manager = ObsidianVaultManager(
+            vault_path=self.vault_path,
+            state_file_path=self.storage_path / "vault_state.json",
         )
 
-        # Optional vector store for candidate injection + entity resolution
         self._vector_store = vector_store
-
-        log.info("MathGraphIndexer initialized.")
+        log.info("MathGraphIndexer initialized (2-Pass Architecture).")
 
     # ------------------------------------------------------------------
     # Graph I/O
@@ -136,7 +151,7 @@ class MathGraphIndexer:
         return G
 
     def clear_graph(self):
-        """Clears in-memory graph, graph.json, kuzu_graph.db, and state tracker."""
+        """Clears in-memory graph, graph.json, and state tracker."""
         self.graph.clear()
         if self.graph_file.exists():
             try:
@@ -146,24 +161,11 @@ class MathGraphIndexer:
             except Exception as e:
                 log.warning(f"Failed to clear graph.json: {e}")
 
-        kuzu_file = self.storage_path / "kuzu_graph.db"
-        if kuzu_file.exists():
-            try:
-                import shutil
-
-                if kuzu_file.is_dir():
-                    shutil.rmtree(kuzu_file, ignore_errors=True)
-                else:
-                    kuzu_file.unlink(missing_ok=True)
-            except Exception as e:
-                log.warning(f"Failed to delete KuzuDB: {e}")
-
-        self.state_tracker.state.clear()
-        self.state_tracker.save_state()
-        log.info("Knowledge graph, KuzuDB, and vault state cleared.")
+        self.vault_manager.clear_state()
+        log.info("Knowledge graph and vault state cleared.")
 
     def save_graph(self):
-        """Saves NetworkX graph to graph.json and syncs to KùzuDB."""
+        """Saves NetworkX graph to graph.json."""
         data = {
             "nodes": [
                 {
@@ -197,146 +199,125 @@ class MathGraphIndexer:
         log.info(
             f"Saved graph ({len(data['nodes'])} nodes, {len(data['edges'])} edges)"
         )
-        self._sync_to_kuzu()
 
     # ------------------------------------------------------------------
-    # KùzuDB sync
+    # Pass 1: Node & Taxonomy Extraction
     # ------------------------------------------------------------------
 
-    def _sync_to_kuzu(self):
-        """Syncs NetworkX graph into embedded KùzuDB."""
-        try:
-            import kuzu
-
-            kuzu_path = self.storage_path / "kuzu_graph.db"
-            db = kuzu.Database(str(kuzu_path))
-            conn = kuzu.Connection(db)
-
-            conn.execute(
-                "CREATE NODE TABLE IF NOT EXISTS Concept("
-                "name STRING, entity_type STRING, description STRING, "
-                "PRIMARY KEY (name))"
-            )
-            conn.execute(
-                "CREATE REL TABLE IF NOT EXISTS RELATES("
-                "FROM Concept TO Concept, relation STRING)"
-            )
-
-            for n in self.graph.nodes:
-                etype = str(self.graph.nodes[n].get("entity_type", "Concept")).replace("'", "''")
-                desc = str(self.graph.nodes[n].get("description", "")).replace("'", "''")
-                name = str(n).replace("'", "''")
-                try:
-                    conn.execute(
-                        f"MERGE (c:Concept {{name: '{name}'}}) "
-                        f"SET c.entity_type = '{etype}', c.description = '{desc}'"
-                    )
-                except Exception:
-                    log.debug(f"KùzuDB node upsert skipped for: {n}")
-
-            for u, v, d in self.graph.edges(data=True):
-                src = str(u).replace("'", "''")
-                dst = str(v).replace("'", "''")
-                rel = str(d.get("relation", "DEPENDS_ON")).replace("'", "''")
-                try:
-                    conn.execute(
-                        f"MATCH (a:Concept {{name: '{src}'}}), "
-                        f"(b:Concept {{name: '{dst}'}}) "
-                        f"MERGE (a)-[r:RELATES {{relation: '{rel}'}}]->(b)"
-                    )
-                except Exception:
-                    log.debug(f"KùzuDB edge upsert skipped: {u}->{v}")
-
-            log.info(f"Synced graph to KùzuDB at: {kuzu_path}")
-        except ImportError:
-            log.debug("KùzuDB not installed, skipping sync.")
-        except Exception as e:
-            log.warning(f"KùzuDB sync skipped ({e}).")
-
-    # ------------------------------------------------------------------
-    # Tier 1: Gemini API structured extraction
-    # ------------------------------------------------------------------
-
-    def _gemini_extraction(
-        self, text: str, candidate_context: str, course_domain: str
-    ) -> Optional[MathEntityExtraction]:
-        """Extracts entities via Gemini structured output. Returns None on failure."""
+    def _extract_nodes_pass(
+        self, text: str, course_domain: str
+    ) -> List[GraphNode]:
+        """Executes Pass 1 (Node & Taxonomy Extraction) via Gemini or Ollama."""
         client = get_gemini_client()
-        if not client:
-            return None
+        if client:
+            prompt = PASS1_NODE_PROMPT.format(text=text)
+            for model_name in get_gemini_candidate_models():
+                try:
+                    response = client.models.generate_content(
+                        model=model_name,
+                        contents=prompt,
+                        config=types.GenerateContentConfig(
+                            response_mime_type="application/json",
+                            response_schema=MathNodeExtraction,
+                            temperature=0.1,
+                        ),
+                    )
+                    data = json.loads(response.text)
+                    nodes = MathNodeExtraction(**data).nodes
+                    log.info(f"Pass 1 (Gemini {model_name}): Extracted {len(nodes)} concept nodes.")
+                    return nodes
+                except Exception as e:
+                    log.warning(f"Pass 1 Gemini ({model_name}) node extraction failed ({e}), trying candidate...")
 
-        prompt = EXTRACTION_PROMPT_TEMPLATE.format(
-            candidate_context=candidate_context, text=text
-        )
-
-        try:
-            response = client.models.generate_content(
-                model=get_gemini_model_name(),
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json",
-                    response_schema=MathEntityExtraction,
-                    temperature=0.1,
-                ),
-            )
-            data = json.loads(response.text)
-            result = MathEntityExtraction(**data)
-            log.info(
-                f"Gemini extracted {len(result.nodes)} nodes, {len(result.edges)} edges"
-            )
-            return result
-        except Exception as e:
-            log.warning(f"Gemini extraction failed ({e}). Trying next tier...")
-            return None
-
-    # ------------------------------------------------------------------
-    # Tier 2: Local Ollama LLM extraction
-    # ------------------------------------------------------------------
-
-    def _ollama_extraction(
-        self, text: str, candidate_context: str, course_domain: str
-    ) -> Optional[MathEntityExtraction]:
-        """Extracts entities via local Ollama text model in JSON mode."""
+        # Ollama Fallback
         ollama = get_ollama_client()
-        if not ollama.is_available():
-            log.info("Ollama unavailable. Skipping tier 2.")
-            return None
-
-        # Try a capable text model for structured extraction
-        for model in ["llama3.2", "qwen2.5:3b", "phi3:mini"]:
-            if not ollama.has_model(model):
-                continue
-
-            prompt = EXTRACTION_PROMPT_TEMPLATE.format(
-                candidate_context=candidate_context, text=text[:3000]
-            )
-            prompt += (
-                "\n\nRespond ONLY with valid JSON matching this schema:\n"
-                '{"nodes": [{"name": "...", "entity_type": "Theorem|Definition|Concept|Formula|Proof|Lemma", '
-                '"description": "...", "taxonomy": {"domain": "...", "subdomain": "...", "topic": "..."}}], '
-                '"edges": [{"source": "...", "target": "...", "relation": "DEPENDS_ON|USES_DEFINITION|PROVES|PREREQUISITE_FOR"}]}'
-            )
-
-            response_text = ollama.chat(
-                prompt=prompt, model=model, response_format="json", timeout=60
-            )
-            if not response_text:
-                continue
-
-            try:
-                data = json.loads(response_text)
-                result = MathEntityExtraction(**data)
-                log.info(
-                    f"Ollama ({model}) extracted {len(result.nodes)} nodes, "
-                    f"{len(result.edges)} edges"
+        if ollama.is_available():
+            for model in ["llama3.2", "qwen2.5:3b", "phi3:mini"]:
+                if not ollama.has_model(model):
+                    continue
+                prompt = PASS1_NODE_PROMPT.format(text=text[:3000])
+                prompt += (
+                    "\n\nRespond ONLY with valid JSON matching:\n"
+                    '{"nodes": [{"name": "...", "entity_type": "Theorem|Definition|Concept|Formula|Proof|Lemma", '
+                    '"description": "...", "taxonomy": {"domain": "...", "subdomain": "...", "topic": "..."}}]}'
                 )
-                return result
-            except (json.JSONDecodeError, Exception) as e:
-                log.warning(f"Ollama ({model}) returned invalid JSON: {e}")
-                continue
+                resp = ollama.chat(prompt=prompt, model=model, response_format="json", timeout=60)
+                if resp:
+                    try:
+                        data = json.loads(resp)
+                        nodes = MathNodeExtraction(**data).nodes
+                        log.info(f"Pass 1 (Ollama {model}): Extracted {len(nodes)} concept nodes.")
+                        return nodes
+                    except Exception:
+                        pass
 
-        log.info("No suitable Ollama model available. Falling through to tier 3.")
-        return None
+        return []
+
+    # ------------------------------------------------------------------
+    # Pass 2: Edge & Relationship Extraction
+    # ------------------------------------------------------------------
+
+    def _extract_edges_pass(
+        self, text: str, new_nodes: List[GraphNode]
+    ) -> List[GraphEdge]:
+        """Executes Pass 2 (Relationship & Edge Linker) via Gemini or Ollama."""
+        if not new_nodes:
+            return []
+
+        new_concept_names = [n.name for n in new_nodes]
+        existing_candidates = self._get_candidate_context(text)
+
+        client = get_gemini_client()
+        if client:
+            prompt = PASS2_EDGE_PROMPT.format(
+                new_concepts=json.dumps(new_concept_names),
+                existing_concepts=json.dumps(existing_candidates),
+                text=text,
+            )
+            for model_name in get_gemini_candidate_models():
+                try:
+                    response = client.models.generate_content(
+                        model=model_name,
+                        contents=prompt,
+                        config=types.GenerateContentConfig(
+                            response_mime_type="application/json",
+                            response_schema=MathEdgeExtraction,
+                            temperature=0.1,
+                        ),
+                    )
+                    data = json.loads(response.text)
+                    edges = MathEdgeExtraction(**data).edges
+                    log.info(f"Pass 2 (Gemini {model_name}): Linked {len(edges)} relationship edges.")
+                    return edges
+                except Exception as e:
+                    log.warning(f"Pass 2 Gemini ({model_name}) edge extraction failed ({e}), trying candidate...")
+
+        # Ollama Fallback
+        ollama = get_ollama_client()
+        if ollama.is_available():
+            for model in ["llama3.2", "qwen2.5:3b", "phi3:mini"]:
+                if not ollama.has_model(model):
+                    continue
+                prompt = PASS2_EDGE_PROMPT.format(
+                    new_concepts=json.dumps(new_concept_names),
+                    existing_concepts=json.dumps(existing_candidates),
+                    text=text[:3000],
+                )
+                prompt += (
+                    "\n\nRespond ONLY with valid JSON matching:\n"
+                    '{"edges": [{"source": "...", "target": "...", "relation": "DEPENDS_ON|USES_DEFINITION|PROVES|PREREQUISITE_FOR"}]}'
+                )
+                resp = ollama.chat(prompt=prompt, model=model, response_format="json", timeout=60)
+                if resp:
+                    try:
+                        data = json.loads(resp)
+                        edges = MathEdgeExtraction(**data).edges
+                        log.info(f"Pass 2 (Ollama {model}): Linked {len(edges)} relationship edges.")
+                        return edges
+                    except Exception:
+                        pass
+
+        return []
 
     # ------------------------------------------------------------------
     # Tier 3: Deterministic LaTeX block + heading parser (NO prose regex)
@@ -346,12 +327,8 @@ class MathGraphIndexer:
         self, text: str, course_domain: str
     ) -> MathEntityExtraction:
         """
-        100% offline, deterministic extraction that parses:
-          - LaTeX environments: \\begin{theorem}...\\end{theorem}, etc.
-          - Markdown headings with typed prefixes: ## Theorem: Concept Name
-          - Obsidian [[wikilinks]]
-
-        Does NOT attempt to regex entity names out of prose body text.
+        100% offline, deterministic fallback parsing LaTeX environments,
+        Markdown headings with typed prefixes, and wikilinks.
         """
         nodes: list[GraphNode] = []
         edges: list[GraphEdge] = []
@@ -417,7 +394,6 @@ class MathGraphIndexer:
                 and not link_clean.endswith((".png", ".jpg", ".pdf"))
             ):
                 _add_node(link_clean, "Concept", "Wikilink reference from vault note")
-                # Create edge from first extracted node to wikilink
                 if nodes and nodes[0].name != link_clean:
                     edges.append(
                         GraphEdge(
@@ -427,53 +403,31 @@ class MathGraphIndexer:
                         )
                     )
 
-        log.info(
-            f"Block extractor found {len(nodes)} nodes and {len(edges)} edges."
-        )
+        log.info(f"Block extractor found {len(nodes)} nodes and {len(edges)} edges.")
         return MathEntityExtraction(nodes=nodes, edges=edges)
 
     # ------------------------------------------------------------------
-    # Extraction cascade
+    # Helper & Decoupled Extraction Pipeline
     # ------------------------------------------------------------------
 
-    def _get_candidate_context(self, text: str) -> str:
-        """
-        Builds candidate concept context for the extraction prompt.
-        Uses vector similarity if a store is available, else falls back
-        to the first 25 graph nodes by insertion order.
-        """
-        candidates: list[str] = []
-
-        # Prefer vector-based semantic candidates
+    def _get_candidate_context(self, text: str) -> List[str]:
+        """Retrieves existing concept names for Pass 2 relationship linking."""
+        candidates: set[str] = set()
         if self._vector_store is not None:
             try:
                 summary = text[:500]
                 results = self._vector_store.search_similar(summary, top_k=20)
-                # Extract concept names from search results
-                seen = set()
                 for r in results:
                     source = r.get("source", "")
-                    if source and source != "init.md" and source not in seen:
-                        seen.add(source)
-                # Also pull existing graph node names
-                for n in list(self.graph.nodes)[:30]:
-                    if n not in seen:
-                        candidates.append(n)
-                        seen.add(n)
-                candidates = list(seen)[:25]
-            except Exception as e:
-                log.debug(f"Vector candidate retrieval failed ({e}), using graph nodes.")
-                candidates = list(self.graph.nodes)[:25]
-        else:
-            candidates = list(self.graph.nodes)[:25]
+                    if source and source != "init.md":
+                        candidates.add(source)
+            except Exception:
+                pass
 
-        if not candidates:
-            return ""
+        for n in list(self.graph.nodes)[:30]:
+            candidates.add(n)
 
-        return (
-            "\nEXISTING KNOWLEDGE BASE CONCEPTS (create edges to these if dependencies exist):\n"
-            f"{json.dumps(candidates)}\n"
-        )
+        return list(candidates)[:25]
 
     def extract_from_text(
         self,
@@ -482,39 +436,34 @@ class MathGraphIndexer:
         course_domain: str = "Differential Equations",
     ) -> MathEntityExtraction:
         """
-        3-tier extraction cascade:
-          1. Gemini API (if use_llm=True and client available)
-          2. Local Ollama LLM (if available)
-          3. Deterministic LaTeX block parser (always works)
+        Executes decoupled 2-pass graph extraction:
+          Pass 1: Node & SKOS Taxonomy Extraction
+          Pass 2: Relationship & Edge Linking
         """
         if not use_llm:
             return self._block_extraction(text, course_domain)
 
-        candidate_context = self._get_candidate_context(text)
+        # Pass 1: Extract concept nodes
+        extracted_nodes = self._extract_nodes_pass(text, course_domain)
 
-        # Tier 1: Gemini
-        result = self._gemini_extraction(text, candidate_context, course_domain)
-        if result and (result.nodes or result.edges):
-            return result
+        # Fallback to block extractor if LLM node extraction returned nothing
+        if not extracted_nodes:
+            return self._block_extraction(text, course_domain)
 
-        # Tier 2: Ollama
-        result = self._ollama_extraction(text, candidate_context, course_domain)
-        if result and (result.nodes or result.edges):
-            return result
+        # Filter extracted nodes through noise validator
+        valid_nodes = [n for n in extracted_nodes if _is_valid_entity(n.name)]
 
-        # Tier 3: Deterministic block parser
-        return self._block_extraction(text, course_domain)
+        # Pass 2: Link relationships & edges between nodes
+        extracted_edges = self._extract_edges_pass(text, valid_nodes)
+
+        return MathEntityExtraction(nodes=valid_nodes, edges=extracted_edges)
 
     # ------------------------------------------------------------------
     # Entity Resolution (deduplication)
     # ------------------------------------------------------------------
 
     def _resolve_entity(self, name: str) -> str:
-        """
-        Checks if a new entity name is semantically equivalent to an
-        existing graph node. Returns the existing node ID if similar
-        enough (cosine > 0.88), or the original name if unique.
-        """
+        """Merges entity synonyms if cosine similarity > 0.88."""
         if not self._vector_store or self.graph.number_of_nodes() == 0:
             return name
 
@@ -535,18 +484,14 @@ class MathGraphIndexer:
                     best_match = existing_node
 
             if best_match and best_sim > 0.88 and best_match != name:
-                log.info(
-                    f"Entity resolution: '{name}' → '{best_match}' "
-                    f"(cosine={best_sim:.3f})"
-                )
-                # Record alias
+                log.info(f"Entity resolution: '{name}' → '{best_match}' (sim={best_sim:.3f})")
                 aliases = self.graph.nodes[best_match].get("aliases", [])
                 if name not in aliases:
                     aliases.append(name)
                     self.graph.nodes[best_match]["aliases"] = aliases
                 return best_match
-        except Exception as e:
-            log.debug(f"Entity resolution skipped ({e})")
+        except Exception:
+            pass
 
         return name
 
@@ -557,12 +502,7 @@ class MathGraphIndexer:
     def index_note(self, note_path: Path, use_llm: bool = False):
         """Indexes a single Markdown file into the NetworkX graph."""
         content = note_path.read_text(encoding="utf-8")
-
-        course = (
-            note_path.parent.name
-            if note_path.parent != self.vault_path
-            else "General"
-        )
+        course = note_path.parent.name if note_path.parent != self.vault_path else "General"
         main_node = note_path.stem
 
         prov_record = Provenance(
@@ -577,36 +517,18 @@ class MathGraphIndexer:
                 main_node,
                 id=main_node,
                 entity_type="Note",
-                taxonomy={
-                    "domain": course,
-                    "subdomain": "Course Note",
-                    "topic": main_node,
-                },
+                taxonomy={"domain": course, "subdomain": "Course Note", "topic": main_node},
                 description=f"Course Note ({course})",
                 provenance=[prov_record],
                 aliases=[],
             )
 
-        extraction = self.extract_from_text(
-            content, use_llm=use_llm, course_domain=course
-        )
+        extraction = self.extract_from_text(content, use_llm=use_llm, course_domain=course)
 
         for node in extraction.nodes:
-            n_id = node.id or node.name
-            # Entity resolution — merge if semantically duplicate
-            resolved_id = self._resolve_entity(n_id)
-            n_id = resolved_id
-
-            etype = (
-                node.entity_type.value
-                if hasattr(node.entity_type, "value")
-                else str(node.entity_type)
-            )
-            tax_dict = (
-                node.taxonomy.model_dump()
-                if hasattr(node.taxonomy, "model_dump")
-                else {"domain": course, "subdomain": "Course Notes", "topic": n_id}
-            )
+            n_id = self._resolve_entity(node.id or node.name)
+            etype = node.entity_type.value if hasattr(node.entity_type, "value") else str(node.entity_type)
+            tax_dict = node.taxonomy.model_dump() if hasattr(node.taxonomy, "model_dump") else {"domain": course, "subdomain": "Course Notes", "topic": n_id}
 
             if n_id not in self.graph:
                 self.graph.add_node(
@@ -619,57 +541,40 @@ class MathGraphIndexer:
                     aliases=node.aliases if hasattr(node, "aliases") else [],
                 )
             else:
-                # Update taxonomy, append provenance
                 self.graph.nodes[n_id]["taxonomy"] = tax_dict
                 prov_list = self.graph.nodes[n_id].get("provenance", [])
                 if isinstance(prov_list, list):
                     prov_list.append(prov_record)
                     self.graph.nodes[n_id]["provenance"] = prov_list
 
-            # Connect note container to extracted concepts
             if n_id != main_node:
-                self.graph.add_edge(
-                    main_node, n_id, relation="CONTAINS", label="CONTAINS"
-                )
+                self.graph.add_edge(main_node, n_id, relation="CONTAINS", label="CONTAINS")
 
         for edge in extraction.edges:
-            # Resolve edge endpoints too
             src = self._resolve_entity(edge.source) if self._vector_store else edge.source
             tgt = self._resolve_entity(edge.target) if self._vector_store else edge.target
-            rel = (
-                edge.relation.value
-                if hasattr(edge.relation, "value")
-                else str(edge.relation)
-            )
+            rel = edge.relation.value if hasattr(edge.relation, "value") else str(edge.relation)
             self.graph.add_edge(src, tgt, relation=rel, label=rel)
 
     # ------------------------------------------------------------------
     # Full index build
     # ------------------------------------------------------------------
 
-    def build_or_update_index(
-        self, use_llm: bool = False, force: bool = False
-    ) -> nx.DiGraph:
+    def build_or_update_index(self, use_llm: bool = False, force: bool = False) -> nx.DiGraph:
         """Processes new or modified Markdown files in the vault and updates graph."""
         notes = self.vault_manager.get_all_notes()
-        modified = (
-            notes
-            if force
-            else [n for n in notes if self.state_tracker.is_file_modified(n)]
-        )
+        modified = notes if force else [n for n in notes if self.vault_manager.is_file_modified(n)]
 
         if not modified:
             log.info("Vault graph is up-to-date.")
             return self.graph
 
-        log.info(
-            f"Indexing {len(modified)} notes (use_llm={use_llm}, force={force})..."
-        )
+        log.info(f"Indexing {len(modified)} notes (2-Pass, use_llm={use_llm}, force={force})...")
         for note in modified:
             log.info(f"Extracting from: {note.name}")
             self.index_note(note, use_llm=use_llm)
-            self.state_tracker.update_file_hash(note)
+            self.vault_manager.update_file_hash(note)
 
-        self.state_tracker.save_state()
+        self.vault_manager.save_state()
         self.save_graph()
         return self.graph

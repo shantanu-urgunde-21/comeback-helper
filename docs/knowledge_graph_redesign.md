@@ -76,7 +76,7 @@ class GraphEdge(BaseModel):
 Refactor node schemas to include 3-tier SKOS taxonomy and implement a tag-aware dual-color scheme in the Vis.js frontend dashboard.
 
 #### Implementation Details
-1. **Schema Refactoring (`src/graph/schema.py` & `go_backend/graph/schema.go`)**:
+1. **Schema Refactoring (`src/graph/schema.py`)**:
    - Implement `ConceptTaxonomy`, `Provenance`, and updated `GraphNode`.
 2. **Vis.js Dual-Color Renderer (`static/app.js`)**:
    - **Node Fill Color (Primary Domain)**:
@@ -130,10 +130,10 @@ Eliminate structural headings (*e.g., "Exercise 1", "Hint", "Solution"*) from cl
 
 ---
 
-### Task 5: KùzuDB Cypher Schema & Go Server Sync
+### Task 5: NetworkX Single Source of Truth & FastAPI Sync
 
 #### Objective
-Ensure embedded KùzuDB C++ graph store and Go backend microservice mirror the new taxonomy and provenance schemas.
+Ensure NetworkX graph store and FastAPI server mirror the new taxonomy and provenance schemas.
 
 ---
 
@@ -144,5 +144,5 @@ Ensure embedded KùzuDB C++ graph store and Go backend microservice mirror the n
 | **TASK-1** | Taxonomy & UI | Implement `ConceptTaxonomy` and Vis.js dual-color renderer | `src/graph/schema.py`, `static/app.js` |
 | **TASK-2** | Sub-Catalog Linker | Vector candidate retrieval for cross-note linking | `src/graph/indexer.py`, `src/vector/store.py` |
 | **TASK-3** | Provenance Inspector | W3C PROV-O provenance tracking & UI slideout drawer | `src/graph/schema.py`, `static/index.html`, `static/app.js` |
-| **TASK-4** | Noise Filter | Blacklist structural headings and attach as provenance quotes | `src/graph/indexer.py`, `go_backend/graph/indexer.go` |
-| **TASK-5** | Storage & Go Sync | KùzuDB Cypher schema migration and Go router synchronization | `src/graph/indexer.py`, `go_backend/graph/schema.go` |
+| **TASK-4** | Noise Filter | Blacklist structural headings and attach as provenance quotes | `src/graph/indexer.py` |
+| **TASK-5** | Storage & API Sync | PropertyGraph schema migration and FastAPI router synchronization | `src/graph/indexer.py`, `src/server.py` |

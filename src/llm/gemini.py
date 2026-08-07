@@ -5,6 +5,7 @@ All Gemini API consumers (graph indexer, retrieval engine, OCR provider)
 import from here instead of creating their own client instances.
 """
 
+from typing import List
 from google import genai
 from src.config import get_settings
 from src.logger import log
@@ -40,3 +41,17 @@ def get_gemini_client() -> genai.Client | None:
 def get_gemini_model_name() -> str:
     """Returns the configured Gemini model name, stripped of 'models/' prefix."""
     return get_settings().gemini_model.replace("models/", "")
+
+
+def get_gemini_candidate_models() -> List[str]:
+    """Returns a prioritized list of Gemini model candidates for automatic rate-limit fallbacks."""
+    primary = get_gemini_model_name()
+    candidates = [primary, "gemini-flash-latest", "gemini-flash-lite-latest"]
+    # Preserve order while stripping duplicates
+    seen = set()
+    res = []
+    for c in candidates:
+        if c not in seen:
+            seen.add(c)
+            res.append(c)
+    return res

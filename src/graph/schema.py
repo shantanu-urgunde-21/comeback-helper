@@ -2,6 +2,7 @@ from enum import Enum
 from typing import List, Optional
 from pydantic import BaseModel, Field, model_validator
 
+
 class MathEntityType(str, Enum):
     AXIOM = "Axiom"
     DEFINITION = "Definition"
@@ -13,6 +14,7 @@ class MathEntityType(str, Enum):
     EXAMPLE = "Example"
     CONCEPT = "Concept"
 
+
 class MathRelationType(str, Enum):
     USES_AXIOM = "USES_AXIOM"
     USES_DEFINITION = "USES_DEFINITION"
@@ -23,6 +25,7 @@ class MathRelationType(str, Enum):
     DEPENDS_ON = "DEPENDS_ON"
     CONTAINS = "CONTAINS"
 
+
 class Provenance(BaseModel):
     doc_id: str = Field(..., description="Unique hash or ID of source vault note")
     doc_title: str = Field(..., description="Title of source document note")
@@ -31,10 +34,12 @@ class Provenance(BaseModel):
     section_heading: Optional[str] = Field(None, description="Surrounding heading section")
     exact_quote: str = Field("", description="Exact verbatim LaTeX sentence or snippet")
 
+
 class ConceptTaxonomy(BaseModel):
     domain: str = Field("General Math", description="Tier 1 Discipline (e.g. Differential Equations, Calculus, Linear Algebra)")
     subdomain: str = Field("General", description="Tier 2 Area (e.g. First-Order ODEs, Multivariable Calculus)")
     topic: str = Field("General", description="Tier 3 Specific Topic (e.g. Integrating Factors, Spectral Theorem)")
+
 
 class GraphNode(BaseModel):
     id: str = Field("", description="Canonical ID of the entity")
@@ -51,6 +56,7 @@ class GraphNode(BaseModel):
             self.id = self.name
         return self
 
+
 class GraphEdge(BaseModel):
     source: str = Field(..., description="ID of source entity node")
     target: str = Field(..., description="ID of target entity node")
@@ -58,8 +64,15 @@ class GraphEdge(BaseModel):
     description: Optional[str] = Field(None, description="Short evidence explanation of relationship")
     provenance: List[Provenance] = Field(default_factory=list, description="Source provenance locations")
 
+
+class MathNodeExtraction(BaseModel):
+    nodes: List[GraphNode] = Field(default_factory=list, description="Pass 1: Extracted mathematical entity nodes")
+
+
+class MathEdgeExtraction(BaseModel):
+    edges: List[GraphEdge] = Field(default_factory=list, description="Pass 2: Extracted relationship edges")
+
+
 class MathEntityExtraction(BaseModel):
     nodes: List[GraphNode] = Field(default_factory=list, description="List of mathematical entities extracted")
     edges: List[GraphEdge] = Field(default_factory=list, description="List of relationships extracted")
-
-

@@ -43,20 +43,20 @@ Everything runs locally except Gemini API calls. Your notes stay on your machine
 ```
  ┌──────────────────┐     ┌──────────────────────────┐     ┌──────────────────────────────┐
  │  Coursework PDF  │ ──► │ Ingestion Pipeline       │ ──► │ Markdown Vault Note          │
- │  (Handwritten)   │     │ (Gemini / Qwen VL / Mkr) │     │ (LaTeX Math Preservation)    │
+ │  (Handwritten)   │     │ (Gemini / Qwen2.5-VL)    │     │ (LaTeX Math Preservation)    │
  └──────────────────┘     └──────────────────────────┘     └──────────────────────────────┘
                                      │                                   │
                                      ▼                                   ▼
                           ┌──────────────────────────┐     ┌──────────────────────────────┐
                           │ Math PropertyGraph       │     │ LanceDB Vector Store         │
-                          │ (NetworkX + KùzuDB C++)  │     │ (FastEmbed BAAI/bge-small)   │
+                          │ (NetworkX PropertyGraph) │     │ (FastEmbed + BM25 FTS)       │
                           └──────────────────────────┘     └──────────────────────────────┘
                                      │                                   │
                                      └───────────────┬──────────────────┘
                                                      ▼
                                          ┌───────────────────────────┐
-                                         │ Go Backend Reverse Proxy  │
-                                         │ (:8080 Concurrent Server) │
+                                         │ Unified FastAPI Server    │
+                                         │ (:8000 Async Backend)     │
                                          └───────────────────────────┘
                                                      │
                                                      ▼
@@ -72,11 +72,10 @@ Everything runs locally except Gemini API calls. Your notes stay on your machine
 
 | Feature | Details |
 |---------|---------|
-| **Go Microservice Backend** | High-performance concurrent vault scanner in Go (`:8080`) with goroutines and zero-latency file watching |
-| **KùzuDB Graph Database** | Dual-persists NetworkX property graphs into embedded C++ Cypher database (`.storage/kuzu_graph.db`) |
+| **Unified FastAPI Server** | High-performance async server (`:8000`) serving UI dashboard, vault API, graph indexer, and RAG synthesis |
 | **Handwriting OCR** | Google Gemini Vision or 100% local Qwen2.5-VL (3B) via Ollama (~2 GB VRAM) |
-| **Math PropertyGraph** | Pydantic schema extraction → typed nodes (`Theorem`, `Definition`, `Proof`, `Formula`) with directed edges (`DEPENDS_ON`, `PROVES`, `PREREQUISITE_FOR`) |
-| **Local Vector Search** | LanceDB + FastEmbed with configurable embedding model, CUDA GPU acceleration, and course-scoped filtering |
+| **Math PropertyGraph** | 3-tier extraction cascade → typed nodes (`Theorem`, `Definition`, `Proof`, `Formula`) with directed edges (`DEPENDS_ON`, `PROVES`, `PREREQUISITE_FOR`) |
+| **Local Vector & BM25 Search** | LanceDB + FastEmbed with native BM25 hybrid search, CUDA GPU acceleration, and course-scoped filtering |
 | **Math-Aware Chunking** | Splits on page markers → headings → paragraphs while preserving `$$...$$` blocks intact with overlap for theorem→proof continuity |
 | **Hybrid RAG** | Combines vector similarity + semantic graph node matching + Gemini synthesis with tunable top-K, temperature, and course scope |
 | **Interactive Dashboard** | Vis.js knowledge graph with entity type/course filters, retrieval settings panel, and KaTeX math rendering |

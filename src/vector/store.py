@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 import lancedb
+from lancedb.index import FTS
 from fastembed import TextEmbedding
 
 from src.config import get_settings
@@ -10,8 +11,7 @@ from src.logger import log
 class LocalVectorStore:
     """
     Local vector database using LanceDB and FastEmbed for high-speed offline
-    similarity search over Markdown notes.  Accelerated with CUDA GPU
-    execution provider when available.
+    similarity and hybrid (BM25 + Vector) search over Markdown notes.
     """
 
     def __init__(self):
@@ -21,14 +21,13 @@ class LocalVectorStore:
 
         self.db = lancedb.connect(str(self.db_path))
 
-        # Use the configured embed model rather than a hardcoded one
         model_name = self.settings.embed_model
         try:
             self.embed_model = TextEmbedding(
                 model_name=model_name,
                 providers=["CUDAExecutionProvider", "CPUExecutionProvider"],
             )
-            log.info(f"Initialized FastEmbed ({model_name}) with CUDA GPU execution provider")
+            log.info(f"Initialized FastEmbed ({model_name}) with CUDA GPU provider")
         except Exception as e:
             log.warning(f"CUDA provider unavailable ({e}). Falling back to FastEmbed CPU provider.")
             self.embed_model = TextEmbedding(model_name=model_name)
@@ -38,9 +37,10 @@ class LocalVectorStore:
         log.info(f"Connected to LanceDB vector table '{self.table_name}' at: {self.db_path}")
 
     def _get_or_create_table(self):
-        """Gets existing LanceDB table or creates new one."""
+        """Gets existing LanceDB table or creates new one with FTS index."""
         try:
-            return self.db.open_table(self.table_name)
+            tbl = self.db.open_table(self.table_name)
+            return tbl
         except Exception:
             dummy_data = [{
                 "id": "init_0",
@@ -49,7 +49,18 @@ class LocalVectorStore:
                 "source": "init.md",
                 "vector": list(self.embed_model.embed(["Initialization text"]))[0],
             }]
-            return self.db.create_table(self.table_name, data=dummy_data, exist_ok=True)
+            tbl = self.db.create_table(self.table_name, data=dummy_data, exist_ok=True)
+            self._create_fts_index_safe(tbl)
+            return tbl
+
+    def _create_fts_index_safe(self, table=None):
+        """Creates or refreshes LanceDB native FTS BM25 index on text column."""
+        tbl = table or self.table
+        try:
+            tbl.create_index("text", config=FTS(), replace=True)
+            log.info("LanceDB native BM25 full-text search (FTS) index active.")
+        except Exception as e:
+            log.debug(f"FTS index creation skipped or pending data: {e}")
 
     # ------------------------------------------------------------------
     # Write
@@ -58,7 +69,7 @@ class LocalVectorStore:
     def add_chunks(self, chunks: List[Dict[str, Any]]):
         """
         Embeds text chunks and inserts them into LanceDB table.
-        Each chunk is a dict: {"id": str, "text": str, "course": str, "source": str}
+        Re-indexes FTS after inserting chunks.
         """
         if not chunks:
             return
@@ -78,6 +89,7 @@ class LocalVectorStore:
 
         self.table.add(records)
         log.info(f"Successfully indexed {len(records)} text chunks into LanceDB.")
+        self._create_fts_index_safe()
 
     # ------------------------------------------------------------------
     # Read
@@ -89,13 +101,22 @@ class LocalVectorStore:
         top_k: int = 5,
         course: Optional[str] = None,
         score_threshold: Optional[float] = None,
+        query_type: str = "vector",
     ) -> List[Dict[str, Any]]:
         """
-        Searches for top_k semantically similar text chunks for a query
-        string, optionally scoped to a single course.
+        Searches for top_k similar text chunks using vector or hybrid (Vector+BM25) search,
+        optionally scoped to a single course.
         """
-        query_emb = list(self.embed_model.embed([query]))[0]
-        search = self.table.search(query_emb.tolist()).limit(top_k)
+        if query_type == "hybrid":
+            try:
+                search = self.table.search(query, query_type="hybrid").limit(top_k)
+            except Exception as e:
+                log.warning(f"Hybrid search fallback to vector ({e})")
+                query_emb = list(self.embed_model.embed([query]))[0]
+                search = self.table.search(query_emb.tolist()).limit(top_k)
+        else:
+            query_emb = list(self.embed_model.embed([query]))[0]
+            search = self.table.search(query_emb.tolist()).limit(top_k)
 
         # Apply optional course filter via LanceDB SQL where-clause
         if course and course.lower() not in ("all", "all courses", ""):
@@ -106,9 +127,8 @@ class LocalVectorStore:
         # Filter out initialization placeholder chunk
         filtered = [r for r in results if r.get("id") != "init_0"]
 
-        # Optional score threshold (lower _distance = more similar)
         if score_threshold is not None:
-            filtered = [r for r in filtered if r.get("_distance", 999) <= score_threshold]
+            filtered = [r for r in filtered if r.get("_distance", 0) <= score_threshold]
 
         return filtered
 
@@ -128,7 +148,6 @@ class LocalVectorStore:
         try:
             total_rows = self.table.count_rows()
             courses = set()
-            # Sample a few rows to find distinct courses
             sample = self.table.search().limit(200).to_list()
             for row in sample:
                 c = row.get("course", "")
@@ -139,6 +158,7 @@ class LocalVectorStore:
                 "courses": sorted(courses),
                 "embed_model": self.settings.embed_model,
                 "db_path": str(self.db_path),
+                "fts_enabled": True,
             }
         except Exception:
             return {"total_chunks": 0, "courses": [], "embed_model": self.settings.embed_model}
