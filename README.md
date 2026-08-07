@@ -26,6 +26,16 @@ Comeback Helper is a study assistant for math-heavy and technical coursework. Dr
 
 Everything runs locally except Gemini API calls. Your notes stay on your machine.
 
+<br>
+
+<div align="center">
+  <img src="docs/images/ingest_dashboard.png" alt="Comeback Helper STEM Note Ingestion Dashboard" width="850"/>
+  <p><i>STEM Coursework Ingestion Dashboard with local 100% offline Qwen2.5-VL OCR engine and Obsidian vault integration.</i></p>
+  <br>
+  <img src="docs/images/knowledge_graph_dashboard.png" alt="Comeback Helper Visual Knowledge Graph Dashboard" width="850"/>
+  <p><i>Interactive Visual Knowledge Graph Dashboard showing entity prerequisite links, course nodes, and math concepts.</i></p>
+</div>
+
 ---
 
 ## Architecture
