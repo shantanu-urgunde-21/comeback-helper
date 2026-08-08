@@ -8,6 +8,12 @@
 [![NetworkX](https://img.shields.io/badge/NetworkX-Property--Graph-green.svg)](https://networkx.org)
 [![License](https://img.shields.io/badge/License-Apache_2.0-lightgrey.svg)](LICENSE)
 
+<br>
+<div align="center">
+  <img src="docs/images/knowledge_graph_dashboard.png" alt="Comeback Helper Visual Knowledge Graph Dashboard" width="850"/>
+  <p><i>Interactive Visual Knowledge Graph Dashboard showing entity prerequisite links, course nodes, and math concepts.</i></p>
+</div>
+
 ---
 
 ## Architecture
