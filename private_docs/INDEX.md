@@ -1,23 +1,22 @@
 # 🔒 Private Documentation Index
 
-This directory contains internal technical documentation, deep-dive architectural specifications, computer vision pipeline details, and system integration test reports.
+This directory contains internal technical documentation, deep-dive architectural specifications, computer vision pipeline details, and system integration test reports for **Comeback Helper v2.4.0**.
 
 ---
 
 ## 📑 Core Deep-Dive Documents
 
 1. [**`ARCHITECTURE_DEEP_DIVE.md`**](./ARCHITECTURE_DEEP_DIVE.md)
-   - End-to-end system architecture, data flow diagrams, module responsibilities, Pydantic schemas, and FastAPI singletons context lifecycle.
+   - End-to-end system architecture, single-process FastAPI data flow, module responsibilities, 2-Pass Pydantic graph schemas, singletons context lifecycle, and Vis.js real-time graph layout controls.
 
 2. [**`HANDWRITING_VLM_PIPELINE.md`**](./HANDWRITING_VLM_PIPELINE.md)
-   - Detailed breakdown of the 4-Station Local VLM Pipeline for handwritten STEM notes.
-   - Red channel color space extraction for ruling line erasure.
-   - Resolution downscaling and memory footprint tuning for consumer 4GB VRAM GPUs (NVIDIA GTX 1650).
+   - Detailed breakdown of 3-page multi-image OCR batching + 4s pacing delay in Gemini Vision.
+   - Breakdown of the 4-Station Local VLM Pipeline for handwritten STEM notes (OpenCV Red Channel thresholding & Ollama Qwen2.5-VL tuning).
 
 3. [**`HYBRID_RAG_AND_GRAPH.md`**](./HYBRID_RAG_AND_GRAPH.md)
    - Math-aware Markdown chunking algorithm protecting `$$...$$` blocks.
-   - Serverless LanceDB vector database integration and GPU FastEmbed model configuration.
-   - Instructor + Pydantic PropertyGraph extraction and embedding-based semantic node matching.
+   - LanceDB serverless vector database with native BM25 full-text search (FTS) and table corruption auto-recovery.
+   - Decoupled 2-Pass PropertyGraph extraction (`MathNodeExtraction` $\rightarrow$ `MathEdgeExtraction`) and candidate model synthesis fallback loop.
 
 ---
 
