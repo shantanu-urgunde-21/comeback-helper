@@ -240,7 +240,7 @@
                     </div>
                 </header>
 
-                <!-- Graph Filter Controls -->
+                <!-- Graph Filter & Customization Controls -->
                 <div class="graph-filters" id="graph-filters">
                     <div class="filter-group">
                         <span class="filter-label">Filter by Type:</span>
@@ -258,6 +258,51 @@
                         </select>
                     </div>
                 </div>
+
+                <!-- Runtime Graph Physics & Layout Customization Panel -->
+                <details class="settings-panel" id="graph-layout-settings" style="margin-bottom: 1rem;">
+                    <summary class="settings-toggle">⚙️ Graph Layout & Decluttering Controls</summary>
+                    <div class="settings-grid">
+                        <div class="setting-item">
+                            <label for="graph-layout-solver">Layout Solver</label>
+                            <select id="graph-layout-solver" class="custom-select custom-select-sm">
+                                <option value="barnesHut" selected>Barnes-Hut (Organic Clusters)</option>
+                                <option value="forceAtlas2Based">Force-Atlas 2 (Spread Out)</option>
+                                <option value="hierarchical">Hierarchical (Dependency Tree)</option>
+                            </select>
+                        </div>
+                        <div class="setting-item">
+                            <label for="graph-spring-length">Node Separation / Spring Distance</label>
+                            <div class="slider-row">
+                                <input type="range" id="graph-spring-length" min="80" max="350" value="180" class="range-slider">
+                                <span id="graph-spring-val" class="slider-value">180px</span>
+                            </div>
+                        </div>
+                        <div class="setting-item">
+                            <label for="graph-node-scale">Node Size</label>
+                            <div class="slider-row">
+                                <input type="range" id="graph-node-scale" min="10" max="35" value="18" class="range-slider">
+                                <span id="graph-node-scale-val" class="slider-value">18px</span>
+                            </div>
+                        </div>
+                        <div class="setting-item">
+                            <label for="graph-edge-labels">Show Edge Labels</label>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="graph-edge-labels" checked>
+                                <span class="toggle-slider"></span>
+                                <span class="toggle-label" id="edge-label-status">Visible</span>
+                            </label>
+                        </div>
+                        <div class="setting-item">
+                            <label for="graph-physics-toggle">Physics Simulation</label>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="graph-physics-toggle" checked>
+                                <span class="toggle-slider"></span>
+                                <span class="toggle-label" id="physics-toggle-status">Active</span>
+                            </label>
+                        </div>
+                    </div>
+                </details>
 
                 <div class="graph-container">
                     <div id="vis-graph-canvas" class="graph-canvas"></div>

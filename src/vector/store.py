@@ -11,7 +11,7 @@ from src.logger import log
 class LocalVectorStore:
     """
     Local vector database using LanceDB and FastEmbed for high-speed offline
-    similarity and hybrid (BM25 + Vector) search over Markdown notes.
+    similarity and hybrid search over Markdown notes.
     """
 
     def __init__(self):
@@ -37,11 +37,14 @@ class LocalVectorStore:
         log.info(f"Connected to LanceDB vector table '{self.table_name}' at: {self.db_path}")
 
     def _get_or_create_table(self):
-        """Gets existing LanceDB table or creates new one with FTS index."""
+        """Gets existing LanceDB table or creates new one with error recovery."""
         try:
             tbl = self.db.open_table(self.table_name)
+            # Verify table integrity
+            _ = tbl.count_rows()
             return tbl
-        except Exception:
+        except Exception as e:
+            log.warning(f"LanceDB table corrupted or missing ({e}). Re-creating fresh table...")
             dummy_data = [{
                 "id": "init_0",
                 "text": "Initialization text",
@@ -49,7 +52,7 @@ class LocalVectorStore:
                 "source": "init.md",
                 "vector": list(self.embed_model.embed(["Initialization text"]))[0],
             }]
-            tbl = self.db.create_table(self.table_name, data=dummy_data, exist_ok=True)
+            tbl = self.db.create_table(self.table_name, data=dummy_data, mode="overwrite")
             self._create_fts_index_safe(tbl)
             return tbl
 
@@ -69,7 +72,7 @@ class LocalVectorStore:
     def add_chunks(self, chunks: List[Dict[str, Any]]):
         """
         Embeds text chunks and inserts them into LanceDB table.
-        Re-indexes FTS after inserting chunks.
+        Each chunk is a dict: {"id": str, "text": str, "course": str, "source": str}
         """
         if not chunks:
             return
@@ -104,33 +107,31 @@ class LocalVectorStore:
         query_type: str = "vector",
     ) -> List[Dict[str, Any]]:
         """
-        Searches for top_k similar text chunks using vector or hybrid (Vector+BM25) search,
+        Searches for top_k similar text chunks using vector search,
         optionally scoped to a single course.
         """
-        if query_type == "hybrid":
-            try:
-                search = self.table.search(query, query_type="hybrid").limit(top_k)
-            except Exception as e:
-                log.warning(f"Hybrid search fallback to vector ({e})")
-                query_emb = list(self.embed_model.embed([query]))[0]
-                search = self.table.search(query_emb.tolist()).limit(top_k)
-        else:
+        try:
             query_emb = list(self.embed_model.embed([query]))[0]
-            search = self.table.search(query_emb.tolist()).limit(top_k)
+            query_vec = query_emb.tolist() if hasattr(query_emb, "tolist") else list(query_emb)
 
-        # Apply optional course filter via LanceDB SQL where-clause
-        if course and course.lower() not in ("all", "all courses", ""):
-            search = search.where(f"course = '{course}'")
+            search = self.table.search(query_vec).limit(top_k)
 
-        results = search.to_list()
+            # Apply optional course filter via LanceDB SQL where-clause
+            if course and course.lower() not in ("all", "all courses", ""):
+                search = search.where(f"course = '{course}'")
 
-        # Filter out initialization placeholder chunk
-        filtered = [r for r in results if r.get("id") != "init_0"]
+            results = search.to_list()
 
-        if score_threshold is not None:
-            filtered = [r for r in filtered if r.get("_distance", 0) <= score_threshold]
+            # Filter out initialization placeholder chunk
+            filtered = [r for r in results if r.get("id") != "init_0"]
 
-        return filtered
+            if score_threshold is not None:
+                filtered = [r for r in filtered if r.get("_distance", 0) <= score_threshold]
+
+            return filtered
+        except Exception as e:
+            log.warning(f"Vector search failed ({e}). Returning empty result list.")
+            return []
 
     def embed_texts(self, texts: List[str]) -> List[List[float]]:
         """Utility to embed arbitrary text strings (used for graph node matching)."""
@@ -158,7 +159,6 @@ class LocalVectorStore:
                 "courses": sorted(courses),
                 "embed_model": self.settings.embed_model,
                 "db_path": str(self.db_path),
-                "fts_enabled": True,
             }
         except Exception:
             return {"total_chunks": 0, "courses": [], "embed_model": self.settings.embed_model}

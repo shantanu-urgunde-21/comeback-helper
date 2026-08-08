@@ -2,6 +2,28 @@
 
 All notable changes, refactorings, and architectural improvements to **Comeback Helper** are documented in this file.
 
+## [2.4.0] - 2026-08-08 (Real-Time Graph Layout Controls & Decluttering Suite)
+
+### 🚀 Highlights
+- **Real-Time Graph Customization Toolbar**: Added interactive runtime layout controls to `static/index.html` and `static/app.js`:
+  - **Layout Solver Selector**: Dynamically switch between `Barnes-Hut` (organic clusters), `Force-Atlas 2` (spread out large graphs), and `Hierarchical` (top-down prerequisite tree layout).
+  - **Node Separation Slider (80px – 350px)**: Adjust spring distance at runtime to declutter tight node clusters.
+  - **Show/Hide Edge Labels Toggle**: Instantly hide relationship labels (`DEPENDS_ON`, `PROVES`) to eliminate visual line clutter.
+  - **Physics Simulation Toggle**: Freeze physics simulation at any time to stabilize node positions.
+  - **Node Scale Slider (10px – 35px)**: Adjust node bubble sizing in real time.
+- **Multi-Page Image Batching (3 Pages per Call)**: Batched OCR processing in `GeminiOCRProvider` with 4s pacing delay.
+
+---
+
+## [2.3.1] - 2026-08-08 (Multi-Page OCR Batching & Rate-Limit Pacing)
+
+### 🚀 Highlights
+- **Multi-Page Image Batching (3 Pages per API Call)**: Implemented batched OCR processing (`process_images_batch`) in `GeminiOCRProvider` (`src/ingestion/gemini_ocr.py`). Sends 3 consecutive page images per Gemini API call, reducing overall API calls by 66%.
+- **Rate-Limit Pacing Delay (4s Pacing)**: Applied an automatic 4-second pacing delay between batch API calls. Eliminates the 12-15 page `429 RESOURCE_EXHAUSTED` rate-limit ceiling.
+- **Robust 429 Quota Retry Backoff**: Automatically parses Gemini `Retry-After` delay headers and pauses execution before retrying, preventing process crashes during heavy PDF ingestions.
+
+---
+
 ## [2.3.0] - 2026-08-08 (Decoupled 2-Pass Graph Extraction & Architecture Consolidation)
 
 ### 🚀 Highlights

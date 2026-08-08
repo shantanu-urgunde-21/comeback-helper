@@ -102,18 +102,30 @@ class IngestionPipeline:
             except Exception as e:
                 log.warning(f"Direct PDF processing failed ({e}). Falling back to page-by-page image rendering...")
 
-        # Incremental processing and real-time append (Gemini / LightOnOCR fallbacks)
         images = self.pdf_to_images(pdf_path)
         total_pages = len(images)
-        log.info(f"Processing {total_pages} pages incrementally via {self.ocr_provider.__class__.__name__}...")
+        log.info(f"Processing {total_pages} pages via {self.ocr_provider.__class__.__name__}...")
 
         with open(target_path, "a", encoding="utf-8") as f:
-            for idx, img in enumerate(images, start=1):
-                log.info(f"Processing page {idx}/{total_pages}...")
-                page_md = self.ocr_provider.process_image(img)
-                f.write(f"<!-- Page {idx} -->\n{page_md}\n\n")
-                f.flush()
-                log.info(f"Page {idx}/{total_pages} saved to vault note.")
+            if hasattr(self.ocr_provider, "process_images_batch"):
+                try:
+                    batched_chunks = self.ocr_provider.process_images_batch(images, batch_size=3, delay_sec=4.0)
+                    for chunk_md in batched_chunks:
+                        f.write(f"{chunk_md}\n\n")
+                        f.flush()
+                except Exception as e:
+                    log.warning(f"Batch processing failed ({e}). Falling back to single-page iteration...")
+                    for idx, img in enumerate(images, start=1):
+                        page_md = self.ocr_provider.process_image(img)
+                        f.write(f"<!-- Page {idx} -->\n{page_md}\n\n")
+                        f.flush()
+            else:
+                for idx, img in enumerate(images, start=1):
+                    log.info(f"Processing page {idx}/{total_pages}...")
+                    page_md = self.ocr_provider.process_image(img)
+                    f.write(f"<!-- Page {idx} -->\n{page_md}\n\n")
+                    f.flush()
+                    log.info(f"Page {idx}/{total_pages} saved to vault note.")
 
         if hasattr(self.ocr_provider, "unload_model"):
             self.ocr_provider.unload_model()

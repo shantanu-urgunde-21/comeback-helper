@@ -289,13 +289,63 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnRefreshGraph = document.getElementById('btn-refresh-graph');
     if (btnRefreshGraph) btnRefreshGraph.addEventListener('click', loadKnowledgeGraph);
 
-    // Attach filter listeners
+    // Attach filter & runtime customization listeners
     document.querySelectorAll('.graph-type-filter').forEach(cb => {
         cb.addEventListener('change', () => { if (currentGraphData) renderGraphWithFilters(); });
     });
     const graphCourseFilter = document.getElementById('graph-course-filter');
     if (graphCourseFilter) {
         graphCourseFilter.addEventListener('change', () => { if (currentGraphData) renderGraphWithFilters(); });
+    }
+
+    // Runtime layout & physics customization listeners
+    const sliderSpringLength = document.getElementById('graph-spring-length');
+    const sliderSpringVal    = document.getElementById('graph-spring-val');
+    const sliderNodeScale    = document.getElementById('graph-node-scale');
+    const sliderNodeScaleVal = document.getElementById('graph-node-scale-val');
+    const selectLayoutSolver = document.getElementById('graph-layout-solver');
+    const toggleEdgeLabels   = document.getElementById('graph-edge-labels');
+    const togglePhysics      = document.getElementById('graph-physics-toggle');
+
+    if (sliderSpringLength) {
+        sliderSpringLength.addEventListener('input', (e) => {
+            const val = parseInt(e.target.value);
+            if (sliderSpringVal) sliderSpringVal.textContent = `${val}px`;
+            updateGraphRuntimeOptions();
+        });
+    }
+
+    if (sliderNodeScale) {
+        sliderNodeScale.addEventListener('input', (e) => {
+            const val = parseInt(e.target.value);
+            if (sliderNodeScaleVal) sliderNodeScaleVal.textContent = `${val}px`;
+            if (currentGraphData) renderGraphWithFilters();
+        });
+    }
+
+    if (selectLayoutSolver) {
+        selectLayoutSolver.addEventListener('change', () => {
+            if (currentGraphData) renderGraphWithFilters();
+        });
+    }
+
+    if (toggleEdgeLabels) {
+        toggleEdgeLabels.addEventListener('change', (e) => {
+            const status = document.getElementById('edge-label-status');
+            if (status) status.textContent = e.target.checked ? 'Visible' : 'Hidden';
+            if (currentGraphData) renderGraphWithFilters();
+        });
+    }
+
+    if (togglePhysics) {
+        togglePhysics.addEventListener('change', (e) => {
+            const status = document.getElementById('physics-toggle-status');
+            const active = e.target.checked;
+            if (status) status.textContent = active ? 'Active' : 'Frozen';
+            if (graphNetwork) {
+                graphNetwork.setOptions({ physics: { enabled: active } });
+            }
+        });
     }
 
     let currentGraphData = null;
@@ -314,16 +364,50 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function updateGraphRuntimeOptions() {
+        if (!graphNetwork) return;
+
+        const solver = document.getElementById('graph-layout-solver')?.value || 'barnesHut';
+        const springLength = parseInt(document.getElementById('graph-spring-length')?.value || '180');
+        const physicsEnabled = document.getElementById('graph-physics-toggle')?.checked ?? true;
+
+        let physicsConfig = { enabled: physicsEnabled };
+
+        if (solver === 'barnesHut') {
+            physicsConfig.solver = 'barnesHut';
+            physicsConfig.barnesHut = {
+                gravitationalConstant: -7000,
+                centralGravity: 0.2,
+                springLength: springLength,
+                springConstant: 0.04,
+                damping: 0.09
+            };
+        } else if (solver === 'forceAtlas2Based') {
+            physicsConfig.solver = 'forceAtlas2Based';
+            physicsConfig.forceAtlas2Based = {
+                gravitationalConstant: -50,
+                centralGravity: 0.01,
+                springLength: springLength,
+                springConstant: 0.08
+            };
+        }
+
+        graphNetwork.setOptions({ physics: physicsConfig });
+    }
+
     function renderGraphWithFilters() {
         const container = document.getElementById('vis-graph-canvas');
         if (!container || !currentGraphData) return;
 
-        // Gather active type filters
         const activeTypes = new Set();
         document.querySelectorAll('.graph-type-filter:checked').forEach(cb => activeTypes.add(cb.value));
         const courseFilter = document.getElementById('graph-course-filter')?.value || '';
+        const solver = document.getElementById('graph-layout-solver')?.value || 'barnesHut';
+        const springLength = parseInt(document.getElementById('graph-spring-length')?.value || '180');
+        const baseNodeSize = parseInt(document.getElementById('graph-node-scale')?.value || '18');
+        const showEdgeLabels = document.getElementById('graph-edge-labels')?.checked ?? true;
+        const physicsEnabled = document.getElementById('graph-physics-toggle')?.checked ?? true;
 
-        // Filter nodes
         const filteredNodes = currentGraphData.nodes.filter(n => {
             if (!activeTypes.has(n.type || 'Concept')) return false;
             if (courseFilter && n.group !== courseFilter && n.group !== 'Concept') return false;
@@ -331,7 +415,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         const nodeIds = new Set(filteredNodes.map(n => n.id));
 
-        // Filter edges to only include visible nodes
         const filteredEdges = currentGraphData.edges.filter(e => nodeIds.has(e.from) && nodeIds.has(e.to));
 
         const domainColors = {
@@ -358,6 +441,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const fillColor = domainColors[domain] || '#6366f1';
             const borderColor = roleBorderColors[role] || '#94a3b8';
             const borderWidth = role === 'Theorem' ? 4 : (role === 'Definition' ? 3 : 2);
+            const nodeSize = role === 'Note' ? Math.round(baseNodeSize * 1.3) : baseNodeSize;
 
             return {
                 id: n.id,
@@ -370,7 +454,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 borderWidth: borderWidth,
                 font: { color: '#ffffff', face: 'Inter', size: 13 },
                 shape: 'dot',
-                size: role === 'Note' ? 24 : 17,
+                size: nodeSize,
                 title: `[${role}] ${n.label || n.id}\nDomain: ${domain}`
             };
         });
@@ -378,8 +462,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const edgesArray = filteredEdges.map(e => ({
             from: e.from,
             to: e.to,
-            label: e.label !== 'links_to' ? e.label : undefined,
-            color: { color: '#3b82f6', opacity: 0.5 },
+            label: showEdgeLabels && e.label !== 'links_to' ? e.label : undefined,
+            color: { color: '#3b82f6', opacity: 0.45 },
             arrows: 'to',
             font: { color: '#9ca3af', size: 10, face: 'Inter', strokeWidth: 0 }
         }));
@@ -389,12 +473,45 @@ document.addEventListener('DOMContentLoaded', () => {
             edges: new vis.DataSet(edgesArray)
         };
 
-        const options = {
-            physics: {
-                barnesHut: { gravitationalConstant: -3000, centralGravity: 0.3, springLength: 95 }
-            },
-            interaction: { hover: true, tooltipDelay: 200 }
+        let options = {
+            interaction: { hover: true, tooltipDelay: 150 },
+            physics: { enabled: physicsEnabled }
         };
+
+        if (solver === 'hierarchical') {
+            options.layout = {
+                hierarchical: {
+                    direction: 'UD',
+                    sortMethod: 'directed',
+                    nodeSpacing: springLength,
+                    levelSeparation: 120
+                }
+            };
+            options.physics = { enabled: false };
+        } else if (solver === 'forceAtlas2Based') {
+            options.physics = {
+                enabled: physicsEnabled,
+                solver: 'forceAtlas2Based',
+                forceAtlas2Based: {
+                    gravitationalConstant: -50,
+                    centralGravity: 0.01,
+                    springLength: springLength,
+                    springConstant: 0.08
+                }
+            };
+        } else {
+            options.physics = {
+                enabled: physicsEnabled,
+                solver: 'barnesHut',
+                barnesHut: {
+                    gravitationalConstant: -7000,
+                    centralGravity: 0.2,
+                    springLength: springLength,
+                    springConstant: 0.04,
+                    damping: 0.09
+                }
+            };
+        }
 
         graphNetwork = new vis.Network(container, networkData, options);
     }

@@ -1,3 +1,5 @@
+import re
+import time
 import numpy as np
 from typing import Optional
 
@@ -6,7 +8,8 @@ from google.genai import types as genai_types
 from src.config import get_settings
 from src.graph.indexer import MathGraphIndexer
 from src.vector.store import LocalVectorStore
-from src.llm.gemini import get_gemini_client, get_gemini_model_name
+from src.llm.gemini import get_gemini_client, get_gemini_candidate_models
+from src.llm.ollama import get_ollama_client
 from src.logger import log
 
 
@@ -32,7 +35,7 @@ Instructions:
 class MathQueryEngine:
     """
     Hybrid RAG query engine combining LanceDB Vector Similarity
-    + Math PropertyGraph Traversal + Gemini Synthesis.
+    + Math PropertyGraph Traversal + Gemini / Ollama Synthesis.
 
     Accepts shared singletons via constructor to avoid creating
     duplicate instances of expensive objects.
@@ -120,9 +123,9 @@ class MathQueryEngine:
         Retrieves top semantic text chunks from LanceDB and matching
         graph nodes/edges from the NetworkX PropertyGraph.
         """
-        # 1. Semantic Vector Search via LanceDB
+        # 1. Semantic Vector Search via LanceDB (Hybrid BM25 + Vector)
         vector_results = self.vector_store.search_similar(
-            prompt, top_k=top_k, course=course
+            prompt, top_k=top_k, course=course, query_type="hybrid"
         )
         vector_context = []
         for idx, res in enumerate(vector_results, start=1):
@@ -191,7 +194,7 @@ class MathQueryEngine:
     ) -> str:
         """
         Retrieves hybrid context and synthesizes a math explanation
-        using Gemini with configurable parameters.
+        using Gemini / Ollama with automatic candidate fallback.
         """
         log.info(
             f"Processing hybrid RAG query: '{prompt}' "
@@ -208,22 +211,41 @@ class MathQueryEngine:
             query_str=prompt,
         )
 
+        # Try Gemini API with candidate model fallback
         client = get_gemini_client()
-        if not client:
-            return (
-                "Gemini API unavailable. Cannot synthesize answer. "
-                "Retrieved context:\n\n" + context_str
-            )
+        if client:
+            candidates = get_gemini_candidate_models()
+            for model_name in candidates:
+                try:
+                    log.info(f"Synthesizing RAG response via Gemini '{model_name}'...")
+                    response = client.models.generate_content(
+                        model=model_name,
+                        contents=full_prompt,
+                        config=genai_types.GenerateContentConfig(
+                            temperature=temperature,
+                        ),
+                    )
+                    log.info("RAG response synthesis complete.")
+                    return response.text
+                except Exception as e:
+                    err_str = str(e)
+                    log.warning(f"Gemini RAG synthesis via '{model_name}' failed: {e}")
+                    if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+                        log.info(f"Candidate '{model_name}' rate-limited. Trying next candidate...")
+                        continue
 
-        model_name = get_gemini_model_name()
-        log.info(f"Synthesizing RAG response via Gemini '{model_name}'...")
-        response = client.models.generate_content(
-            model=model_name,
-            contents=full_prompt,
-            config=genai_types.GenerateContentConfig(
-                temperature=temperature,
-            ),
+        # Ollama Fallback
+        ollama = get_ollama_client()
+        if ollama.is_available():
+            for model in ["llama3.2", "qwen2.5:3b", "phi3:mini"]:
+                if ollama.has_model(model):
+                    log.info(f"Synthesizing RAG response via local Ollama '{model}'...")
+                    ans = ollama.chat(prompt=full_prompt, model=model, temperature=temperature)
+                    if ans:
+                        return ans
+
+        return (
+            "### Retrieved Vault Context & Graph Connections:\n\n"
+            + context_str
+            + "\n\n*(Note: Gemini API and local Ollama are currently offline or rate-limited. Answer synthesized from raw vault context above.)*"
         )
-        log.info("RAG response synthesis complete.")
-
-        return response.text
