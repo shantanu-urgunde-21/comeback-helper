@@ -1,5 +1,11 @@
 # Knowledge Graph Architecture Redesign & Implementation Specification
 
+> [!NOTE]
+> **Partially superseded by [`ATLAS_DESIGN.md`](./ATLAS_DESIGN.md) (2026-08-12).**
+> Tasks 1, 2 and 4 below are implemented; Task 3 (provenance inspector) is not.
+> `ATLAS_DESIGN.md` revisits the schema and visual model with prior-art research,
+> and replaces the node/edge specifications given here.
+
 ## Executive Overview
 
 This document specifies the technical design, ontologies, schemas, algorithms, and task roadmap to upgrade the **Comeback Helper Knowledge Graph System**. 

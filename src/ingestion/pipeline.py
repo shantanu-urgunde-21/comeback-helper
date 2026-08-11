@@ -20,15 +20,9 @@ class IngestionPipeline:
             self.ocr_provider = ocr_provider
         else:
             provider_type = self.settings.ocr_provider.lower()
-            if provider_type == "marker":
-                from src.ingestion.marker_provider import MarkerOCRProvider
-                self.ocr_provider = MarkerOCRProvider()
-            elif provider_type == "handwriting":
+            if provider_type == "handwriting":
                 from src.ingestion.handwriting_provider import HandwritingOCRProvider
                 self.ocr_provider = HandwritingOCRProvider()
-            elif provider_type == "local":
-                from src.ingestion.local_ocr import LightOnOCRProvider
-                self.ocr_provider = LightOnOCRProvider()
             else:
                 self.ocr_provider = GeminiOCRProvider()
         

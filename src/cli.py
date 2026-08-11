@@ -49,78 +49,106 @@ def query(prompt: str, course: str | None):
         sys.exit(1)
 
 
-@main.command(name="graph-stats")
-def graph_stats():
-    """Display comprehensive health telemetry and statistics for the Knowledge Graph."""
+@main.command(name="atlas-stats")
+def atlas_stats():
+    """Show atlas telemetry: lattice size, statements per context, validation state."""
     try:
-        from src.graph.indexer import MathGraphIndexer
-        indexer = MathGraphIndexer()
-        G = indexer.graph
+        from src.atlas.store import AtlasStore
+        from src.atlas import validate
 
-        table = Table(title="Math Knowledge Graph Telemetry")
+        store = AtlasStore()
+        s = store.stats()
+
+        table = Table(title="Atlas Telemetry")
         table.add_column("Metric", style="cyan")
         table.add_column("Value", style="bold green")
+        table.add_row("Contexts (lattice)", str(s["contexts"]))
+        table.add_row("Contexts populated", f"{s['contexts_used']} / {s['contexts']}")
+        table.add_row("Statements", str(s["statements"]))
+        table.add_row("Terms", str(s["terms"]))
+        table.add_row("Witnesses", str(s["witnesses"]))
+        table.add_row("By status", ", ".join(f"{k}({v})" for k, v in s["by_status"].items()) or "-")
 
-        table.add_row("Total Nodes", str(G.number_of_nodes()))
-        table.add_row("Total Edges", str(G.number_of_edges()))
+        findings = validate.check(store)
+        v = validate.summarise(findings)
+        table.add_row("Validation", f"{v['errors']} errors, {v['warnings']} warnings")
+        console.print(table)
 
-        if G.number_of_nodes() > 0:
-            undirected = G.to_undirected()
-            num_cc = nx.number_connected_components(undirected)
-            isolates = len(list(nx.isolates(G)))
-            table.add_row("Connected Components", f"{num_cc} [Warning]" if num_cc > 1 else f"{num_cc} [OK]")
-            table.add_row("Isolated Nodes", f"{isolates} [Warning]" if isolates > 0 else f"{isolates} [OK]")
+        if s["top_contexts"]:
+            busiest = Table(title="Busiest contexts")
+            busiest.add_column("Context", style="cyan")
+            busiest.add_column("Statements", style="bold green")
+            for cid, n in s["top_contexts"]:
+                busiest.add_row(cid, str(n))
+            console.print(busiest)
+    except Exception as e:
+        console.print(f"[bold red]Atlas Stats Error:[/bold red] {e}")
+        sys.exit(1)
 
-            # Entity type distribution
-            types_count = {}
-            for _, data in G.nodes(data=True):
-                etype = data.get("entity_type", "Concept")
-                types_count[etype] = types_count.get(etype, 0) + 1
-            types_str = ", ".join([f"{k}({v})" for k, v in types_count.items()])
-            table.add_row("Entity Types", types_str)
 
+@main.command(name="atlas-index")
+@click.option("--note", "-n", type=click.Path(exists=True), help="Index a single note")
+@click.option("--rebuild", is_flag=True, help="Discard the atlas and re-extract everything")
+def atlas_index(note: str | None, rebuild: bool):
+    """Extract statements from vault notes and index them against the context lattice."""
+    try:
+        from src.atlas.index import index_vault, _print
+        _print(index_vault(note=Path(note) if note else None, rebuild=rebuild))
+    except Exception as e:
+        console.print(f"[bold red]Atlas Index Error:[/bold red] {e}")
+        sys.exit(1)
+
+
+@main.command(name="ladder")
+@click.argument("slogan")
+def ladder(slogan: str):
+    """Show a generalisation ladder: one result across the context lattice."""
+    try:
+        from src.atlas.store import AtlasStore
+        store = AtlasStore()
+        rungs = store.ladder(slogan)
+        if not rungs:
+            console.print(f"[yellow]No statements matching '{slogan}'.[/yellow]")
+            return
+        table = Table(title=f"Ladder — '{slogan}'")
+        table.add_column("Depth", style="dim", justify="right")
+        table.add_column("Context", style="cyan")
+        table.add_column("Status", style="bold")
+        table.add_column("Slogan")
+        for st in rungs:
+            colour = {"THEOREM": "green", "FALSE": "red"}.get(st.status.value, "yellow")
+            table.add_row(str(store.depth(st.context)), st.context,
+                          f"[{colour}]{st.status.value}[/{colour}]", st.slogan[:70])
         console.print(table)
     except Exception as e:
-        console.print(f"[bold red]Graph Stats Error:[/bold red] {e}")
+        console.print(f"[bold red]Ladder Error:[/bold red] {e}")
         sys.exit(1)
 
 
-@main.command(name="graph-preview")
-@click.option("--note", "-n", required=True, type=click.Path(exists=True), help="Path to markdown note")
-def graph_preview(note: str):
-    """Dry-run 3-tier entity extraction on a single Markdown note without modifying index."""
-    note_path = Path(note)
-    console.print(f"[bold cyan]Running dry-run extraction on:[/bold cyan] {note_path.name}")
+@main.command(name="atlas-check")
+def atlas_check():
+    """Run the validation gates and list every finding."""
     try:
-        from src.graph.indexer import MathGraphIndexer
-        indexer = MathGraphIndexer()
-        content = note_path.read_text(encoding="utf-8")
-        extraction = indexer.extract_from_text(content, use_llm=True, course_domain="Differential Equations")
-
-        console.print(f"[bold green]Extracted {len(extraction.nodes)} Nodes:[/bold green]")
-        for n in extraction.nodes:
-            console.print(f" • [{n.entity_type}] [bold]{n.name}[/bold] — {n.description[:80]}")
-
-        console.print(f"\n[bold green]Extracted {len(extraction.edges)} Edges:[/bold green]")
-        for e in extraction.edges:
-            console.print(f" • {e.source} --[{e.relation}]--> {e.target}")
+        from src.atlas.store import AtlasStore
+        from src.atlas import validate
+        store = AtlasStore()
+        findings = validate.check(store)
+        if not findings:
+            console.print("[bold green]All gates passed.[/bold green]")
+            return
+        table = Table(title="Validation findings")
+        table.add_column("Gate", style="cyan")
+        table.add_column("Sev")
+        table.add_column("Statement", style="dim")
+        table.add_column("Detail")
+        for f in findings[:60]:
+            colour = "red" if f["severity"] == "error" else "yellow"
+            table.add_row(f["gate"], f"[{colour}]{f['severity']}[/{colour}]",
+                          f["statement"][:34], f["detail"][:70])
+        console.print(table)
+        console.print(validate.summarise(findings))
     except Exception as e:
-        console.print(f"[bold red]Graph Preview Error:[/bold red] {e}")
-        sys.exit(1)
-
-
-@main.command(name="rebuild-graph")
-@click.option("--use-llm/--no-llm", default=True, help="Whether to use LLM for extraction (default: True)")
-def rebuild_graph(use_llm: bool):
-    """Rebuild knowledge graph index for all Markdown notes in Obsidian vault."""
-    console.print(f"[bold cyan]Rebuilding Knowledge Graph (use_llm={use_llm})...[/bold cyan]")
-    try:
-        from src.graph.indexer import MathGraphIndexer
-        indexer = MathGraphIndexer()
-        G = indexer.build_or_update_index(use_llm=use_llm, force=True)
-        console.print(Panel(f"[bold green]Graph Rebuild Complete![/bold green]\nTotal Nodes: {G.number_of_nodes()}\nTotal Edges: {G.number_of_edges()}", title="Rebuild Success"))
-    except Exception as e:
-        console.print(f"[bold red]Rebuild Error:[/bold red] {e}")
+        console.print(f"[bold red]Atlas Check Error:[/bold red] {e}")
         sys.exit(1)
 
 

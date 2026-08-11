@@ -24,20 +24,18 @@ from src.logger import log
 async def lifespan(app: FastAPI):
     """Create heavy singletons once at startup, sharing dependencies."""
     from src.retrieval.engine import MathQueryEngine
-    from src.graph.indexer import MathGraphIndexer
+    from src.atlas.store import AtlasStore
     from src.vector.store import LocalVectorStore
 
     log.info("Initializing app-scoped singletons...")
 
-    # Create in dependency order: vector store → indexer → query engine
+    # Create in dependency order: vector store -> atlas -> query engine
     vector_store = LocalVectorStore()
-    graph_indexer = MathGraphIndexer(vector_store=vector_store)
-    query_engine = MathQueryEngine(
-        graph_indexer=graph_indexer, vector_store=vector_store
-    )
+    atlas = AtlasStore()
+    query_engine = MathQueryEngine(atlas=atlas, vector_store=vector_store)
 
     app.state.vector_store = vector_store
-    app.state.graph_indexer = graph_indexer
+    app.state.atlas = atlas
     app.state.query_engine = query_engine
 
     log.info("Singletons ready.")
@@ -149,18 +147,21 @@ async def ingest_pdf(
         index_results = {"graph_indexed": False, "vector_chunks": 0}
 
         if auto_index:
-            graph_indexer = app.state.graph_indexer
+            atlas = app.state.atlas
             vector_store = app.state.vector_store
 
             try:
-                graph_indexer.index_note(target_note_path, use_llm=True)
-                graph_indexer.save_graph()
+                from src.atlas.extract import extract_note
+                stmts, terms, _ = extract_note(target_note_path, atlas)
+                atlas.add_terms(terms)
+                atlas.add_statements(stmts)
+                atlas.save()
                 index_results["graph_indexed"] = True
-                log.info(f"Graph index updated with note: {target_note_path.name}")
-                # Refresh semantic node embeddings in the query engine
+                index_results["statements"] = len(stmts)
+                log.info(f"Atlas updated with {len(stmts)} statements from {target_note_path.name}")
                 app.state.query_engine.refresh_node_embeddings()
             except Exception as e:
-                log.warning(f"Graph indexing skipped for {target_note_path.name}: {e}")
+                log.warning(f"Atlas indexing skipped for {target_note_path.name}: {e}")
 
             try:
                 note_content = target_note_path.read_text(encoding="utf-8")
@@ -267,62 +268,93 @@ async def get_vault_notes():
 @app.get("/api/graph")
 async def get_graph_data():
     """
-    Returns nodes and edges from the MathGraphIndexer or Obsidian
-    Vault wikilinks as a fallback.
+    Returns the atlas as nodes and edges: the context lattice plus every
+    statement indexed against it.
+
+    `extends` is the order relation and drives vertical position; `over` is
+    parameterisation and is deliberately excluded from depth.
     """
-    settings = get_settings()
-    graph_file = settings.storage_path / "graph.json"
+    atlas = app.state.atlas
 
-    if graph_file.exists():
-        try:
-            data = json.loads(graph_file.read_text(encoding="utf-8"))
-            if data.get("nodes"):
-                return JSONResponse(data)
-        except Exception:
-            pass
+    nodes = [
+        {
+            "id": cid,
+            "label": c.get("name", cid),
+            "group": c.get("course", "context"),
+            "type": "Context",
+            "extends": c.get("extends", []),
+            "over": c.get("over", []),
+        }
+        for cid, c in atlas.contexts.items()
+    ]
+    edges = [
+        {"from": cid, "to": p, "relation": "EXTENDS", "label": "extends"}
+        for cid, ps in atlas.extends.items() for p in ps if p in atlas.contexts
+    ] + [
+        {"from": cid, "to": p, "relation": "OVER", "label": "over"}
+        for cid, ps in atlas.over.items() for p in ps if p in atlas.contexts
+    ]
 
-    manager = ObsidianVaultManager(settings.vault_path)
-    notes = manager.get_all_notes()
-
-    nodes: list[dict] = []
-    edges: list[dict] = []
-    node_set: set[str] = set()
-
-    for note in notes:
-        node_id = note.stem
-        if node_id not in node_set:
-            node_set.add(node_id)
-            course_group = (
-                note.parent.name
-                if note.parent != settings.vault_path
-                else "General"
-            )
-            nodes.append({
-                "id": node_id,
-                "label": node_id,
-                "group": course_group,
-                "type": "Note",
-            })
-
-        content = note.read_text(encoding="utf-8", errors="ignore")
-        wikilinks = manager.extract_wikilinks(content)
-        for link in wikilinks:
-            link_target = Path(link).stem
-            if link_target not in node_set:
-                node_set.add(link_target)
-                nodes.append({
-                    "id": link_target,
-                    "label": link_target,
-                    "group": "Concept",
-                    "type": "Concept",
-                })
-            edges.append({
-                "from": node_id,
-                "to": link_target,
-                "label": "links_to",
-            })
+    for st in atlas.statements.values():
+        nodes.append({
+            "id": st.id,
+            "label": st.slogan[:70],
+            "group": atlas.contexts.get(st.context, {}).get("course", "statement"),
+            "type": st.role.value if st.role else "Statement",
+            "status": st.status.value,
+            "context": st.context,
+        })
+        if st.context in atlas.contexts:
+            edges.append({"from": st.id, "to": st.context,
+                          "relation": "STATED_IN", "label": "stated in"})
 
     return JSONResponse({"nodes": nodes, "edges": edges})
+
+
+@app.get("/api/atlas/ladder")
+async def get_ladder(slogan: str):
+    """A generalisation ladder: one result across the lattice, ordered by depth."""
+    atlas = app.state.atlas
+    return JSONResponse({
+        "slogan": slogan,
+        "rungs": [
+            {
+                "context": s.context,
+                "depth": atlas.depth(s.context),
+                "status": s.status.value,
+                "slogan": s.slogan,
+                "hypotheses": s.hypotheses,
+                "witness": s.witness,
+            }
+            for s in atlas.ladder(slogan)
+        ],
+    })
+
+
+@app.get("/api/atlas/context/{context_id}")
+async def get_context(context_id: str):
+    """Everything the atlas knows about one context."""
+    atlas = app.state.atlas
+    if context_id not in atlas.contexts:
+        raise HTTPException(status_code=404, detail=f"Unknown context '{context_id}'")
+    c = atlas.contexts[context_id]
+    return JSONResponse({
+        "context": c,
+        "depth": atlas.depth(context_id),
+        "assumes": sorted(atlas.ancestors(context_id)),
+        "statements": [s.model_dump(mode="json")
+                       for s in atlas.statements_in(context_id)],
+        "terms": [t.model_dump(mode="json")
+                  for t in atlas.terms.values() if t.context == context_id],
+    })
+
+
+@app.get("/api/atlas/check")
+async def atlas_check():
+    """Validation gate findings."""
+    from src.atlas import validate
+    findings = validate.check(app.state.atlas)
+    return JSONResponse({"summary": validate.summarise(findings), "findings": findings})
 
 
 # ---------------------------------------------------------------------------
@@ -335,7 +367,7 @@ async def get_system_settings():
     """Returns current system configuration and index statistics."""
     settings = get_settings()
     vector_stats = app.state.vector_store.get_stats()
-    graph = app.state.graph_indexer.graph
+    atlas_stats = app.state.atlas.stats()
 
     return JSONResponse({
         "gemini_model": settings.gemini_model,
@@ -344,10 +376,7 @@ async def get_system_settings():
         "vault_path": str(settings.vault_path),
         "storage_path": str(settings.storage_path),
         "vector_store": vector_stats,
-        "graph": {
-            "total_nodes": graph.number_of_nodes(),
-            "total_edges": graph.number_of_edges(),
-        },
+        "atlas": atlas_stats,
     })
 
 
@@ -368,14 +397,11 @@ async def get_courses():
 async def rebuild_graph_index():
     """Re-indexes all vault notes into the graph using LLM schema extraction."""
     try:
-        indexer = app.state.graph_indexer
-        result = indexer.build_or_update_index(use_llm=True, force=True)
+        from src.atlas.index import index_vault
+        result = index_vault(store=app.state.atlas, rebuild=True)
         app.state.query_engine.refresh_node_embeddings()
-        return JSONResponse({
-            "status": "success",
-            "nodes": result.number_of_nodes(),
-            "edges": result.number_of_edges(),
-        })
+        return JSONResponse({"status": "success", **result["stats"],
+                             "validation": result["validation"]})
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -418,7 +444,7 @@ async def clear_all_databases():
     """Wipes all knowledge graph, KùzuDB, LanceDB vector store, and state tracker databases."""
     try:
         # Clear Graph Indexer & KuzuDB
-        app.state.graph_indexer.clear_graph()
+        app.state.atlas.clear()
 
         # Wipe LanceDB Vector Store
         try:

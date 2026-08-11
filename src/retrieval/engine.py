@@ -6,7 +6,7 @@ from typing import Optional
 from google.genai import types as genai_types
 
 from src.config import get_settings
-from src.graph.indexer import MathGraphIndexer
+from src.atlas.store import AtlasStore
 from src.vector.store import LocalVectorStore
 from src.llm.gemini import get_gemini_client, get_gemini_candidate_models
 from src.llm.ollama import get_ollama_client
@@ -43,18 +43,20 @@ class MathQueryEngine:
 
     def __init__(
         self,
-        graph_indexer: Optional[MathGraphIndexer] = None,
+        atlas: Optional[AtlasStore] = None,
         vector_store: Optional[LocalVectorStore] = None,
     ):
         self.settings = get_settings()
-        self.indexer = graph_indexer or MathGraphIndexer()
+        self.atlas = atlas or AtlasStore()
         self.vector_store = vector_store or LocalVectorStore()
 
-        # Pre-compute graph node embeddings for semantic matching
+        # `atlas.graph` is a NetworkX view over contexts, statements and terms,
+        # so traversal here is unchanged from the old concept graph.
+        self._graph = self.atlas.graph
         self._node_embeddings: dict[str, list[float]] = {}
         self._build_node_embeddings()
 
-        log.info("Initialized MathQueryEngine with hybrid vector + graph retrieval.")
+        log.info("Initialized MathQueryEngine with hybrid vector + atlas retrieval.")
 
     # ------------------------------------------------------------------
     # Graph node embedding index
@@ -62,7 +64,7 @@ class MathQueryEngine:
 
     def _build_node_embeddings(self):
         """Embed all graph node labels+descriptions for semantic matching."""
-        graph = self.indexer.graph
+        graph = self._graph
         if graph.number_of_nodes() == 0:
             return
 
@@ -81,7 +83,8 @@ class MathQueryEngine:
             log.warning(f"Could not embed graph nodes ({e}).")
 
     def refresh_node_embeddings(self):
-        """Re-build node embeddings (called after graph updates)."""
+        """Re-build node embeddings (called after atlas updates)."""
+        self._graph = self.atlas.graph
         self._node_embeddings.clear()
         self._build_node_embeddings()
 
@@ -139,7 +142,7 @@ class MathQueryEngine:
         # 2. Graph Traversal via NetworkX PropertyGraph
         graph_context = []
         if use_graph:
-            graph = self.indexer.graph
+            graph = self._graph
             matched_nodes = self._find_similar_nodes(prompt, top_k=3)
 
             for n in matched_nodes:
