@@ -20,8 +20,9 @@ from src.logger import log
 
 DATA = Path(__file__).parent / "data" / "contexts.json"
 OUT = Path(__file__).resolve().parents[3] / "static" / "lattice.html"
+OUT_ATLAS = Path(__file__).resolve().parents[3] / "static" / "atlas.html"
 
-ROW_H = 74
+ROW_H = 88
 NODE_H = 30
 GAP_X = 26
 PAD = 48
@@ -70,7 +71,7 @@ def _order_layers(G: nx.DiGraph, layers: dict[int, list[str]], sweeps: int = 12)
     return layers
 
 
-def build_layout(data: dict) -> dict:
+def build_layout(data: dict, statements: list[dict] | None = None) -> dict:
     G = nx.DiGraph()
     for c in data["contexts"]:
         G.add_node(c["id"], **c)
@@ -124,10 +125,36 @@ def build_layout(data: dict) -> dict:
         if p in {n["id"] for n in nodes}
     ]
 
+    # Statements are plotted beneath the context that holds them: the lattice
+    # supplies their coordinates, so nothing about their position is guessed.
+    node_by_id = {n["id"]: n for n in nodes}
+    placed: list[dict] = []
+    grouped: dict[str, list[dict]] = {}
+    for st in (statements or []):
+        grouped.setdefault(st["context"], []).append(st)
+
+    for cid, group in grouped.items():
+        host = node_by_id.get(cid)
+        if not host:
+            continue
+        per_row = max(1, int(host["w"] // 12))
+        for i, st in enumerate(group):
+            row, col = divmod(i, per_row)
+            n_in_row = min(per_row, len(group) - row * per_row)
+            span = (n_in_row - 1) * 12
+            placed.append({
+                **st,
+                "x": round(host["x"] + host["w"] / 2 - span / 2 + col * 12, 1),
+                "y": host["y"] + NODE_H + 13 + row * 13,
+            })
+
+    for n in nodes:
+        n["n_statements"] = len(grouped.get(n["id"], []))
+
     return {
-        "nodes": nodes, "edges": edges, "over": over,
+        "nodes": nodes, "edges": edges, "over": over, "statements": placed,
         "canvas": {"w": round(canvas_w), "h": PAD * 2 + (max(layers) + 1) * ROW_H},
-        "maxDepth": max(layers),
+        "maxDepth": max(layers), "rowH": ROW_H, "nodeH": NODE_H, "pad": PAD,
         "meta": data.get("provenance", {}),
         "scope": data.get("scope", ""),
     }
@@ -243,6 +270,19 @@ PAGE = """<title>Context Lattice · ODE, Calculus, Linear Algebra</title>
   .over-cap.lit { stroke:var(--accent); opacity:1; }
   .over-edge.dim, .over-cap.dim { opacity:.07; }
 
+  /* Statements sit beneath the context that holds them. Their coordinates come
+     from the lattice, so nothing about where they land is guessed. */
+  .stmt { cursor:pointer; }
+  .stmt circle { stroke:var(--surface); stroke-width:1.2; }
+  .stmt.theorem circle { fill:var(--ink); }
+  .stmt.definition circle { fill:none; stroke:var(--ink); stroke-width:1.6; }
+  .stmt.false circle { fill:var(--c-ode); }
+  .stmt:hover circle, .stmt.sel circle { fill:var(--accent); stroke:var(--accent); }
+  .stmt.hidden { display:none; }
+  .stmt.dim { opacity:.15; }
+  .node.populated rect { stroke:var(--ink); stroke-width:1.8; }
+  .count { font-family:var(--mono); font-size:9.5px; fill:var(--faint); }
+
   .node rect { rx:6; fill:var(--surface); stroke:var(--rule-strong); stroke-width:1; }
   .node text { font-size:12.5px; fill:var(--ink); dominant-baseline:middle; }
   .node { cursor:pointer; }
@@ -297,7 +337,8 @@ PAGE = """<title>Context Lattice · ODE, Calculus, Linear Algebra</title>
     <div class="stats">
       <div>contexts<b id="s-nodes">0</b></div>
       <div>relations<b id="s-edges">0</b></div>
-      <div>corroborated<b id="s-corr">0</b></div>
+      <div>statements<b id="s-stmts">0</b></div>
+      <div>populated<b id="s-pop">0</b></div>
       <div>depth<b id="s-depth">0</b></div>
     </div>
   </header>
@@ -311,6 +352,12 @@ PAGE = """<title>Context Lattice · ODE, Calculus, Linear Algebra</title>
     </button>
     <button class="chip" id="over-toggle" aria-pressed="true">
       Show <em style="font-style:italic">over</em> parameters
+    </button>
+    <button class="chip" id="stmt-toggle" aria-pressed="true">
+      Show statements
+    </button>
+    <button class="chip" id="empty-toggle" aria-pressed="false">
+      Populated contexts only
     </button>
     <span class="note" style="margin-left:auto">
       Height is the relation &mdash; a context sits below everything it assumes. No arrowheads needed.
@@ -345,9 +392,16 @@ PAGE = """<title>Context Lattice · ODE, Calculus, Linear Algebra</title>
   const overIn = new Map(D.nodes.map(n => [n.id, []]));
   D.over.forEach(e => { overOut.get(e.from).push(e); overIn.get(e.to).push(e); });
 
+  const stmtsByCtx = new Map();
+  (D.statements || []).forEach(s => {
+    if (!stmtsByCtx.has(s.context)) stmtsByCtx.set(s.context, []);
+    stmtsByCtx.get(s.context).push(s);
+  });
+
   document.getElementById('s-nodes').textContent = D.nodes.length;
   document.getElementById('s-edges').textContent = D.edges.length;
-  document.getElementById('s-corr').textContent = D.edges.filter(e => e.tier === 'corroborated').length;
+  document.getElementById('s-stmts').textContent = (D.statements || []).length;
+  document.getElementById('s-pop').textContent = stmtsByCtx.size + ' / ' + D.nodes.length;
   document.getElementById('s-depth').textContent = D.maxDepth + 1;
 
   // ---- draw -------------------------------------------------------------
@@ -355,11 +409,12 @@ PAGE = """<title>Context Lattice · ODE, Calculus, Linear Algebra</title>
   svg.setAttribute('height', D.canvas.h);
   svg.setAttribute('viewBox', `0 0 ${D.canvas.w} ${D.canvas.h}`);
 
-  const gRules = el('g'), gOver = el('g'), gEdges = el('g'), gNodes = el('g');
-  svg.append(gRules, gOver, gEdges, gNodes);
+  const gRules = el('g'), gOver = el('g'), gEdges = el('g'),
+        gNodes = el('g'), gStmts = el('g');
+  svg.append(gRules, gOver, gEdges, gNodes, gStmts);
 
   for (let d = 0; d <= D.maxDepth; d++) {
-    const y = 48 + d * 74 + 15;
+    const y = D.pad + d * D.rowH + D.nodeH / 2;
     const line = el('line', { x1: 30, y1: y, x2: D.canvas.w - 12, y2: y, class: 'row-rule' });
     line.setAttribute('opacity', '.5');
     gRules.append(line);
@@ -408,6 +463,11 @@ PAGE = """<title>Context Lattice · ODE, Calculus, Linear Algebra</title>
                           class: 'swatch', fill: col }));
     const t = el('text', { x: n.x + 17, y: n.y + n.h / 2 }, n.name);
     g.append(t);
+    if (n.n_statements) {
+      g.classList.add('populated');
+      g.append(el('text', { x: n.x + n.w - 7, y: n.y + n.h / 2 + 3,
+                            class: 'count', 'text-anchor': 'end' }, String(n.n_statements)));
+    }
     gNodes.append(g);
     nodeEls.set(n.id, g);
 
@@ -420,8 +480,25 @@ PAGE = """<title>Context Lattice · ODE, Calculus, Linear Algebra</title>
     });
   });
 
+  const stmtEls = new Map();
+  (D.statements || []).forEach((st, i) => {
+    const cls = st.status === 'FALSE' ? 'false'
+              : st.status === 'DEFINITION' ? 'definition' : 'theorem';
+    const g = el('g', { class: 'stmt ' + cls, tabindex: '0', role: 'button',
+                        'aria-label': st.slogan });
+    g.append(el('circle', { cx: st.x, cy: st.y, r: 4 }));
+    g.append(el('title', {}, `${st.status} · ${st.context}\n${st.slogan}`));
+    gStmts.append(g);
+    stmtEls.set(st.id, g);
+    g.addEventListener('click', ev => { ev.stopPropagation(); selectStmt(st.id); });
+    g.addEventListener('keydown', ev => {
+      if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); selectStmt(st.id); }
+    });
+  });
+  const stmtById = new Map((D.statements || []).map(s => [s.id, s]));
+
   // ---- highlight --------------------------------------------------------
-  let pinned = null;
+  let pinned = null, pinnedStmt = null;
 
   function walk(id, map, key) {
     const seen = new Set(), edges = new Set(), stack = [id];
@@ -469,8 +546,47 @@ PAGE = """<title>Context Lattice · ODE, Calculus, Linear Algebra</title>
   }
 
   function select(id) {
+    pinnedStmt = null;
+    stmtEls.forEach(g => g.classList.remove('sel'));
     if (pinned === id) { pinned = null; clear(); renderPanel(null); return; }
     pinned = id; light(id); renderPanel(id);
+  }
+
+  function selectStmt(sid) {
+    const st = stmtById.get(sid);
+    if (!st) return;
+    stmtEls.forEach((g, k) => g.classList.toggle('sel', k === sid));
+    pinnedStmt = sid;
+    pinned = st.context;
+    light(st.context);
+    renderStmtPanel(st);
+  }
+
+  function renderStmtPanel(st) {
+    const p = st.provenance || {};
+    const where = [p.doc_title, p.page_number ? 'p. ' + p.page_number : null,
+                   p.section_heading].filter(Boolean).join(' · ');
+    const colour = st.status === 'FALSE' ? 'var(--c-ode)' : 'var(--ink)';
+    panel.innerHTML = `
+      <span class="kicker">Statement &middot; ${st.context}</span>
+      <h2>${st.slogan}</h2>
+      <div class="id" style="color:${colour}">${st.status}${st.role ? ' &middot; ' + st.role : ''}</div>
+      ${st.hypotheses && st.hypotheses.length ? `
+        <div class="panel-sec"><h3>Hypotheses</h3>
+          <div class="rel">${st.hypotheses.map(h => `<button disabled style="cursor:default">${h}</button>`).join('')}</div>
+        </div>` : ''}
+      ${st.conclusion ? `<div class="panel-sec"><h3>Conclusion</h3><p class="note">${st.conclusion}</p></div>` : ''}
+      ${st.statement_latex ? `<div class="panel-sec"><h3>As written</h3>
+        <p class="note" style="font-family:var(--mono);font-size:.72rem;overflow-x:auto">${st.statement_latex}</p></div>` : ''}
+      <div class="panel-sec"><h3>Source</h3>
+        <p class="note">${where || '<span class="empty">no provenance recorded</span>'}</p>
+        ${p.exact_quote ? `<p class="note" style="border-left:2px solid var(--rule-strong);padding-left:.6rem;margin-top:.5rem">${p.exact_quote}</p>` : ''}
+      </div>
+      <div class="panel-sec">
+        <button class="chip" data-goto="${st.context}">Open context ${st.context}</button>
+      </div>`;
+    panel.querySelectorAll('[data-goto]').forEach(b =>
+      b.addEventListener('click', () => select(b.dataset.goto)));
   }
 
   // ---- inspector --------------------------------------------------------
@@ -485,6 +601,18 @@ PAGE = """<title>Context Lattice · ODE, Calculus, Linear Algebra</title>
         : '<span class="tier weak">' + e.sources.join(', ') + '</span>';
       return `<button data-goto="${other}"><span>${byId.get(other).name}</span>${tier}</button>`;
     }).join('') + '</div>';
+  }
+
+  function stmtSection(id) {
+    const list = stmtsByCtx.get(id) || [];
+    if (!list.length) return `<div class="panel-sec"><h3>Statements</h3>
+      <p class="empty">nothing from your notes lands here yet</p></div>`;
+    return `<div class="panel-sec">
+      <h3>Statements from your notes</h3>
+      <div class="rel">${list.map(s => `
+        <button data-stmt="${s.id}"><span>${s.slogan}</span>
+        <span class="tier ${s.status === 'THEOREM' ? 'ok' : 'weak'}">${s.status}</span></button>`).join('')}
+      </div></div>`;
   }
 
   function overSection(id) {
@@ -542,9 +670,12 @@ PAGE = """<title>Context Lattice · ODE, Calculus, Linear Algebra</title>
         ${relList(children.get(id), 'down')}
       </div>
       ${overSection(id)}
+      ${stmtSection(id)}
       <div class="panel-sec">${wiki}</div>`;
     panel.querySelectorAll('[data-goto]').forEach(b =>
       b.addEventListener('click', () => select(b.dataset.goto)));
+    panel.querySelectorAll('[data-stmt]').forEach(b =>
+      b.addEventListener('click', () => selectStmt(b.dataset.stmt)));
   }
 
   // ---- filters ----------------------------------------------------------
@@ -563,7 +694,20 @@ PAGE = """<title>Context Lattice · ODE, Calculus, Linear Algebra</title>
     chipBox.append(b);
   });
 
-  let spineOnly = false, showOver = true;
+  let spineOnly = false, showOver = true, showStmts = true, populatedOnly = false;
+  const stmtBtn = document.getElementById('stmt-toggle');
+  if (stmtBtn) stmtBtn.addEventListener('click', () => {
+    showStmts = !showStmts;
+    stmtBtn.setAttribute('aria-pressed', String(showStmts));
+    pinned = null; renderPanel(null); clear();
+  });
+  const emptyBtn = document.getElementById('empty-toggle');
+  if (emptyBtn) emptyBtn.addEventListener('click', () => {
+    populatedOnly = !populatedOnly;
+    emptyBtn.setAttribute('aria-pressed', String(populatedOnly));
+    pinned = null; renderPanel(null); clear();
+  });
+
   const tierBtn = document.getElementById('tier-toggle');
   tierBtn.addEventListener('click', () => {
     spineOnly = !spineOnly;
@@ -578,8 +722,13 @@ PAGE = """<title>Context Lattice · ODE, Calculus, Linear Algebra</title>
   });
 
   function applyFilters() {
-    const on = id => active.has(byId.get(id).course);
+    const on = id => active.has(byId.get(id).course)
+      && (!populatedOnly || (byId.get(id).n_statements || 0) > 0);
     nodeEls.forEach((g, id) => g.classList.toggle('dim', !on(id)));
+    (D.statements || []).forEach(s => {
+      const g = stmtEls.get(s.id);
+      if (g) g.classList.toggle('hidden', !showStmts || !on(s.context));
+    });
     D.edges.forEach(e => {
       edgeEls.get(e.from + '>' + e.to)
         .classList.toggle('hidden', (spineOnly && e.tier === 'single') || !(on(e.from) && on(e.to)));
@@ -604,17 +753,58 @@ PAGE = """<title>Context Lattice · ODE, Calculus, Linear Algebra</title>
 """
 
 
-def render() -> Path:
+def _load_statements() -> list[dict]:
+    """Flatten the atlas store into plot-ready statement records."""
+    try:
+        from src.atlas.store import AtlasStore
+    except Exception:
+        return []
+    try:
+        store = AtlasStore()
+    except Exception as e:
+        log.warning(f"No atlas store available ({e}); rendering lattice only.")
+        return []
+
+    out = []
+    for s in store.statements.values():
+        p = s.provenance[0].model_dump(mode="json") if s.provenance else {}
+        out.append({
+            "id": s.id, "context": s.context, "slogan": s.slogan,
+            "status": s.status.value, "role": s.role.value if s.role else None,
+            "hypotheses": s.hypotheses, "conclusion": s.conclusion,
+            "statement_latex": s.statement_latex, "provenance": p,
+        })
+    return out
+
+
+def render(with_statements: bool = False, out: Path | None = None) -> Path:
     data = json.loads(DATA.read_text(encoding="utf-8"))
-    layout = build_layout(data)
+    statements = _load_statements() if with_statements else []
+    layout = build_layout(data, statements)
+
+    title = ("Atlas · statements on the context lattice" if with_statements
+             else "Context Lattice · ODE, Calculus, Linear Algebra")
+    scope = layout["scope"] or "Context lattice"
+    if with_statements:
+        scope = f"{scope} &middot; {len(statements)} statements from your notes"
+
     html = (PAGE
-            .replace("__SCOPE__", layout["scope"] or "Context lattice")
+            .replace("Context Lattice · ODE, Calculus, Linear Algebra", title, 1)
+            .replace("__SCOPE__", scope)
             .replace("__DATA__", json.dumps(layout, separators=(",", ":"))))
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(html, encoding="utf-8")
-    log.info(f"Rendered {len(layout['nodes'])} contexts to {OUT}")
-    return OUT
+
+    target = out or (OUT_ATLAS if with_statements else OUT)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(html, encoding="utf-8")
+    log.info(f"Rendered {len(layout['nodes'])} contexts, "
+             f"{len(statements)} statements to {target}")
+    return target
 
 
 if __name__ == "__main__":
-    print(render())
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--statements", action="store_true",
+                    help="plot the indexed statements onto the lattice")
+    a = ap.parse_args()
+    print(render(with_statements=a.statements))

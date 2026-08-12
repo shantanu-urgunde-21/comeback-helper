@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from PIL import Image
 import fitz  # PyMuPDF
@@ -73,24 +74,30 @@ class IngestionPipeline:
             filename += ".md"
 
         target_path = course_dir / filename
-        
-        # Write initial metadata header
+
+        # Build into a sidecar and only move it into place once OCR succeeds.
+        # Writing the header straight to target_path truncated any existing note
+        # before the first API call, so a mid-run failure destroyed good content
+        # and left a header-only stub that later indexing treated as a real note.
+        work_path = course_dir / f".{filename}.partial"
+
         header = f"---\ncourse: \"{course_name}\"\nsource_file: \"{pdf_path.name}\"\ntags: [\"math\", \"coursework\", \"{course_name.lower().replace(' ', '-')}\"]\n---\n\n# {pdf_path.stem}\n\n"
-        
-        with open(target_path, "w", encoding="utf-8") as f:
+
+        with open(work_path, "w", encoding="utf-8") as f:
             f.write(header)
             f.flush()
 
-        log.info(f"Initialized output vault file: {target_path}")
+        log.info(f"Building vault note at: {work_path}")
 
         # Check for fast direct PDF processing (e.g. Marker)
         if hasattr(self.ocr_provider, "process_pdf_direct"):
             try:
                 log.info(f"Executing direct PDF parsing via {self.ocr_provider.__class__.__name__}...")
                 parsed_md = self.ocr_provider.process_pdf_direct(pdf_path)
-                with open(target_path, "a", encoding="utf-8") as f:
+                with open(work_path, "a", encoding="utf-8") as f:
                     f.write(parsed_md)
                     f.flush()
+                os.replace(work_path, target_path)
                 log.info(f"Direct PDF processing completed: {target_path}")
                 return target_path
             except Exception as e:
@@ -100,26 +107,36 @@ class IngestionPipeline:
         total_pages = len(images)
         log.info(f"Processing {total_pages} pages via {self.ocr_provider.__class__.__name__}...")
 
-        with open(target_path, "a", encoding="utf-8") as f:
-            if hasattr(self.ocr_provider, "process_images_batch"):
-                try:
-                    batched_chunks = self.ocr_provider.process_images_batch(images, batch_size=3, delay_sec=4.0)
-                    for chunk_md in batched_chunks:
-                        f.write(f"{chunk_md}\n\n")
-                        f.flush()
-                except Exception as e:
-                    log.warning(f"Batch processing failed ({e}). Falling back to single-page iteration...")
+        try:
+            with open(work_path, "a", encoding="utf-8") as f:
+                if hasattr(self.ocr_provider, "process_images_batch"):
+                    try:
+                        batched_chunks = self.ocr_provider.process_images_batch(images, batch_size=3, delay_sec=4.0)
+                        for chunk_md in batched_chunks:
+                            f.write(f"{chunk_md}\n\n")
+                            f.flush()
+                    except Exception as e:
+                        log.warning(f"Batch processing failed ({e}). Falling back to single-page iteration...")
+                        for idx, img in enumerate(images, start=1):
+                            page_md = self.ocr_provider.process_image(img)
+                            f.write(f"<!-- Page {idx} -->\n{page_md}\n\n")
+                            f.flush()
+                else:
                     for idx, img in enumerate(images, start=1):
+                        log.info(f"Processing page {idx}/{total_pages}...")
                         page_md = self.ocr_provider.process_image(img)
                         f.write(f"<!-- Page {idx} -->\n{page_md}\n\n")
                         f.flush()
-            else:
-                for idx, img in enumerate(images, start=1):
-                    log.info(f"Processing page {idx}/{total_pages}...")
-                    page_md = self.ocr_provider.process_image(img)
-                    f.write(f"<!-- Page {idx} -->\n{page_md}\n\n")
-                    f.flush()
-                    log.info(f"Page {idx}/{total_pages} saved to vault note.")
+                        log.info(f"Page {idx}/{total_pages} saved to vault note.")
+        except Exception:
+            work_path.unlink(missing_ok=True)
+            log.error(
+                f"OCR failed for {pdf_path.name}; discarded the partial note. "
+                f"Any existing {target_path.name} is left untouched."
+            )
+            raise
+
+        os.replace(work_path, target_path)
 
         if hasattr(self.ocr_provider, "unload_model"):
             self.ocr_provider.unload_model()
