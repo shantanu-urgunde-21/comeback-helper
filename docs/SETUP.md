@@ -84,17 +84,24 @@ Open **http://127.0.0.1:8000** in your browser to access the dashboard, Vis.js g
 Comeback Helper includes a terminal-native CLI diagnostic suite:
 
 ```bash
-# View Knowledge Graph statistics & connected component health
-python -m src.cli graph-stats
+# Build the context lattice (cached; re-runs are cheap)
+python -m src.atlas.lattice.build
 
-# Dry-run 2-pass extraction on any note without saving
-python -m src.cli graph-preview --note "D:\path\to\lecture_note.md"
+# Render it — plain, or with your indexed statements plotted on it
+python -m src.atlas.lattice.render
+python -m src.atlas.lattice.render --statements
 
-# Rebuild Knowledge Graph for all vault notes
-python -m src.cli rebuild-graph
+# Index vault notes into the atlas
+python -m src.cli atlas-index
+python -m src.cli atlas-index --note "D:\path\to\lecture_note.md"
+
+# Telemetry, validation gates, and a generalisation ladder
+python -m src.cli atlas-stats
+python -m src.cli atlas-check
+python -m src.cli ladder "wronskian"
 
 # Run CLI query
-python -m src.cli query --prompt "What is an integrating factor?" --course "Differential Equations"
+python -m src.cli query --prompt "What is an integrating factor?" --course "differential equations"
 ```
 
 ---

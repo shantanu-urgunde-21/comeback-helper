@@ -2,6 +2,68 @@
 
 All notable changes, refactorings, and architectural improvements to **Comeback Helper** are documented in this file.
 
+## [3.0.0] - 2026-08-12 (The Atlas: context lattice replaces the concept graph)
+
+### 🚀 Highlights
+
+- **New atom: a statement in a context.** The 2-pass concept extractor asserted every
+  structural relation with an LLM and merged entities on name embeddings at 0.88
+  cosine — which collapsed exactly the distinctions the project exists to show
+  (`normal` in group theory vs operator theory). Identity is now `(name, context)`;
+  the similarity merge is deleted rather than tuned.
+- **Context lattice (`src/atlas/lattice/`).** 54 contexts for ODE / Calculus / Linear
+  Algebra, transcribed from three independent sources (Wikipedia ledes, Wikidata
+  `P279`, an LLM) and merged by vote. Graded against 42 hand-written anchors:
+  **40/42 recovered, zero direction inversions.**
+- **`extends` vs `over`.** Axiom strengthening is the order relation and drives
+  layout; parameterisation (a vector space *over* a field) is held out of it.
+  Conflating the two routed 39 of 54 contexts through `Field` and inflated max
+  depth from 11 to 17.
+- **Derived, not extracted.** Abstraction level is lattice position; generalisation
+  ladders are the same slogan across ordered contexts; disambiguation groups fall
+  out of `(name, context)`. None of it inherits relation-extraction error.
+- **Classification over generation.** `src/atlas/extract.py` asks "which of these
+  ~54 contexts?" instead of "find all relations". Measured over 9 ODE notes:
+  **0 statements dropped for unknown context.**
+- **Self-checking gates (`src/atlas/validate.py`).** A statement using a term not
+  visible from its context is almost certainly misfiled; a `THEOREM` above a
+  `FALSE` is a contradiction. Both catch misclassification with no human labelling.
+- **Hasse diagram renderer.** Deterministic layered layout where height *is* the
+  order relation — no physics controls, because nothing needs tuning. Statements
+  plot beneath the context that holds them.
+
+### 🔨 Changes
+
+- Added `src/atlas/{schema,store,extract,validate,index}.py` and `src/atlas/lattice/`.
+- CLI: `atlas-index`, `atlas-stats`, `atlas-check`, `ladder`. Retired `graph-stats`,
+  `graph-preview`, `rebuild-graph`.
+- API: `/api/graph` now serves the lattice and its statements; added
+  `/api/atlas/ladder`, `/api/atlas/context/{id}`, `/api/atlas/check`.
+- `src/retrieval/engine.py` traverses `AtlasStore.graph` instead of `MathGraphIndexer`.
+- **Fixed a data-loss bug in `src/ingestion/pipeline.py`**: `process_pdf` opened the
+  target note with mode `"w"` before the first OCR call, so a mid-run failure
+  truncated an existing good note and left a header-only stub that indexing then
+  treated as a real empty note. It now builds into a hidden sidecar and
+  `os.replace()`s it into position only on success.
+
+### 🗑️ Removed
+
+- `src/graph/` (2-pass concept extractor and schema).
+- `src/ingestion/marker_provider.py`, `src/ingestion/local_ocr.py` — unreachable.
+- `src/vault/state.py` — retired in 2.3.0, file never deleted.
+- `private_docs/`, `docs/API.md`, `docs/knowledge_graph_redesign.md`, `docs/images/`,
+  `scripts/` — all documented or exercised the deleted architecture.
+- Stale `.storage` artifacts (`graph.json`, `kuzu_graph.db`, test fixtures) and
+  ~20 MB of OCR debug crops.
+
+### 📊 Measured
+
+9 vault notes → **32 statements, 18 terms, 11 of 54 contexts populated, 0 dropped
+for unknown context, 0 validation errors, 2 warnings** (both correctly flagging a
+missing lattice relation for Picard–Lindelöf).
+
+---
+
 ## [2.4.0] - 2026-08-08 (Real-Time Graph Layout Controls & Decluttering Suite)
 
 ### 🚀 Highlights
