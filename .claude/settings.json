@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.venv/Scripts/python.exe -c ' *)",
+      "Bash(rm -f scripts/test_process2_graph.py scripts/test_full_system_integration.py scripts/test_process4_hybrid_retrieval.py)",
+      "Bash(.venv/Scripts/python.exe -m pytest tests -q)",
+      "Bash(git restore *)",
+      "Bash(git commit *)",
+      "Read(//d/obsidian/comeback-helper/differential equations/**)",
+      "Bash(awk '{print $5, $9}')",
+      "Bash(.venv/Scripts/python.exe \"C:/Users/Shantanu/AppData/Local/Temp/claude/d--programming-comeback-helper/4f5f2186-06f7-4efa-8bfc-45a41ac07b58/scratchpad/ingest_ma301.py\")",
+      "Bash(.venv/Scripts/python.exe -c \"import ast;ast.parse\\(open\\('src/ingestion/pipeline.py',encoding='utf-8'\\).read\\(\\)\\);import src.ingestion.pipeline;print\\('pipeline ok'\\)\")",
+      "Bash(.venv/Scripts/python.exe -c \"import src.ingestion.pipeline; print\\('pipeline ok'\\)\")",
+      "Bash(rm -f \"D:/obsidian/comeback-helper/differential equations/MA301 Lecture 4.md\")",
+      "Bash(cd \"d:/programming/comeback_helper\" && cat \"C:\\\\Users\\\\Shantanu\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--programming-comeback-helper\\\\4f5f2186-06f7-4efa-8bfc-45a41ac07b58\\\\tasks\\\\bftlpminy.output\" 2>/dev/null | tail -6; echo \"--- vault ---\"; ls \"D:/obsidian/comeback-helper/differential equations/\" | cat)",
+      "Bash(.venv/Scripts/python.exe -m src.atlas.lattice.render)",
+      "Bash(.venv/Scripts/python.exe -m src.atlas.lattice.render --statements)",
+      "Bash(cd \"d:/programming/comeback_helper\" && grep -E \"^===|^WROTE|^FAILED|^DONE\" \"C:\\\\Users\\\\Shantanu\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--programming-comeback-helper\\\\4f5f2186-06f7-4efa-8bfc-45a41ac07b58\\\\tasks\\\\b9c1ve2nh.output\" 2>/dev/null; ls \"D:/obsidian/comeback-helper/differential equations/\" | cat)",
+      "Bash(cd \"d:/programming/comeback_helper\" && grep -E \"^===|^WROTE|^FAILED|^DONE\" \"C:\\\\Users\\\\Shantanu\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--programming-comeback-helper\\\\4f5f2186-06f7-4efa-8bfc-45a41ac07b58\\\\tasks\\\\b9c1ve2nh.output\" 2>/dev/null; echo \"---\"; ls \"D:/obsidian/comeback-helper/differential equations/\" | grep -c md)",
+      "Bash(.venv/Scripts/python.exe \"C:/Users/Shantanu/AppData/Local/Temp/claude/d--programming-comeback-helper/4f5f2186-06f7-4efa-8bfc-45a41ac07b58/scratchpad/ingest_ma301.py\" \"MA301 Lecture 5.pdf\" \"MA301 Lecture 6 notes.pdf\" \"MA301 Lecture 7.pdf\")",
+      "Bash(ps -W)",
+      "Bash(tasklist)",
+      "Bash(cd \"d:/programming/comeback_helper\" && grep -E \"^===|^WROTE|^FAILED|^DONE\" \"C:\\\\Users\\\\Shantanu\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--programming-comeback-helper\\\\4f5f2186-06f7-4efa-8bfc-45a41ac07b58\\\\tasks\\\\b0nbww199.output\" && echo \"--- vault ---\" && ls \"D:/obsidian/comeback-helper/differential equations/\" | cat)"
+    ]
+  }
+}

@@ -12,17 +12,35 @@ a force-directed tangle. Horizontal order is chosen only to reduce crossings.
 """
 
 import json
+import re
 from pathlib import Path
 
 import networkx as nx
 
 from src.logger import log
 
+# ---------------------------------------------------------------------------
+# Half-day probe: is there a real second axis *inside* a context, orthogonal
+# to lattice depth? Scalar-vs-system was chosen because it's mechanically
+# visible in hypothesis text (unlike e.g. "two-solution vs n-solution", which
+# needs real parsing) and it already showed real structure by hand on
+# HomogeneousLinearODE: 4 of 16 statements are the vector-valued analogue of
+# statements already sitting in the scalar cluster. This is a heuristic, not
+# an extraction pass — if the axis proves worth it, promote it to a real
+# closed-set tag classification the way context assignment already works.
+# ---------------------------------------------------------------------------
+_SYSTEM_RE = re.compile(r"\bsystem\b|x\^\(\d+\)|mathbf", re.I)
+
+
+def _sub_tag(st: dict) -> str:
+    blob = " ".join(st.get("hypotheses") or []) + " " + st.get("slogan", "") + " " + st.get("conclusion", "")
+    return "system" if _SYSTEM_RE.search(blob) else "scalar"
+
 DATA = Path(__file__).parent / "data" / "contexts.json"
 OUT = Path(__file__).resolve().parents[3] / "static" / "lattice.html"
 OUT_ATLAS = Path(__file__).resolve().parents[3] / "static" / "atlas.html"
 
-ROW_H = 88
+ROW_H = 100
 NODE_H = 30
 GAP_X = 26
 PAD = 48
@@ -71,7 +89,15 @@ def _order_layers(G: nx.DiGraph, layers: dict[int, list[str]], sweeps: int = 12)
     return layers
 
 
-def build_layout(data: dict, statements: list[dict] | None = None) -> dict:
+TERM_H = 16
+TERM_GAP_Y = 8
+
+
+def build_layout(
+    data: dict,
+    statements: list[dict] | None = None,
+    terms: list[dict] | None = None,
+) -> dict:
     G = nx.DiGraph()
     for c in data["contexts"]:
         G.add_node(c["id"], **c)
@@ -125,34 +151,136 @@ def build_layout(data: dict, statements: list[dict] | None = None) -> dict:
         if p in {n["id"] for n in nodes}
     ]
 
+    # Terms are the vocabulary layer: drawn as small labelled nodes directly
+    # beneath the context that defines them, above the statements that use it.
+    # Reading order top-to-bottom then becomes theory -> vocabulary -> facts.
+    node_by_id = {n["id"]: n for n in nodes}
+    terms_by_ctx: dict[str, list[dict]] = {}
+    for t in (terms or []):
+        terms_by_ctx.setdefault(t["context"], []).append(t)
+
+    placed_terms: list[dict] = []
+    ctx_term_row_h: dict[str, float] = {}
+    for cid, group in terms_by_ctx.items():
+        host = node_by_id.get(cid)
+        if not host:
+            continue
+        group.sort(key=lambda t: t["name"])
+        widths_t = [max(56.0, min(150.0, 16 + len(t["name"]) * 6.4)) for t in group]
+        span = sum(widths_t) + 6 * (len(widths_t) - 1)
+        x = host["x"] + host["w"] / 2 - span / 2
+        y = host["y"] + NODE_H + TERM_GAP_Y
+        for t, w in zip(group, widths_t):
+            placed_terms.append({**t, "x": round(x, 1), "y": round(y, 1), "w": round(w, 1), "h": TERM_H})
+            x += w + 6
+        ctx_term_row_h[cid] = TERM_H + TERM_GAP_Y
+
+    term_by_key = {t["key"]: t for t in placed_terms}
+
+    # Usage edges: a statement -> every term it cites. Colour by whether the
+    # term is actually visible from the statement's context (defined there or
+    # in an ancestor) — the same check validate.py's term-not-visible gate
+    # runs, so a misclassification shows up as a visibly wrong-looking edge on
+    # the canvas instead of only as a line in a JSON report.
+    ancestors_of = {cid: nx.descendants(G, cid) for cid in G}
+    term_use_edges = []
+    for st in (statements or []):
+        for key in st.get("uses_terms", []):
+            t = term_by_key.get(key)
+            if not t:
+                continue
+            valid = t["context"] == st["context"] or t["context"] in ancestors_of.get(st["context"], set())
+            term_use_edges.append({"term": key, "statement_context": st["context"],
+                                   "statement_slogan": st["slogan"], "valid": valid,
+                                   "statement_id": st["id"]})
+
+    # Disambiguation: terms sharing a name across different contexts. Model B's
+    # whole premise is that these must never merge — this is what makes that
+    # claim visible rather than asserted. Not a bug when it fires; it is the
+    # feature working.
+    by_name: dict[str, list[str]] = {}
+    for t in placed_terms:
+        by_name.setdefault(t["name"].strip().lower(), []).append(t["key"])
+    disambiguation_edges = [
+        {"a": keys[i], "b": keys[i + 1], "name": name}
+        for name, keys in by_name.items() if len(keys) > 1
+        for i in range(len(keys) - 1)
+    ]
+
     # Statements are plotted beneath the context that holds them: the lattice
     # supplies their coordinates, so nothing about their position is guessed.
-    node_by_id = {n["id"]: n for n in nodes}
+    #
+    # Within a context they are grouped by `role` — THEOREM/LEMMA/COROLLARY vs
+    # METHOD vs DEFINITION are a different kind of claim (a fact you know vs a
+    # recipe you follow), and separating them turns an undifferentiated wall of
+    # dots into a legible sub-cluster. This is a real second axis that was
+    # already being collected and simply never drawn.
+    ROLE_FAMILY = {
+        "Theorem": "theorem", "Lemma": "theorem", "Corollary": "theorem",
+        "Proposition": "theorem", "Axiom": "theorem",
+        "Definition": "definition", "Method": "method",
+    }
+    FAMILY_ORDER = {"theorem": 0, "method": 1, "definition": 2}
+
     placed: list[dict] = []
     grouped: dict[str, list[dict]] = {}
+    TAG_ORDER = {"scalar": 0, "system": 1}
+
     for st in (statements or []):
+        st["family"] = ROLE_FAMILY.get(st.get("role") or "", "theorem")
+        st["sub_tag"] = _sub_tag(st)
         grouped.setdefault(st["context"], []).append(st)
 
     for cid, group in grouped.items():
         host = node_by_id.get(cid)
         if not host:
             continue
-        per_row = max(1, int(host["w"] // 12))
-        for i, st in enumerate(group):
-            row, col = divmod(i, per_row)
-            n_in_row = min(per_row, len(group) - row * per_row)
-            span = (n_in_row - 1) * 12
-            placed.append({
-                **st,
-                "x": round(host["x"] + host["w"] / 2 - span / 2 + col * 12, 1),
-                "y": host["y"] + NODE_H + 13 + row * 13,
-            })
+        group.sort(key=lambda s: (
+            FAMILY_ORDER.get(s["family"], 0), TAG_ORDER.get(s["sub_tag"], 0), s["slogan"],
+        ))
+        per_row = max(1, int(host["w"] // 13))
+        col = 0
+        row = 0
+        # A break starts a new row when family OR sub_tag changes, so a
+        # scalar/system split is visible as a row gap without a new colour.
+        prev_key = None
+        for st in group:
+            key = (st["family"], st["sub_tag"])
+            if prev_key is not None and key != prev_key and col > 0:
+                row += 1
+                col = 0
+            prev_key = key
+            placed.append({**st, "_row": row, "_col": col})
+            col += 1
+            if col >= per_row:
+                row += 1
+                col = 0
+
+        term_offset = ctx_term_row_h.get(cid, 0)
+        max_col_in_row: dict[int, int] = {}
+        for st in placed[-len(group):]:
+            max_col_in_row[st["_row"]] = max(max_col_in_row.get(st["_row"], 0), st["_col"])
+        for st in placed[-len(group):]:
+            n_in_row = max_col_in_row[st["_row"]] + 1
+            span = (n_in_row - 1) * 13
+            st["x"] = round(host["x"] + host["w"] / 2 - span / 2 + st["_col"] * 13, 1)
+            st["y"] = host["y"] + NODE_H + 14 + term_offset + st["_row"] * 14
+            del st["_row"], st["_col"]
 
     for n in nodes:
-        n["n_statements"] = len(grouped.get(n["id"], []))
+        group = grouped.get(n["id"], [])
+        n["n_statements"] = len(group)
+        n["family_counts"] = {
+            fam: sum(1 for s in group if s["family"] == fam)
+            for fam in ("theorem", "method", "definition")
+            if any(s["family"] == fam for s in group)
+        }
+        n["term_row_h"] = ctx_term_row_h.get(n["id"], 0)
 
     return {
-        "nodes": nodes, "edges": edges, "over": over, "statements": placed,
+        "nodes": nodes, "edges": edges, "over": over,
+        "statements": placed, "terms": placed_terms,
+        "term_use_edges": term_use_edges, "disambiguation_edges": disambiguation_edges,
         "canvas": {"w": round(canvas_w), "h": PAD * 2 + (max(layers) + 1) * ROW_H},
         "maxDepth": max(layers), "rowH": ROW_H, "nodeH": NODE_H, "pad": PAD,
         "meta": data.get("provenance", {}),
@@ -174,6 +302,7 @@ PAGE = """<title>Context Lattice · ODE, Calculus, Linear Algebra</title>
     --c-foundations:#6B7789; --c-linear:#B0761A; --c-analysis:#177C7C;
     --c-calculus:#6F4CBC; --c-ode:#C43F36;
     --edge:#B8C0CC; --edge-weak:#D6DBE3;
+    --term-ok:#2F8F5B; --term-bad:#C43F36;
     --shadow:0 1px 2px rgba(18,21,28,.06), 0 8px 24px rgba(18,21,28,.06);
     --serif: ui-serif, "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
     --sans: ui-sans-serif, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -188,6 +317,7 @@ PAGE = """<title>Context Lattice · ODE, Calculus, Linear Algebra</title>
       --c-foundations:#94A0B2; --c-linear:#E0A33C; --c-analysis:#3FB3B3;
       --c-calculus:#A98BE8; --c-ode:#F2685C;
       --edge:#3B4453; --edge-weak:#2A313D;
+      --term-ok:#4CB37C; --term-bad:#F2685C;
       --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
     }
   }
@@ -199,6 +329,7 @@ PAGE = """<title>Context Lattice · ODE, Calculus, Linear Algebra</title>
     --c-foundations:#94A0B2; --c-linear:#E0A33C; --c-analysis:#3FB3B3;
     --c-calculus:#A98BE8; --c-ode:#F2685C;
     --edge:#3B4453; --edge-weak:#2A313D;
+    --term-ok:#4CB37C; --term-bad:#F2685C;
     --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
   }
 
@@ -273,15 +404,60 @@ PAGE = """<title>Context Lattice · ODE, Calculus, Linear Algebra</title>
   /* Statements sit beneath the context that holds them. Their coordinates come
      from the lattice, so nothing about where they land is guessed. */
   .stmt { cursor:pointer; }
-  .stmt circle { stroke:var(--surface); stroke-width:1.2; }
-  .stmt.theorem circle { fill:var(--ink); }
-  .stmt.definition circle { fill:none; stroke:var(--ink); stroke-width:1.6; }
-  .stmt.false circle { fill:var(--c-ode); }
-  .stmt:hover circle, .stmt.sel circle { fill:var(--accent); stroke:var(--accent); }
+  .stmt-mark { stroke:var(--surface); stroke-width:1.1; fill:var(--ink); }
+  .stmt.definition .stmt-mark { fill:none; stroke:var(--ink); stroke-width:1.5; }
+  .stmt.false .stmt-mark { fill:var(--c-ode); stroke:var(--c-ode); }
+  .stmt:hover .stmt-mark, .stmt.sel .stmt-mark { fill:var(--accent); stroke:var(--accent); }
   .stmt.hidden { display:none; }
   .stmt.dim { opacity:.15; }
   .node.populated rect { stroke:var(--ink); stroke-width:1.8; }
   .count { font-family:var(--mono); font-size:9.5px; fill:var(--faint); }
+
+  /* Dense contexts (>6 statements) collapse to a badge: a count broken down by
+     role-family instead of an undifferentiated wall of dots. Click to expand. */
+  .stmt-badge { cursor:pointer; }
+  .stmt-badge rect { fill:var(--surface-2); stroke:var(--rule-strong); rx:8; }
+  .stmt-badge:hover rect { stroke:var(--accent); }
+  .stmt-badge text { font-family:var(--mono); font-size:9.5px; fill:var(--muted); }
+  .stmt-badge .fam-theorem { fill:var(--ink); }
+  .stmt-badge .fam-method { fill:var(--accent); }
+  .stmt-badge .fam-definition { fill:var(--faint); }
+  .stmt-badge.hidden { display:none; }
+  .stmt-badge.dim { opacity:.15; }
+
+  /* Terms: the vocabulary layer, drawn between a context and the statements
+     that use it. Dashed border marks them as a different kind of thing from a
+     context (a defined name, not a theory). */
+  .term { cursor:pointer; }
+  .term rect { rx:8; fill:var(--surface); stroke:var(--rule-strong);
+               stroke-width:1; stroke-dasharray:2.5 2; }
+  .term text { font-size:9.5px; fill:var(--muted); dominant-baseline:middle; }
+  .term:hover rect, .term.sel rect { stroke:var(--accent); fill:var(--accent-soft); }
+  .term:focus-visible rect { outline:none; stroke:var(--accent); stroke-width:2; }
+  .term.hidden { display:none; }
+  .term.dim { opacity:.18; }
+  .term.lit rect { stroke:var(--accent); stroke-width:1.6; }
+
+  /* A statement -> term usage link. Green when the term is actually visible
+     from the statement's context (defined there or in an ancestor); red when
+     it is not — the same check validate.py's term-not-visible gate runs, now
+     drawn instead of only logged. */
+  .term-use { fill:none; stroke-width:1; opacity:.45; }
+  .term-use.valid { stroke:var(--term-ok); }
+  .term-use.invalid { stroke:var(--term-bad); stroke-dasharray:2 3; opacity:.7; }
+  .term-use.hidden { display:none; }
+  .term-use.dim { opacity:.08; }
+  .term-use.lit { opacity:1; stroke-width:1.8; }
+
+  /* Two terms with the same name in different contexts — the disambiguation
+     case. This is the feature working, not an error: Model B's identity is
+     (name, context), so these can never merge, and this link is how you see
+     that two "Wronskian"s are deliberately kept apart. */
+  .disambig { fill:none; stroke:var(--faint); stroke-width:1; stroke-dasharray:1 3;
+              opacity:.55; }
+  .disambig.hidden { display:none; }
+  .disambig.dim { opacity:.1; }
+  .disambig.lit { stroke:var(--accent); opacity:1; }
 
   .node rect { rx:6; fill:var(--surface); stroke:var(--rule-strong); stroke-width:1; }
   .node text { font-size:12.5px; fill:var(--ink); dominant-baseline:middle; }
@@ -338,6 +514,7 @@ PAGE = """<title>Context Lattice · ODE, Calculus, Linear Algebra</title>
       <div>contexts<b id="s-nodes">0</b></div>
       <div>relations<b id="s-edges">0</b></div>
       <div>statements<b id="s-stmts">0</b></div>
+      <div>terms<b id="s-terms">0</b></div>
       <div>populated<b id="s-pop">0</b></div>
       <div>depth<b id="s-depth">0</b></div>
     </div>
@@ -355,6 +532,9 @@ PAGE = """<title>Context Lattice · ODE, Calculus, Linear Algebra</title>
     </button>
     <button class="chip" id="stmt-toggle" aria-pressed="true">
       Show statements
+    </button>
+    <button class="chip" id="term-toggle" aria-pressed="true">
+      Show terms &amp; links
     </button>
     <button class="chip" id="empty-toggle" aria-pressed="false">
       Populated contexts only
@@ -401,6 +581,7 @@ PAGE = """<title>Context Lattice · ODE, Calculus, Linear Algebra</title>
   document.getElementById('s-nodes').textContent = D.nodes.length;
   document.getElementById('s-edges').textContent = D.edges.length;
   document.getElementById('s-stmts').textContent = (D.statements || []).length;
+  document.getElementById('s-terms').textContent = (D.terms || []).length;
   document.getElementById('s-pop').textContent = stmtsByCtx.size + ' / ' + D.nodes.length;
   document.getElementById('s-depth').textContent = D.maxDepth + 1;
 
@@ -409,9 +590,9 @@ PAGE = """<title>Context Lattice · ODE, Calculus, Linear Algebra</title>
   svg.setAttribute('height', D.canvas.h);
   svg.setAttribute('viewBox', `0 0 ${D.canvas.w} ${D.canvas.h}`);
 
-  const gRules = el('g'), gOver = el('g'), gEdges = el('g'),
-        gNodes = el('g'), gStmts = el('g');
-  svg.append(gRules, gOver, gEdges, gNodes, gStmts);
+  const gRules = el('g'), gOver = el('g'), gEdges = el('g'), gTermLinks = el('g'),
+        gNodes = el('g'), gTerms = el('g'), gStmts = el('g');
+  svg.append(gRules, gOver, gEdges, gTermLinks, gNodes, gTerms, gStmts);
 
   for (let d = 0; d <= D.maxDepth; d++) {
     const y = D.pad + d * D.rowH + D.nodeH / 2;
@@ -480,25 +661,173 @@ PAGE = """<title>Context Lattice · ODE, Calculus, Linear Algebra</title>
     });
   });
 
+  // ---- terms: the vocabulary layer ---------------------------------------
+  const termEls = new Map();
+  const termById = new Map((D.terms || []).map(t => [t.key, t]));
+
+  (D.terms || []).forEach(t => {
+    const g = el('g', { class: 'term', tabindex: '0', role: 'button',
+                        'aria-label': `${t.name}, defined in ${t.context}` });
+    g.append(el('rect', { x: t.x, y: t.y, width: t.w, height: t.h }));
+    const label = t.name.length > 16 ? t.name.slice(0, 15) + '…' : t.name;
+    g.append(el('text', { x: t.x + t.w / 2, y: t.y + t.h / 2, 'text-anchor': 'middle' }, label));
+    g.append(el('title', {}, `${t.name} (${t.kind})\ndefined in ${t.context}${t.definition_latex ? '\n' + t.definition_latex : ''}`));
+    gTerms.append(g);
+    termEls.set(t.key, g);
+    g.addEventListener('mouseenter', () => { if (!pinned) lightTerm(t.key); });
+    g.addEventListener('mouseleave', () => { if (!pinned) clear(); });
+    g.addEventListener('click', ev => { ev.stopPropagation(); selectTerm(t.key); });
+    g.addEventListener('keydown', ev => {
+      if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); selectTerm(t.key); }
+    });
+  });
+
+  // Definition edge: context -> its own terms. Short and always valid, so no
+  // colour coding needed — it exists mainly to visually anchor the term row.
+  const defEdgeEls = new Map();
+  (D.terms || []).forEach(t => {
+    const host = byId.get(t.context);
+    if (!host) return;
+    const x = t.x + t.w / 2, y1 = host.y + host.h, y2 = t.y;
+    const p = el('path', {
+      d: `M${x},${y1} L${x},${y2}`, class: 'term-use valid', 'stroke-dasharray': '1 2',
+    });
+    gTermLinks.append(p);
+    defEdgeEls.set(t.key, p);
+  });
+
+  // Usage edges: a statement cites a term. Green = the term is actually
+  // visible from that context (defined there or in an ancestor); red dashed =
+  // it is not — the exact case validate.py's term-not-visible gate flags,
+  // drawn instead of only logged. A statement can sit above or below its
+  // term's context depending on which direction the citation runs, so the
+  // curve bows toward whichever side has more vertical room.
+  const termUseEls = [];
+  (D.term_use_edges || []).forEach(u => {
+    const t = termById.get(u.term);
+    const stmtNode = stmtById.get(u.statement_id);
+    if (!t || !stmtNode) return;
+    const x1 = t.x + t.w / 2, y1 = t.y + t.h;
+    const x2 = stmtNode.x, y2 = stmtNode.y;
+    const my = (y1 + y2) / 2;
+    const p = el('path', {
+      d: `M${x1},${y1} C${x1},${my} ${x2},${my} ${x2},${y2}`,
+      class: 'term-use ' + (u.valid ? 'valid' : 'invalid'),
+    });
+    p.append(el('title', {}, `${t.name} used by: ${u.statement_slogan}` +
+      (u.valid ? '' : '\n⚠ not visible from this context — likely a missing lattice relation')));
+    gTermLinks.append(p);
+    termUseEls.push({ term: u.term, stmt: u.statement_id, el: p });
+  });
+
+  // Disambiguation: two terms, same name, different context — never merged.
+  const disambigEls = [];
+  (D.disambiguation_edges || []).forEach(d => {
+    const a = termById.get(d.a), b = termById.get(d.b);
+    if (!a || !b) return;
+    const x1 = a.x + a.w, y1 = a.y + a.h / 2, x2 = b.x, y2 = b.y + b.h / 2;
+    const p = el('path', { d: `M${x1},${y1} L${x2},${y2}`, class: 'disambig' });
+    p.append(el('title', {}, `"${d.name}" — same name, different context. Kept apart on purpose.`));
+    gTermLinks.append(p);
+    disambigEls.push({ a: d.a, b: d.b, el: p });
+  });
+
+  function lightTerm(key) {
+    termEls.forEach((g, k) => g.classList.toggle('lit', k === key));
+    termUseEls.forEach(u => u.el.classList.toggle('lit', u.term === key));
+    disambigEls.forEach(d => d.el.classList.toggle('lit', d.a === key || d.b === key));
+  }
+
+  // Shape encodes role-family (a fact vs a recipe vs a definition); fill/outline
+  // still encodes status (theorem/definition/false). Two independent channels.
+  const FAM_LABEL = { theorem: 'Thm', method: 'Method', definition: 'Def' };
+  function markFor(family, x, y) {
+    if (family === 'method') {
+      const s = 5;
+      return el('path', { class: 'stmt-mark',
+        d: `M${x},${y - s} L${x + s},${y} L${x},${y + s} L${x - s},${y} Z` });
+    }
+    if (family === 'definition') {
+      const s = 3.6;
+      return el('rect', { class: 'stmt-mark', x: x - s, y: y - s, width: s * 2, height: s * 2 });
+    }
+    return el('circle', { class: 'stmt-mark', cx: x, cy: y, r: 4 });
+  }
+
+  const DENSE_THRESHOLD = 6;
+  const expanded = new Set();   // context ids the user has expanded past the badge
+
   const stmtEls = new Map();
-  (D.statements || []).forEach((st, i) => {
+  const badgeEls = new Map();
+  const stmtById = new Map((D.statements || []).map(s => [s.id, s]));
+
+  function drawStatement(st) {
     const cls = st.status === 'FALSE' ? 'false'
               : st.status === 'DEFINITION' ? 'definition' : 'theorem';
     const g = el('g', { class: 'stmt ' + cls, tabindex: '0', role: 'button',
                         'aria-label': st.slogan });
-    g.append(el('circle', { cx: st.x, cy: st.y, r: 4 }));
-    g.append(el('title', {}, `${st.status} · ${st.context}\n${st.slogan}`));
+    g.append(markFor(st.family, st.x, st.y));
+    g.append(el('title', {}, `${st.status} · ${st.role || ''} · ${st.sub_tag} · ${st.context}\n${st.slogan}`));
     gStmts.append(g);
     stmtEls.set(st.id, g);
     g.addEventListener('click', ev => { ev.stopPropagation(); selectStmt(st.id); });
     g.addEventListener('keydown', ev => {
       if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); selectStmt(st.id); }
     });
-  });
-  const stmtById = new Map((D.statements || []).map(s => [s.id, s]));
+    g.classList.toggle('hidden', !showStmts);
+  }
+
+  function drawBadge(cid, host, counts) {
+    const total = Object.values(counts).reduce((a, b) => a + b, 0);
+    const parts = Object.entries(counts).map(([f, n]) => `${n} ${FAM_LABEL[f]}`);
+    const w = Math.max(58, 14 + parts.join(' · ').length * 5.6);
+    const x = host.x + host.w / 2 - w / 2, y = host.y + host.h + (host.term_row_h || 0) + 8;
+    const g = el('g', { class: 'stmt-badge', tabindex: '0', role: 'button',
+                        'aria-label': `${total} statements: ${parts.join(', ')}. Click to expand.` });
+    g.append(el('rect', { x, y, width: w, height: 17 }));
+    let tx = x + 7;
+    Object.entries(counts).forEach(([fam, n], i) => {
+      if (i > 0) {
+        const sep = el('text', { x: tx, y: y + 12 }, '·');
+        sep.setAttribute('fill', 'var(--rule-strong)');
+        g.append(sep);
+        tx += 8;
+      }
+      g.append(el('text', { x: tx, y: y + 12, class: 'fam-' + fam }, String(n)));
+      tx += String(n).length * 5.6 + 2;
+      const lbl = el('text', { x: tx, y: y + 12 }, FAM_LABEL[fam]);
+      g.append(lbl);
+      tx += FAM_LABEL[fam].length * 5.6 + 6;
+    });
+    gStmts.append(g);
+    badgeEls.set(cid, g);
+    const toggle = ev => { ev.stopPropagation(); expanded.add(cid); refreshDensity(); };
+    g.addEventListener('click', toggle);
+    g.addEventListener('keydown', ev => {
+      if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); toggle(ev); }
+    });
+  }
+
+  function refreshDensity() {
+    stmtEls.forEach(g => g.remove());
+    badgeEls.forEach(g => g.remove());
+    stmtEls.clear();
+    badgeEls.clear();
+
+    D.nodes.forEach(n => {
+      const group = (D.statements || []).filter(s => s.context === n.id);
+      if (!group.length) return;
+      if (group.length > DENSE_THRESHOLD && !expanded.has(n.id)) {
+        drawBadge(n.id, n, n.family_counts || {});
+      } else {
+        group.forEach(drawStatement);
+      }
+    });
+    applyFilters();
+  }
 
   // ---- highlight --------------------------------------------------------
-  let pinned = null, pinnedStmt = null;
+  let pinned = null, pinnedStmt = null, pinnedTerm = null;
 
   function walk(id, map, key) {
     const seen = new Set(), edges = new Set(), stack = [id];
@@ -536,18 +865,39 @@ PAGE = """<title>Context Lattice · ODE, Calculus, Linear Algebra</title>
       x.classList.toggle('lit', ownOver.has(k));
       x.classList.toggle('dim', !ownOver.has(k));
     }));
+    stmtEls.forEach((g, sid) => g.classList.toggle('dim', !keep.has(stmtById.get(sid).context)));
+    badgeEls.forEach((g, cid) => g.classList.toggle('dim', !keep.has(cid)));
+    termEls.forEach((g, key) => g.classList.toggle('dim', !keep.has(termById.get(key).context)));
+    defEdgeEls.forEach((p, key) => p.classList.toggle('dim', !keep.has(termById.get(key).context)));
+    termUseEls.forEach(u => {
+      const t = termById.get(u.term), stNode = stmtById.get(u.stmt);
+      const on = t && keep.has(t.context) && stNode && keep.has(stNode.context);
+      u.el.classList.toggle('dim', !on);
+    });
+    disambigEls.forEach(d => {
+      const a = termById.get(d.a), b = termById.get(d.b);
+      const on = (a && keep.has(a.context)) || (b && keep.has(b.context));
+      d.el.classList.toggle('dim', !on);
+    });
   }
 
   function clear() {
     nodeEls.forEach(g => g.classList.remove('dim', 'lit', 'sel'));
     edgeEls.forEach(p => p.classList.remove('lit', 'dim'));
     overEls.forEach(els => els.forEach(x => x.classList.remove('lit', 'dim')));
+    stmtEls.forEach(g => g.classList.remove('dim'));
+    badgeEls.forEach(g => g.classList.remove('dim'));
+    termEls.forEach(g => g.classList.remove('dim', 'lit', 'sel'));
+    defEdgeEls.forEach(p => p.classList.remove('dim'));
+    termUseEls.forEach(u => u.el.classList.remove('dim', 'lit'));
+    disambigEls.forEach(d => d.el.classList.remove('dim', 'lit'));
     applyFilters();
   }
 
   function select(id) {
-    pinnedStmt = null;
+    pinnedStmt = null; pinnedTerm = null;
     stmtEls.forEach(g => g.classList.remove('sel'));
+    termEls.forEach(g => g.classList.remove('sel'));
     if (pinned === id) { pinned = null; clear(); renderPanel(null); return; }
     pinned = id; light(id); renderPanel(id);
   }
@@ -555,11 +905,59 @@ PAGE = """<title>Context Lattice · ODE, Calculus, Linear Algebra</title>
   function selectStmt(sid) {
     const st = stmtById.get(sid);
     if (!st) return;
+    pinnedTerm = null;
+    termEls.forEach(g => g.classList.remove('sel'));
     stmtEls.forEach((g, k) => g.classList.toggle('sel', k === sid));
     pinnedStmt = sid;
     pinned = st.context;
     light(st.context);
     renderStmtPanel(st);
+  }
+
+  function selectTerm(key) {
+    const t = termById.get(key);
+    if (!t) return;
+    if (pinnedTerm === key) { pinnedTerm = null; pinned = null; clear(); renderPanel(null); return; }
+    pinnedStmt = null;
+    stmtEls.forEach(g => g.classList.remove('sel'));
+    termEls.forEach((g, k) => g.classList.toggle('sel', k === key));
+    pinnedTerm = key;
+    pinned = t.context;
+    light(t.context);
+    lightTerm(key);
+    renderTermPanel(t);
+  }
+
+  function renderTermPanel(t) {
+    const uses = (D.term_use_edges || []).filter(u => u.term === t.key);
+    const siblings = (D.disambiguation_edges || [])
+      .filter(d => d.a === t.key || d.b === t.key)
+      .map(d => termById.get(d.a === t.key ? d.b : d.a))
+      .filter(Boolean);
+    panel.innerHTML = `
+      <span class="kicker">Term &middot; ${t.context}</span>
+      <h2>${t.name}</h2>
+      <div class="id">${t.kind}</div>
+      ${t.definition_latex ? `<div class="panel-sec"><h3>Definition</h3>
+        <p class="note" style="font-family:var(--mono);font-size:.72rem;overflow-x:auto">${t.definition_latex}</p></div>` : ''}
+      <div class="panel-sec">
+        <h3>Used by ${uses.length ? '(' + uses.length + ')' : ''}</h3>
+        ${uses.length ? `<div class="rel">${uses.map(u => `
+          <button data-goto-stmt="${u.statement_id}"><span>${u.statement_slogan}</span>
+          <span class="tier ${u.valid ? 'ok' : 'weak'}">${u.valid ? u.statement_context : 'not visible'}</span></button>
+        `).join('')}</div>` : '<p class="empty">not cited by any indexed statement yet</p>'}
+      </div>
+      ${siblings.length ? `<div class="panel-sec">
+        <h3>Same name, different context</h3>
+        <p class="note" style="margin-bottom:.5rem">Kept apart on purpose — Model B's identity is
+          (name, context), so these can never silently merge.</p>
+        <div class="rel">${siblings.map(s => `<button data-goto-term="${s.key}">
+          <span>${s.name}</span><span class="tier">${s.context}</span></button>`).join('')}</div>
+      </div>` : ''}`;
+    panel.querySelectorAll('[data-goto-stmt]').forEach(b =>
+      b.addEventListener('click', () => selectStmt(b.dataset.gotoStmt)));
+    panel.querySelectorAll('[data-goto-term]').forEach(b =>
+      b.addEventListener('click', () => selectTerm(b.dataset.gotoTerm)));
   }
 
   function renderStmtPanel(st) {
@@ -570,7 +968,12 @@ PAGE = """<title>Context Lattice · ODE, Calculus, Linear Algebra</title>
     panel.innerHTML = `
       <span class="kicker">Statement &middot; ${st.context}</span>
       <h2>${st.slogan}</h2>
-      <div class="id" style="color:${colour}">${st.status}${st.role ? ' &middot; ' + st.role : ''}</div>
+      <div class="id" style="color:${colour}">${st.status}${st.role ? ' &middot; ' + st.role : ''}
+        &middot; <span style="text-transform:capitalize">${st.sub_tag}</span></div>
+      <p class="note" style="margin-top:.3rem">
+        Grouped by role (shape) and by a probe scalar/system tag (row position) —
+        a heuristic read of the hypothesis text, not yet a real classification.
+      </p>
       ${st.hypotheses && st.hypotheses.length ? `
         <div class="panel-sec"><h3>Hypotheses</h3>
           <div class="rel">${st.hypotheses.map(h => `<button disabled style="cursor:default">${h}</button>`).join('')}</div>
@@ -615,6 +1018,17 @@ PAGE = """<title>Context Lattice · ODE, Calculus, Linear Algebra</title>
       </div></div>`;
   }
 
+  function termSection(id) {
+    const list = (D.terms || []).filter(t => t.context === id);
+    if (!list.length) return '';
+    return `<div class="panel-sec">
+      <h3>Terms defined here</h3>
+      <div class="rel">${list.map(t => `
+        <button data-term="${t.key}"><span>${t.name}</span>
+        <span class="tier">${t.kind}</span></button>`).join('')}
+      </div></div>`;
+  }
+
   function overSection(id) {
     const out = overOut.get(id), inc = overIn.get(id);
     if (!out.length && !inc.length) return '';
@@ -650,6 +1064,12 @@ PAGE = """<title>Context Lattice · ODE, Calculus, Linear Algebra</title>
           space <em>over</em> &#8477; or &#8450;. These are parameters, not order, so they
           are held out of the depth calculation &mdash; folding them in routed 39 of 54
           contexts through Field and added six spurious levels.</p>
+          <p class="note" style="margin-top:.6rem">Dashed boxes beneath a context are its
+          <strong>terms</strong> &mdash; the vocabulary it defines. A line down to a
+          statement is that term in use: green if the term is actually visible from
+          there, red dashed if it isn't (a gap in the lattice). A faint dotted line
+          between two terms with the same name means they were kept apart on
+          purpose &mdash; identity here is (name, context), so they can never merge.</p>
         </div>`;
       return;
     }
@@ -670,12 +1090,15 @@ PAGE = """<title>Context Lattice · ODE, Calculus, Linear Algebra</title>
         ${relList(children.get(id), 'down')}
       </div>
       ${overSection(id)}
+      ${termSection(id)}
       ${stmtSection(id)}
       <div class="panel-sec">${wiki}</div>`;
     panel.querySelectorAll('[data-goto]').forEach(b =>
       b.addEventListener('click', () => select(b.dataset.goto)));
     panel.querySelectorAll('[data-stmt]').forEach(b =>
       b.addEventListener('click', () => selectStmt(b.dataset.stmt)));
+    panel.querySelectorAll('[data-term]').forEach(b =>
+      b.addEventListener('click', () => selectTerm(b.dataset.term)));
   }
 
   // ---- filters ----------------------------------------------------------
@@ -694,11 +1117,17 @@ PAGE = """<title>Context Lattice · ODE, Calculus, Linear Algebra</title>
     chipBox.append(b);
   });
 
-  let spineOnly = false, showOver = true, showStmts = true, populatedOnly = false;
+  let spineOnly = false, showOver = true, showStmts = true, populatedOnly = false, showTerms = true;
   const stmtBtn = document.getElementById('stmt-toggle');
   if (stmtBtn) stmtBtn.addEventListener('click', () => {
     showStmts = !showStmts;
     stmtBtn.setAttribute('aria-pressed', String(showStmts));
+    pinned = null; renderPanel(null); clear();
+  });
+  const termBtn = document.getElementById('term-toggle');
+  if (termBtn) termBtn.addEventListener('click', () => {
+    showTerms = !showTerms;
+    termBtn.setAttribute('aria-pressed', String(showTerms));
     pinned = null; renderPanel(null); clear();
   });
   const emptyBtn = document.getElementById('empty-toggle');
@@ -725,10 +1154,11 @@ PAGE = """<title>Context Lattice · ODE, Calculus, Linear Algebra</title>
     const on = id => active.has(byId.get(id).course)
       && (!populatedOnly || (byId.get(id).n_statements || 0) > 0);
     nodeEls.forEach((g, id) => g.classList.toggle('dim', !on(id)));
-    (D.statements || []).forEach(s => {
-      const g = stmtEls.get(s.id);
-      if (g) g.classList.toggle('hidden', !showStmts || !on(s.context));
+    stmtEls.forEach((g, sid) => {
+      const s = stmtById.get(sid);
+      g.classList.toggle('hidden', !showStmts || !on(s.context));
     });
+    badgeEls.forEach((g, cid) => g.classList.toggle('hidden', !showStmts || !on(cid)));
     D.edges.forEach(e => {
       edgeEls.get(e.from + '>' + e.to)
         .classList.toggle('hidden', (spineOnly && e.tier === 'single') || !(on(e.from) && on(e.to)));
@@ -736,6 +1166,18 @@ PAGE = """<title>Context Lattice · ODE, Calculus, Linear Algebra</title>
     D.over.forEach(e => {
       const vis = showOver && on(e.from) && on(e.to);
       overEls.get(e.from + '~' + e.to).forEach(x => x.classList.toggle('hidden', !vis));
+    });
+    termEls.forEach((g, key) => g.classList.toggle('hidden', !showTerms || !on(termById.get(key).context)));
+    defEdgeEls.forEach((p, key) => p.classList.toggle('hidden', !showTerms || !on(termById.get(key).context)));
+    termUseEls.forEach(u => {
+      const t = termById.get(u.term), stNode = stmtById.get(u.stmt);
+      const vis = showTerms && showStmts && t && on(t.context) && stNode && on(stNode.context);
+      u.el.classList.toggle('hidden', !vis);
+    });
+    disambigEls.forEach(d => {
+      const a = termById.get(d.a), b = termById.get(d.b);
+      const vis = showTerms && a && on(a.context) && b && on(b.context);
+      d.el.classList.toggle('hidden', !vis);
     });
   }
 
@@ -747,7 +1189,7 @@ PAGE = """<title>Context Lattice · ODE, Calculus, Linear Algebra</title>
   }
 
   renderPanel(null);
-  applyFilters();
+  refreshDensity();
 })();
 </script>
 """
@@ -773,6 +1215,26 @@ def _load_statements() -> list[dict]:
             "status": s.status.value, "role": s.role.value if s.role else None,
             "hypotheses": s.hypotheses, "conclusion": s.conclusion,
             "statement_latex": s.statement_latex, "provenance": p,
+            "uses_terms": s.uses_terms,
+        })
+    return out
+
+
+def _load_terms() -> list[dict]:
+    """Flatten the atlas store's term table into plot-ready records."""
+    try:
+        from src.atlas.store import AtlasStore
+        store = AtlasStore()
+    except Exception as e:
+        log.warning(f"No atlas store available ({e}); rendering without terms.")
+        return []
+
+    out = []
+    for t in store.terms.values():
+        out.append({
+            "key": t.key, "name": t.name, "context": t.context,
+            "kind": t.kind.value, "definition_latex": t.definition_latex,
+            "aliases": t.aliases, "uses_terms": t.uses_terms,
         })
     return out
 
@@ -780,7 +1242,8 @@ def _load_statements() -> list[dict]:
 def render(with_statements: bool = False, out: Path | None = None) -> Path:
     data = json.loads(DATA.read_text(encoding="utf-8"))
     statements = _load_statements() if with_statements else []
-    layout = build_layout(data, statements)
+    terms = _load_terms() if with_statements else []
+    layout = build_layout(data, statements, terms)
 
     title = ("Atlas · statements on the context lattice" if with_statements
              else "Context Lattice · ODE, Calculus, Linear Algebra")
@@ -797,7 +1260,7 @@ def render(with_statements: bool = False, out: Path | None = None) -> Path:
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(html, encoding="utf-8")
     log.info(f"Rendered {len(layout['nodes'])} contexts, "
-             f"{len(statements)} statements to {target}")
+             f"{len(statements)} statements, {len(terms)} terms to {target}")
     return target
 
 
