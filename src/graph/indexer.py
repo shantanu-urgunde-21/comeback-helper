@@ -137,10 +137,17 @@ class MathGraphIndexer:
                 for node in data.get("nodes", []):
                     G.add_node(node["id"], **node)
                 for edge in data.get("edges", []):
+                    relation = edge.get("relation", "DEPENDS_ON")
+                    if relation == "CONTAINS":
+                        # Legacy note->concept membership edge. The same fact
+                        # already lives in each concept node's `provenance`
+                        # list, so this edge type is retired rather than kept
+                        # in sync in two places.
+                        continue
                     G.add_edge(
                         edge["source"],
                         edge["target"],
-                        relation=edge.get("relation", "DEPENDS_ON"),
+                        relation=relation,
                     )
                 log.info(
                     f"Loaded existing graph ({G.number_of_nodes()} nodes, "
@@ -500,7 +507,15 @@ class MathGraphIndexer:
     # ------------------------------------------------------------------
 
     def index_note(self, note_path: Path, use_llm: bool = False):
-        """Indexes a single Markdown file into the NetworkX graph."""
+        """Indexes a single Markdown file into the NetworkX graph.
+
+        The note itself is not added as a graph node. Which note a concept
+        came from is already captured by that concept's own `provenance`
+        list; a separate Note node plus a CONTAINS edge to every concept it
+        mentions was the same fact stored twice, and in practice it dominated
+        the graph (note titles were consistently the highest-degree nodes,
+        and CONTAINS was roughly half of all edges).
+        """
         content = note_path.read_text(encoding="utf-8")
         course = note_path.parent.name if note_path.parent != self.vault_path else "General"
         main_node = note_path.stem
@@ -511,17 +526,6 @@ class MathGraphIndexer:
             doc_path=str(note_path),
             exact_quote=content[:200].replace("\n", " "),
         ).model_dump()
-
-        if main_node not in self.graph:
-            self.graph.add_node(
-                main_node,
-                id=main_node,
-                entity_type="Note",
-                taxonomy={"domain": course, "subdomain": "Course Note", "topic": main_node},
-                description=f"Course Note ({course})",
-                provenance=[prov_record],
-                aliases=[],
-            )
 
         extraction = self.extract_from_text(content, use_llm=use_llm, course_domain=course)
 
@@ -546,9 +550,6 @@ class MathGraphIndexer:
                 if isinstance(prov_list, list):
                     prov_list.append(prov_record)
                     self.graph.nodes[n_id]["provenance"] = prov_list
-
-            if n_id != main_node:
-                self.graph.add_edge(main_node, n_id, relation="CONTAINS", label="CONTAINS")
 
         for edge in extraction.edges:
             src = self._resolve_entity(edge.source) if self._vector_store else edge.source

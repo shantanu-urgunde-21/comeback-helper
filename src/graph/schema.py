@@ -23,7 +23,6 @@ class MathRelationType(str, Enum):
     COROLLARY_OF = "COROLLARY_OF"
     PREREQUISITE_FOR = "PREREQUISITE_FOR"
     DEPENDS_ON = "DEPENDS_ON"
-    CONTAINS = "CONTAINS"
 
 
 class Provenance(BaseModel):
