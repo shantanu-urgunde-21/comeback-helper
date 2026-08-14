@@ -42,6 +42,33 @@ NOISE_PATTERN = re.compile(
 _STRIP_WORDS = {"a", "an", "the", "of", "in", "on", "for", "to", "and", "or", "is", "are", "was", "were"}
 
 
+def _snake_case_redirects(node_ids: List[str]) -> dict[str, str]:
+    """Maps an all-lowercase, underscore-separated node id to its exact
+    Title Case sibling when both exist as separate nodes.
+
+    Two extraction paths in this codebase produce different id conventions
+    for the same concept: the LLM pass is prompted to Title Case names but
+    doesn't always comply, while the deterministic block-extraction path
+    preserves whatever casing/formatting appeared in the note (often a
+    snake_case wikilink target). When both forms end up in the graph, the
+    snake_case one is a separate node with its own (usually empty) edge set
+    — a real chunk of "isolated nodes" is this, not an absence of any
+    relation. Deliberately narrow: only exact `foo_bar` -> `Foo Bar` matches
+    redirect. Near-duplicates with different wording or punctuation (e.g.
+    two different snake_case phrasings of the same theorem, or hyphenated
+    ids) need semantic matching, not a string transform, and are left alone
+    here rather than guessed at.
+    """
+    id_set = set(node_ids)
+    redirects = {}
+    for nid in node_ids:
+        if "_" in nid and nid == nid.lower():
+            title_form = nid.replace("_", " ").title()
+            if title_form in id_set and title_form != nid:
+                redirects[nid] = title_form
+    return redirects
+
+
 def _normalize_relation(source: str, target: str, relation: str) -> tuple[str, str, str]:
     """Canonicalizes inverse relation types onto one direction.
 
@@ -152,7 +179,11 @@ class MathGraphIndexer:
         if self.graph_file.exists():
             try:
                 data = json.loads(self.graph_file.read_text(encoding="utf-8"))
-                for node in data.get("nodes", []):
+                raw_nodes = data.get("nodes", [])
+                redirects = _snake_case_redirects([n["id"] for n in raw_nodes])
+
+                nodes_by_id: dict[str, dict] = {}
+                for node in raw_nodes:
                     # save_graph() serializes the role field as "type" (the
                     # on-disk/API key); everywhere else in this codebase reads
                     # it back as "entity_type". Left as "type", every node
@@ -164,7 +195,31 @@ class MathGraphIndexer:
                     taxonomy = node.get("taxonomy")
                     if isinstance(taxonomy, dict) and "domain" in taxonomy:
                         taxonomy["domain"] = normalize_domain_casing(taxonomy["domain"])
+
+                    canonical = redirects.get(node["id"], node["id"])
+                    if canonical not in nodes_by_id:
+                        node["id"] = canonical
+                        nodes_by_id[canonical] = node
+                    else:
+                        # Fold the snake_case duplicate into its Title Case
+                        # sibling instead of silently dropping it: keep its
+                        # provenance and record its id as an alias.
+                        kept = nodes_by_id[canonical]
+                        kept_prov = kept.get("provenance") or []
+                        for p in node.get("provenance") or []:
+                            if p not in kept_prov:
+                                kept_prov.append(p)
+                        kept["provenance"] = kept_prov
+                        kept_aliases = kept.get("aliases") or []
+                        if node["id"] not in kept_aliases:
+                            kept_aliases.append(node["id"])
+                        kept["aliases"] = kept_aliases
+                        if not kept.get("description") and node.get("description"):
+                            kept["description"] = node["description"]
+
+                for node in nodes_by_id.values():
                     G.add_node(node["id"], **node)
+
                 for edge in data.get("edges", []):
                     relation = edge.get("relation", "DEPENDS_ON")
                     if relation == "CONTAINS":
@@ -173,9 +228,9 @@ class MathGraphIndexer:
                         # list, so this edge type is retired rather than kept
                         # in sync in two places.
                         continue
-                    src, tgt, relation = _normalize_relation(
-                        edge["source"], edge["target"], relation
-                    )
+                    src = redirects.get(edge["source"], edge["source"])
+                    tgt = redirects.get(edge["target"], edge["target"])
+                    src, tgt, relation = _normalize_relation(src, tgt, relation)
                     G.add_edge(src, tgt, relation=relation)
                 log.info(
                     f"Loaded existing graph ({G.number_of_nodes()} nodes, "
