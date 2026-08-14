@@ -129,5 +129,28 @@ def rebuild_graph(use_llm: bool):
         sys.exit(1)
 
 
+@main.command(name="graph-dedupe")
+def graph_dedupe():
+    """Merge nodes already in the graph that are the same entity under a
+    different spelling/casing (e.g. "Wronskian" vs "wronskian"). Uses
+    embedding comparison only — no LLM calls, safe to re-run anytime."""
+    console.print("[bold cyan]Scanning graph for duplicate nodes...[/bold cyan]")
+    try:
+        from src.graph.indexer import MathGraphIndexer
+        from src.vector.store import LocalVectorStore
+        indexer = MathGraphIndexer(vector_store=LocalVectorStore())
+        merged = indexer.dedupe_graph()
+        if merged:
+            indexer.save_graph()
+        console.print(Panel(
+            f"[bold green]Dedup Complete![/bold green]\nMerged: {merged} node(s)\n"
+            f"Total Nodes: {indexer.graph.number_of_nodes()}\nTotal Edges: {indexer.graph.number_of_edges()}",
+            title="Dedup Success",
+        ))
+    except Exception as e:
+        console.print(f"[bold red]Dedup Error:[/bold red] {e}")
+        sys.exit(1)
+
+
 if __name__ == "__main__":
     main()
