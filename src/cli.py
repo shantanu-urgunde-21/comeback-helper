@@ -116,7 +116,12 @@ def rebuild_graph(use_llm: bool):
     console.print(f"[bold cyan]Rebuilding Knowledge Graph (use_llm={use_llm})...[/bold cyan]")
     try:
         from src.graph.indexer import MathGraphIndexer
-        indexer = MathGraphIndexer()
+        from src.vector.store import LocalVectorStore
+        # Without a vector store, _resolve_entity() short-circuits and never
+        # merges anything — this was silently disabling entity resolution on
+        # every CLI rebuild (e.g. "Wronskian" / "wronskian" staying separate
+        # nodes), even though the server path always wires one in.
+        indexer = MathGraphIndexer(vector_store=LocalVectorStore())
         G = indexer.build_or_update_index(use_llm=use_llm, force=True)
         console.print(Panel(f"[bold green]Graph Rebuild Complete![/bold green]\nTotal Nodes: {G.number_of_nodes()}\nTotal Edges: {G.number_of_edges()}", title="Rebuild Success"))
     except Exception as e:

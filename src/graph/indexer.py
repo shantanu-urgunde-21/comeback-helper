@@ -510,30 +510,48 @@ class MathGraphIndexer:
     def _resolve_entity(self, name: str, description: str = "") -> str:
         """Merges entity synonyms above ENTITY_MERGE_THRESHOLD cosine similarity.
 
-        Compares `name: description`, not the bare name, against each existing
-        node's own stored `name: description` — two entities that share a name
-        but mean different things (different descriptions) should not merge
-        just because the name matches. When no description is available (e.g.
-        resolving a bare edge endpoint), falls back to name-only comparison,
-        which is a weaker signal and more conservative merging is expected.
+        Compares `name: description` against each existing node's own stored
+        `name: description` when *both* sides have a description — two
+        entities that share a name but mean different things should not merge
+        just because the name matches. When either side has no description
+        (e.g. resolving a bare edge endpoint, or a node auto-created by
+        networkx as an edge target it hadn't seen yet), falls back to
+        name-only comparison for that pairing specifically. Comparing a full
+        description against nothing is worse than comparing no description at
+        all: it drags near-identical names (e.g. "Wronskian" vs "wronskian")
+        well below any reasonable threshold, rather than just losing the
+        extra precision a description would have added.
         """
         if not self._vector_store or self.graph.number_of_nodes() == 0:
             return name
 
         try:
-            query_text = f"{name}: {description}" if description else name
-            new_emb = self._vector_store.embed_texts([query_text])[0]
             import numpy as np
-            q = np.array(new_emb)
+            name_emb = np.array(self._vector_store.embed_texts([name])[0])
+            desc_emb = (
+                np.array(self._vector_store.embed_texts([f"{name}: {description}"])[0])
+                if description else None
+            )
 
             best_match = None
             best_sim = 0.0
 
             for existing_node in self.graph.nodes:
+                if existing_node == name:
+                    # If `name` already exists as its own node, it is
+                    # trivially its own closest match (sim=1.0) and would
+                    # otherwise always win the `sim > best_sim` comparison,
+                    # permanently blocking resolution to a *different*
+                    # existing node under a different spelling/casing.
+                    continue
                 existing_desc = self.graph.nodes[existing_node].get("description", "")
-                existing_text = f"{existing_node}: {existing_desc}" if existing_desc else existing_node
-                existing_emb = self._vector_store.embed_texts([existing_text])[0]
-                e = np.array(existing_emb)
+                if desc_emb is not None and existing_desc:
+                    q = desc_emb
+                    existing_text = f"{existing_node}: {existing_desc}"
+                else:
+                    q = name_emb
+                    existing_text = existing_node
+                e = np.array(self._vector_store.embed_texts([existing_text])[0])
                 sim = float(np.dot(q, e) / (np.linalg.norm(q) * np.linalg.norm(e) + 1e-9))
                 if sim > best_sim:
                     best_sim = sim
