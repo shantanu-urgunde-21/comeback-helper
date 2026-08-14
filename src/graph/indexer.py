@@ -485,13 +485,32 @@ class MathGraphIndexer:
     # Entity Resolution (deduplication)
     # ------------------------------------------------------------------
 
-    def _resolve_entity(self, name: str) -> str:
-        """Merges entity synonyms if cosine similarity > 0.88."""
+    # Below this similarity, two names are not considered the same entity.
+    # Raised from 0.88: at that threshold names embedded alone routinely
+    # merged entities that share a word but not a meaning (e.g. "normal
+    # subgroup" and "normal operator"). Literature on LLM-judged entity
+    # matching puts the reliable tier at >=0.9 even for description-rich
+    # comparisons; 0.93 leaves margin above that given this is name+
+    # description similarity from a general-purpose embedding model, not a
+    # matcher tuned for the task.
+    ENTITY_MERGE_THRESHOLD = 0.93
+
+    def _resolve_entity(self, name: str, description: str = "") -> str:
+        """Merges entity synonyms above ENTITY_MERGE_THRESHOLD cosine similarity.
+
+        Compares `name: description`, not the bare name, against each existing
+        node's own stored `name: description` — two entities that share a name
+        but mean different things (different descriptions) should not merge
+        just because the name matches. When no description is available (e.g.
+        resolving a bare edge endpoint), falls back to name-only comparison,
+        which is a weaker signal and more conservative merging is expected.
+        """
         if not self._vector_store or self.graph.number_of_nodes() == 0:
             return name
 
         try:
-            new_emb = self._vector_store.embed_texts([name])[0]
+            query_text = f"{name}: {description}" if description else name
+            new_emb = self._vector_store.embed_texts([query_text])[0]
             import numpy as np
             q = np.array(new_emb)
 
@@ -499,14 +518,16 @@ class MathGraphIndexer:
             best_sim = 0.0
 
             for existing_node in self.graph.nodes:
-                existing_emb = self._vector_store.embed_texts([existing_node])[0]
+                existing_desc = self.graph.nodes[existing_node].get("description", "")
+                existing_text = f"{existing_node}: {existing_desc}" if existing_desc else existing_node
+                existing_emb = self._vector_store.embed_texts([existing_text])[0]
                 e = np.array(existing_emb)
                 sim = float(np.dot(q, e) / (np.linalg.norm(q) * np.linalg.norm(e) + 1e-9))
                 if sim > best_sim:
                     best_sim = sim
                     best_match = existing_node
 
-            if best_match and best_sim > 0.88 and best_match != name:
+            if best_match and best_sim > self.ENTITY_MERGE_THRESHOLD and best_match != name:
                 log.info(f"Entity resolution: '{name}' → '{best_match}' (sim={best_sim:.3f})")
                 aliases = self.graph.nodes[best_match].get("aliases", [])
                 if name not in aliases:
@@ -546,7 +567,7 @@ class MathGraphIndexer:
         extraction = self.extract_from_text(content, use_llm=use_llm, course_domain=course)
 
         for node in extraction.nodes:
-            n_id = self._resolve_entity(node.id or node.name)
+            n_id = self._resolve_entity(node.id or node.name, description=node.description)
             etype = node.entity_type.value if hasattr(node.entity_type, "value") else str(node.entity_type)
             tax_dict = node.taxonomy.model_dump() if hasattr(node.taxonomy, "model_dump") else {"domain": course, "subdomain": "Course Notes", "topic": n_id}
 
