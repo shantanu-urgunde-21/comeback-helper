@@ -41,6 +41,22 @@ NOISE_PATTERN = re.compile(
 _STRIP_WORDS = {"a", "an", "the", "of", "in", "on", "for", "to", "and", "or", "is", "are", "was", "were"}
 
 
+def _normalize_relation(source: str, target: str, relation: str) -> tuple[str, str, str]:
+    """Canonicalizes inverse relation types onto one direction.
+
+    PREREQUISITE_FOR(A, B) and DEPENDS_ON(B, A) assert the same fact, but
+    the extractor could emit either one depending on the note's phrasing.
+    Left unnormalized, a note asserting both forms for the same pair (or
+    two notes each picking one) produces two directed edges pointing
+    opposite ways between the same nodes — an artificial cycle that breaks
+    any hierarchical/topological layout. DEPENDS_ON is the only form stored;
+    PREREQUISITE_FOR(A, B) is flipped to DEPENDS_ON(B, A).
+    """
+    if relation == "PREREQUISITE_FOR":
+        return target, source, "DEPENDS_ON"
+    return source, target, relation
+
+
 def _is_valid_entity(name: str) -> bool:
     """Returns True if the name looks like a real math concept, not noise."""
     clean = name.strip()
@@ -85,8 +101,9 @@ EXISTING KNOWLEDGE BASE CONCEPTS:
 
 STRICT RULES:
 1. Create directed edges connecting new concepts to existing concepts or among new concepts.
-2. Valid relation types: DEPENDS_ON, USES_DEFINITION, PROVES, PREREQUISITE_FOR, COROLLARY_OF, USES_AXIOM, USES_LEMMA.
-3. Provide evidence quotes where applicable.
+2. Valid relation types: DEPENDS_ON, USES_DEFINITION, PROVES, COROLLARY_OF, USES_AXIOM, USES_LEMMA.
+3. DEPENDS_ON(A, B) means A requires B — B is the more foundational concept. Always phrase the dependency this way; do not emit an inverse "is a prerequisite for" edge.
+4. Provide evidence quotes where applicable.
 
 TEXT:
 {text}
@@ -144,11 +161,10 @@ class MathGraphIndexer:
                         # list, so this edge type is retired rather than kept
                         # in sync in two places.
                         continue
-                    G.add_edge(
-                        edge["source"],
-                        edge["target"],
-                        relation=relation,
+                    src, tgt, relation = _normalize_relation(
+                        edge["source"], edge["target"], relation
                     )
+                    G.add_edge(src, tgt, relation=relation)
                 log.info(
                     f"Loaded existing graph ({G.number_of_nodes()} nodes, "
                     f"{G.number_of_edges()} edges)"
@@ -312,7 +328,7 @@ class MathGraphIndexer:
                 )
                 prompt += (
                     "\n\nRespond ONLY with valid JSON matching:\n"
-                    '{"edges": [{"source": "...", "target": "...", "relation": "DEPENDS_ON|USES_DEFINITION|PROVES|PREREQUISITE_FOR"}]}'
+                    '{"edges": [{"source": "...", "target": "...", "relation": "DEPENDS_ON|USES_DEFINITION|PROVES|COROLLARY_OF"}]}'
                 )
                 resp = ollama.chat(prompt=prompt, model=model, response_format="json", timeout=60)
                 if resp:
@@ -555,6 +571,7 @@ class MathGraphIndexer:
             src = self._resolve_entity(edge.source) if self._vector_store else edge.source
             tgt = self._resolve_entity(edge.target) if self._vector_store else edge.target
             rel = edge.relation.value if hasattr(edge.relation, "value") else str(edge.relation)
+            src, tgt, rel = _normalize_relation(src, tgt, rel)
             self.graph.add_edge(src, tgt, relation=rel, label=rel)
 
     # ------------------------------------------------------------------
