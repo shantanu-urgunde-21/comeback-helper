@@ -1,6 +1,6 @@
 from enum import Enum
 from typing import List, Optional
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class MathEntityType(str, Enum):
@@ -34,10 +34,28 @@ class Provenance(BaseModel):
     exact_quote: str = Field("", description="Exact verbatim LaTeX sentence or snippet")
 
 
+def normalize_domain_casing(value: str) -> str:
+    """Canonicalizes a domain string's whitespace/casing.
+
+    "Differential Equations" and "differential equations" are the same
+    domain, but as free text they compare unequal — which silently splits
+    one subject into two buckets anywhere domain drives grouping or color
+    (e.g. the graph's domain-colored rendering). This is a stopgap; the
+    real fix is a closed domain vocabulary (e.g. MSC2020 codes) instead of
+    free text, which removes the ambiguity instead of normalizing around it.
+    """
+    return value.strip().title() if value else value
+
+
 class ConceptTaxonomy(BaseModel):
     domain: str = Field("General Math", description="Tier 1 Discipline (e.g. Differential Equations, Calculus, Linear Algebra)")
     subdomain: str = Field("General", description="Tier 2 Area (e.g. First-Order ODEs, Multivariable Calculus)")
     topic: str = Field("General", description="Tier 3 Specific Topic (e.g. Integrating Factors, Spectral Theorem)")
+
+    @field_validator("domain", mode="before")
+    @classmethod
+    def _normalize_domain(cls, value):
+        return normalize_domain_casing(value) if isinstance(value, str) else value
 
 
 class GraphNode(BaseModel):

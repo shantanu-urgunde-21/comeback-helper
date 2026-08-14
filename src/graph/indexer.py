@@ -15,6 +15,7 @@ from src.graph.schema import (
     GraphEdge,
     ConceptTaxonomy,
     Provenance,
+    normalize_domain_casing,
 )
 from src.llm.gemini import get_gemini_client, get_gemini_model_name, get_gemini_candidate_models
 from src.llm.ollama import get_ollama_client
@@ -152,6 +153,9 @@ class MathGraphIndexer:
             try:
                 data = json.loads(self.graph_file.read_text(encoding="utf-8"))
                 for node in data.get("nodes", []):
+                    taxonomy = node.get("taxonomy")
+                    if isinstance(taxonomy, dict) and "domain" in taxonomy:
+                        taxonomy["domain"] = normalize_domain_casing(taxonomy["domain"])
                     G.add_node(node["id"], **node)
                 for edge in data.get("edges", []):
                     relation = edge.get("relation", "DEPENDS_ON")
