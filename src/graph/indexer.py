@@ -153,6 +153,14 @@ class MathGraphIndexer:
             try:
                 data = json.loads(self.graph_file.read_text(encoding="utf-8"))
                 for node in data.get("nodes", []):
+                    # save_graph() serializes the role field as "type" (the
+                    # on-disk/API key); everywhere else in this codebase reads
+                    # it back as "entity_type". Left as "type", every node
+                    # silently fell back to the get(...) default on the very
+                    # next load, which is why graph-stats and the retrieval
+                    # context builder always reported every node as "Concept".
+                    if "type" in node:
+                        node["entity_type"] = node.pop("type")
                     taxonomy = node.get("taxonomy")
                     if isinstance(taxonomy, dict) and "domain" in taxonomy:
                         taxonomy["domain"] = normalize_domain_casing(taxonomy["domain"])
