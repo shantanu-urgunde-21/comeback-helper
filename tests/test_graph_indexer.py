@@ -70,5 +70,33 @@ class TestPhase4(unittest.TestCase):
         chunks = self.indexer._split_chunks(text, self.doc_id)
         self.assertEqual(len(chunks), 3)
 
+    def test_normalize_edge_endpoint_canonical_id_passthrough(self):
+        id_to_name = {"Q124743": "Wronskian", "CUST_abc123": "Integrating Factor"}
+        name_to_id = {"Wronskian": "Q124743", "Integrating Factor": "CUST_abc123"}
+        # A canonical ID should pass through unchanged
+        result = self.indexer._normalize_edge_endpoint("Q124743", id_to_name, name_to_id)
+        self.assertEqual(result, "Q124743")
+
+    def test_normalize_edge_endpoint_display_name_fallback(self):
+        id_to_name = {"Q124743": "Wronskian", "CUST_abc123": "Integrating Factor"}
+        name_to_id = {"Wronskian": "Q124743", "Integrating Factor": "CUST_abc123"}
+        # LLM emitted a display name instead of an ID — should resolve via name_to_id
+        result = self.indexer._normalize_edge_endpoint("Wronskian", id_to_name, name_to_id)
+        self.assertEqual(result, "Q124743")
+
+    def test_normalize_edge_endpoint_normalized_fallback(self):
+        id_to_name = {"CUST_abc123": "Integrating Factor"}
+        name_to_id = {"Integrating Factor": "CUST_abc123"}
+        # LLM emitted slightly different casing — normalize() should bridge the gap
+        result = self.indexer._normalize_edge_endpoint("integrating factor", id_to_name, name_to_id)
+        self.assertEqual(result, "CUST_abc123")
+
+    def test_normalize_edge_endpoint_unknown_returns_none(self):
+        id_to_name = {"Q124743": "Wronskian"}
+        name_to_id = {"Wronskian": "Q124743"}
+        # Completely unknown endpoint — should return None
+        result = self.indexer._normalize_edge_endpoint("Frobenius Method", id_to_name, name_to_id)
+        self.assertIsNone(result)
+
 if __name__ == "__main__":
     unittest.main()

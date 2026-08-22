@@ -16,6 +16,7 @@ from .schema import (
     GraphEdge,
     ConceptTaxonomy,
     Provenance,
+    normalize,
 )
 from shared.llm.gemini import get_gemini_client, get_gemini_model_name, get_gemini_candidate_models
 from shared.llm.ollama import get_ollama_client
@@ -91,19 +92,22 @@ TEXT:
 
 PASS2_EDGE_PROMPT = """\
 You are an expert mathematical relationship and prerequisite linker.
-TASK: Establish directional relationships between the newly extracted concepts from this note AND existing knowledge base concepts.
+TASK: Establish directional relationships between mathematical concepts using ONLY the concept IDs in the dictionary below.
 
-NEW CONCEPTS IN THIS NOTE:
-{new_concepts}
+CONCEPT DICTIONARY (concept_id → display name):
+{concept_id_map}
 
-EXISTING KNOWLEDGE BASE CONCEPTS:
-{existing_concepts}
+NEW CONCEPT IDS FROM THIS NOTE (focus edges on these):
+{new_concept_ids}
+
+EXISTING KNOWLEDGE BASE CONCEPT IDS (available link targets):
+{existing_concept_ids}
 
 STRICT RULES:
-1. Create directed edges connecting new concepts to existing concepts or among new concepts.
+1. Use ONLY concept IDs from the CONCEPT DICTIONARY as edge source and target values. Never invent a new name or ID.
 2. Valid relation types: DEPENDS_ON, USES_DEFINITION, PROVES, COROLLARY_OF, USES_AXIOM, USES_LEMMA.
-3. DEPENDS_ON(A, B) means A requires B — B is the more foundational concept. Always phrase the dependency this way; do not emit an inverse "is a prerequisite for" edge.
-4. Provide evidence quotes where applicable.
+3. DEPENDS_ON(A, B) means A requires B — B is the more foundational concept. Never emit an inverse "is a prerequisite for" edge.
+4. Include an evidence quote (the sentence from the text that supports the relationship) in the description field where possible.
 
 TEXT:
 {text}
@@ -265,20 +269,35 @@ class MathGraphIndexer:
     # ------------------------------------------------------------------
 
     def _extract_edges_pass(
-        self, text: str, new_nodes: List[GraphNode]
-    ) -> List[GraphEdge]:
-        """Executes Pass 2 (Relationship & Edge Linker) via Gemini or Ollama."""
-        if not new_nodes:
+        self,
+        text: str,
+        doc_concept_map: dict[str, str],      # name → canonical_id (this document)
+        existing_concept_map: dict[str, str],  # canonical_id → label (existing graph)
+    ) -> list[GraphEdge]:
+        """Executes Pass 2 (Relationship & Edge Linker) via Gemini or Ollama.
+
+        Receives pre-resolved concept maps so the LLM works with canonical IDs
+        rather than display names. The concept_id_map in the prompt is the
+        merged id→name view; new_concept_ids and existing_concept_ids separate
+        the two populations so the LLM knows which are new vs. already known.
+        """
+        if not doc_concept_map:
             return []
 
-        new_concept_names = [n.name for n in new_nodes]
-        existing_candidates = self._get_candidate_context(text)
+        # Build the id→name view the prompt exposes to the LLM
+        id_to_name: dict[str, str] = {v: k for k, v in doc_concept_map.items()}
+        id_to_name.update(existing_concept_map)
+
+        concept_id_map_json = json.dumps(id_to_name, ensure_ascii=False)
+        new_concept_ids_json = json.dumps(list(doc_concept_map.values()))
+        existing_concept_ids_json = json.dumps(list(existing_concept_map.keys()))
 
         client = get_gemini_client()
         if client:
             prompt = PASS2_EDGE_PROMPT.format(
-                new_concepts=json.dumps(new_concept_names),
-                existing_concepts=json.dumps(existing_candidates),
+                concept_id_map=concept_id_map_json,
+                new_concept_ids=new_concept_ids_json,
+                existing_concept_ids=existing_concept_ids_json,
                 text=text,
             )
             for model_name in get_gemini_candidate_models():
@@ -306,13 +325,14 @@ class MathGraphIndexer:
                 if not ollama.has_model(model):
                     continue
                 prompt = PASS2_EDGE_PROMPT.format(
-                    new_concepts=json.dumps(new_concept_names),
-                    existing_concepts=json.dumps(existing_candidates),
+                    concept_id_map=concept_id_map_json,
+                    new_concept_ids=new_concept_ids_json,
+                    existing_concept_ids=existing_concept_ids_json,
                     text=text[:3000],
                 )
                 prompt += (
                     "\n\nRespond ONLY with valid JSON matching:\n"
-                    '{"edges": [{"source": "...", "target": "...", "relation": "DEPENDS_ON|USES_DEFINITION|PROVES|COROLLARY_OF"}]}'
+                    '{"edges": [{"source": "concept_id", "target": "concept_id", "relation": "DEPENDS_ON|USES_DEFINITION|PROVES|COROLLARY_OF|USES_AXIOM|USES_LEMMA", "description": "evidence quote"}]}'
                 )
                 resp = ollama.chat(prompt=prompt, model=model, response_format="json", timeout=60)
                 if resp:
@@ -417,26 +437,29 @@ class MathGraphIndexer:
     # Helper & Decoupled Extraction Pipeline
     # ------------------------------------------------------------------
 
-    def _get_candidate_context(self, text: str) -> List[str]:
-        """Retrieves existing concept names for Pass 2 relationship linking."""
-        candidates: set[str] = set()
+    def _get_candidate_context(self, text: str) -> dict[str, str]:
+        """Returns {concept_id: display_label} for the most relevant existing
+        concepts, used as Pass 2 context. Capped at 25 entries to keep the
+        prompt size bounded.
+        """
+        candidates: dict[str, str] = {}
         if self._vector_store is not None:
             try:
                 summary = text[:500]
                 results = self._vector_store.search_similar(summary, top_k=20)
                 for r in results:
                     source = r.get("source", "")
-                    if source and source != "init.md":
-                        candidates.add(source)
+                    if source and source != "init.md" and source in self.graph.nodes:
+                        label = self.graph.nodes[source].get("label", source)
+                        candidates[source] = label
             except Exception:
                 pass
 
-        # Node keys are now canonical ids (a Wikidata QID or CUST_<hash>),
-        # not display text — the LLM needs the human label to link against.
         for n in list(self.graph.nodes)[:30]:
-            candidates.add(self.graph.nodes[n].get("label", n))
+            if n not in candidates:
+                candidates[n] = self.graph.nodes[n].get("label", n)
 
-        return list(candidates)[:25]
+        return dict(list(candidates.items())[:25])
 
     def _split_chunks(self, text: str, document_id: str) -> list[tuple[str, str]]:
         """Split markdown text into (chunk_id, chunk_text) by heading (H1–H3).
@@ -465,6 +488,31 @@ class MathGraphIndexer:
 
         return chunks if chunks else [(f"{document_id}#s0000", text)]
 
+    def _normalize_edge_endpoint(
+        self,
+        raw: str,
+        id_to_name: dict[str, str],
+        name_to_id: dict[str, str],
+    ) -> str | None:
+        """Map a Pass 2 edge endpoint to a canonical concept id.
+
+        The LLM should emit canonical IDs (the keys of id_to_name), but may
+        emit display names instead. This method handles both cases and falls
+        back to normalize()-based matching for minor casing differences.
+        Returns None if the endpoint cannot be resolved — the caller must
+        skip that edge rather than storing a garbage id.
+        """
+        if raw in id_to_name:
+            return raw
+        if raw in name_to_id:
+            return name_to_id[raw]
+        norm_raw = normalize(raw)
+        for name, cid in name_to_id.items():
+            if normalize(name) == norm_raw:
+                return cid
+        log.warning(f"Pass 2 edge endpoint '{raw}' not in concept map — skipping edge")
+        return None
+
     def extract_from_text(
         self,
         text: str,
@@ -490,7 +538,9 @@ class MathGraphIndexer:
         valid_nodes = [n for n in extracted_nodes if _is_valid_entity(n.name)]
 
         # Pass 2: Link relationships & edges between nodes
-        extracted_edges = self._extract_edges_pass(text, valid_nodes)
+        doc_concept_map = {n.name: (n.id if n.id else n.name) for n in valid_nodes}
+        existing_concept_map = self._get_candidate_context(text)
+        extracted_edges = self._extract_edges_pass(text, doc_concept_map, existing_concept_map)
 
         return MathEntityExtraction(nodes=valid_nodes, edges=extracted_edges)
 
