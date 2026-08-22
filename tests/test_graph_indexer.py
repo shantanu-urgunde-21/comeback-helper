@@ -98,5 +98,40 @@ class TestPhase4(unittest.TestCase):
         result = self.indexer._normalize_edge_endpoint("Frobenius Method", id_to_name, name_to_id)
         self.assertIsNone(result)
 
+    def test_index_note_mentions_use_chunk_ids(self):
+        """Mentions written during index_note() carry chunk-level chunk_ids."""
+        import tempfile, os
+        from graph.app import graph_store
+
+        # Build a two-section note with a concept in each section.
+        # Use wikilinks so the block extractor (use_llm=False) picks up nodes.
+        note_content = (
+            "## First Principles\n"
+            "The [[Wronskian]] is a determinant used to check linear independence.\n\n"
+            "## Applications\n"
+            "[[Abel's Identity]] relates the Wronskian to the coefficient of y'.\n"
+        )
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".md", dir=self.indexer.vault_path,
+            delete=False, encoding="utf-8"
+        ) as f:
+            f.write(note_content)
+            tmp_path = f.name
+
+        try:
+            self.indexer.index_note(Path(tmp_path), use_llm=False)
+            document_id = tmp_path
+
+            # At least one mention should have a chunk-level chunk_id (contains '#s')
+            with graph_store.connect() as conn:
+                rows = conn.execute(
+                    "SELECT chunk_id FROM mentions WHERE chunk_id LIKE ?",
+                    (f"{document_id}#s%",)
+                ).fetchall()
+
+            self.assertGreater(len(rows), 0, "Expected at least one chunk-level mention")
+        finally:
+            os.unlink(tmp_path)
+
 if __name__ == "__main__":
     unittest.main()

@@ -794,16 +794,21 @@ class MathGraphIndexer:
     def index_note(self, note_path: Path, use_llm: bool = False):
         """Indexes a single Markdown file into the NetworkX graph.
 
-        The note itself is not added as a graph node. Which note a concept
-        came from is already captured by that concept's own `provenance`
-        list; a separate Note node plus a CONTAINS edge to every concept it
-        mentions was the same fact stored twice, and in practice it dominated
-        the graph (note titles were consistently the highest-degree nodes,
-        and CONTAINS was roughly half of all edges).
+        Phase 4 flow (use_llm=True):
+          - Split note into chunks by heading.
+          - Pass 1 runs per chunk: extract nodes, resolve names → canonical IDs,
+            write mentions with chunk-level chunk_id, accumulate doc_concept_map.
+          - Pass 2 runs once on the full text: receives the accumulated id map,
+            emits edges already keyed by canonical ID.
+
+        Phase 4 flow (use_llm=False):
+          - Block extraction on full text (unchanged from Phase 3).
+          - Chunks are still used for mentions so provenance is chunk-level.
         """
         content = note_path.read_text(encoding="utf-8")
         course = note_path.parent.name if note_path.parent != self.vault_path else "General"
         main_node = note_path.stem
+        document_id = str(note_path)
 
         prov_record = Provenance(
             doc_id=main_node,
@@ -812,69 +817,136 @@ class MathGraphIndexer:
             exact_quote=content[:200].replace("\n", " "),
         ).model_dump()
 
-        extraction = self.extract_from_text(content, use_llm=use_llm, course_domain=course)
+        chunks = self._split_chunks(content, document_id)
 
-        document_id = str(note_path)
+        # ------------------------------------------------------------------
+        # Pass 1: per chunk — extract nodes, resolve, accumulate concept map.
+        # _resolve_entity opens its own DB connection (authority._connect),
+        # so we run all resolutions here, BEFORE opening graph_store.connect(),
+        # to avoid two concurrent writers on the same SQLite file.
+        # ------------------------------------------------------------------
+        doc_concept_map: dict[str, str] = {}  # surface_name → canonical_id
+        chunk_node_lists: list[tuple[str, list]] = []  # (chunk_id, [resolved node dicts])
+
+        for chunk_id, chunk_text in chunks:
+            if use_llm:
+                raw_nodes = self._extract_nodes_pass(chunk_text, course)
+                chunk_nodes = [n for n in raw_nodes if _is_valid_entity(n.name)]
+                if not chunk_nodes:
+                    block = self._block_extraction(chunk_text, course)
+                    chunk_nodes = [n for n in block.nodes if _is_valid_entity(n.name)]
+            else:
+                block = self._block_extraction(chunk_text, course)
+                chunk_nodes = [n for n in block.nodes if _is_valid_entity(n.name)]
+
+            resolved_nodes = []
+            for node in chunk_nodes:
+                n_id = self._resolve_entity(
+                    node.id or node.name, document_id=document_id, course=course
+                )
+                doc_concept_map[node.name] = n_id
+                resolved_nodes.append((node, n_id))
+
+            chunk_node_lists.append((chunk_id, resolved_nodes))
+
+        # ------------------------------------------------------------------
+        # Pass 2: once on full document — edges with canonical IDs.
+        # Also resolved before opening graph_store connection.
+        # ------------------------------------------------------------------
+        existing_concept_map = self._get_candidate_context(content)
+
+        if use_llm:
+            raw_edges = self._extract_edges_pass(content, doc_concept_map, existing_concept_map)
+        else:
+            block = self._block_extraction(content, course)
+            raw_edges = block.edges
+
+        # Build lookup maps for endpoint normalization
+        id_to_name: dict[str, str] = {v: k for k, v in doc_concept_map.items()}
+        # lossy when two names share one id — acceptable, upstream dedup owns this
+        id_to_name.update(existing_concept_map)
+        name_to_id: dict[str, str] = dict(doc_concept_map)
+        for cid, label in existing_concept_map.items():
+            name_to_id.setdefault(label, cid)
 
         from . import graph_store
 
         with graph_store.connect() as conn:
-            for node in extraction.nodes:
-                n_id = self._resolve_entity(node.id or node.name, document_id=document_id, course=course)
-                etype = node.entity_type.value if hasattr(node.entity_type, "value") else str(node.entity_type)
-                tax_dict = node.taxonomy.model_dump() if hasattr(node.taxonomy, "model_dump") else {"domain": course, "subdomain": "Course Notes", "topic": n_id}
-
-                if n_id not in self.graph:
-                    self.graph.add_node(
-                        n_id,
-                        id=n_id,
-                        label=node.name,
-                        entity_type=etype,
-                        taxonomy=tax_dict,
-                        description=node.description,
-                        provenance=[prov_record],
-                        aliases=node.aliases if hasattr(node, "aliases") else [],
+            # Write nodes and chunk-level mentions
+            for chunk_id, resolved_nodes in chunk_node_lists:
+                for node, n_id in resolved_nodes:
+                    etype = (
+                        node.entity_type.value
+                        if hasattr(node.entity_type, "value")
+                        else str(node.entity_type)
                     )
-                else:
-                    self.graph.nodes[n_id]["taxonomy"] = tax_dict
-                    prov_list = self.graph.nodes[n_id].get("provenance", [])
-                    if isinstance(prov_list, list):
-                        prov_list.append(prov_record)
-                        self.graph.nodes[n_id]["provenance"] = prov_list
+                    tax_dict = (
+                        node.taxonomy.model_dump()
+                        if hasattr(node.taxonomy, "model_dump")
+                        else {"domain": course, "subdomain": "Course Notes", "topic": n_id}
+                    )
 
-                node_data = self.graph.nodes[n_id]
-                graph_store.upsert_node_attrs(
-                    conn, n_id,
-                    label=node_data.get("label", n_id),
-                    entity_type=node_data.get("entity_type", "Concept"),
-                    taxonomy=node_data.get("taxonomy", {}),
-                    description=node_data.get("description", ""),
-                    provenance=node_data.get("provenance", []),
-                    aliases=node_data.get("aliases", []),
-                )
-                graph_store.insert_mention(
-                    conn, chunk_id=document_id, surface_text=node.name, concept_id=n_id
-                )
+                    if n_id not in self.graph:
+                        self.graph.add_node(
+                            n_id,
+                            id=n_id,
+                            label=node.name,
+                            entity_type=etype,
+                            taxonomy=tax_dict,
+                            description=node.description,
+                            provenance=[prov_record],
+                            aliases=node.aliases if hasattr(node, "aliases") else [],
+                        )
+                    else:
+                        self.graph.nodes[n_id]["taxonomy"] = tax_dict
+                        prov_list = self.graph.nodes[n_id].get("provenance", [])
+                        if isinstance(prov_list, list):
+                            prov_list.append(prov_record)
+                            self.graph.nodes[n_id]["provenance"] = prov_list
 
-            for edge in extraction.edges:
-                src = self._resolve_entity(edge.source, document_id=document_id, course=course)
-                tgt = self._resolve_entity(edge.target, document_id=document_id, course=course)
-                # The canonical id (a Wikidata QID or CUST_<hash>) is not a
-                # display string — a node first seen only as an edge endpoint
-                # still needs its surface form recorded as the display label,
-                # or the UI would render the opaque id instead.
+                    node_data = self.graph.nodes[n_id]
+                    graph_store.upsert_node_attrs(
+                        conn, n_id,
+                        label=node_data.get("label", n_id),
+                        entity_type=node_data.get("entity_type", "Concept"),
+                        taxonomy=node_data.get("taxonomy", {}),
+                        description=node_data.get("description", ""),
+                        provenance=node_data.get("provenance", []),
+                        aliases=node_data.get("aliases", []),
+                    )
+                    # Chunk-level chunk_id (Phase 4: was document_id in Phase 3)
+                    graph_store.insert_mention(
+                        conn,
+                        chunk_id=chunk_id,
+                        surface_text=node.name,
+                        concept_id=n_id,
+                    )
+
+            # Write edges (document-level chunk_id for Phase 4)
+            for edge in raw_edges:
+                src = self._normalize_edge_endpoint(edge.source, id_to_name, name_to_id)
+                tgt = self._normalize_edge_endpoint(edge.target, id_to_name, name_to_id)
+                if not src or not tgt:
+                    continue
+
                 if src not in self.graph:
                     self.graph.add_node(src, id=src, label=edge.source)
                     graph_store.upsert_node_attrs(conn, src, label=edge.source)
                 if tgt not in self.graph:
                     self.graph.add_node(tgt, id=tgt, label=edge.target)
                     graph_store.upsert_node_attrs(conn, tgt, label=edge.target)
+
                 rel = edge.relation.value if hasattr(edge.relation, "value") else str(edge.relation)
                 src, tgt, rel = _normalize_relation(src, tgt, rel)
                 self.graph.add_edge(src, tgt, relation=rel, label=rel)
                 graph_store.insert_edge(
-                    conn, source_id=src, target_id=tgt, relation=rel,
-                    chunk_id=document_id, quote=edge.description, origin="extracted",
+                    conn,
+                    source_id=src,
+                    target_id=tgt,
+                    relation=rel,
+                    chunk_id=document_id,
+                    quote=edge.description,
+                    origin="extracted",
                 )
 
     # ------------------------------------------------------------------
