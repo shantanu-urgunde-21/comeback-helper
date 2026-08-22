@@ -253,21 +253,27 @@ left narrowed (Pass-2 candidate context still calls `vector_store.search_similar
 Phase 6's note, unchanged by this phase); retrieval still reads `indexer.graph`/`/graph`
 directly rather than `/neighborhood` (Phase 5's job).
 
-### Phase 4 — Resolve-then-link extraction
+### Phase 4 — Resolve-then-link extraction — **DONE**
 - Pass 1 becomes: identify surface forms → `resolve_concept()` → return concept ids.
 - Pass 2 receives **ids**, not names, and is told to use only those ids.
-- **Accumulate resolved ids across the document, not per chunk.** Chunk-local linking can
-  only ever produce local clusters — it would reproduce today's 33-components symptom from a
-  new cause. The valuable edges are cross-chunk and cross-document: Lecture 7's theorem rests
-  on Lecture 2's definition.
+- **Accumulate resolved ids across the document, not per chunk.**
 - Every edge carries `chunk_id`, `quote`, `origin`.
 
 **Exit:** new ingests add no duplicate concepts; edges carry evidence.
 
-**Head start from Phase 3:** `edges.quote`/`chunk_id`/`origin` already exist and are already
-populated by `index_note()` going forward (reading `edge.description`, previously discarded)
-— what Phase 4 actually still owes is chunk-level (not document-level) granularity, and
-teaching Pass 1/2 to work in terms of resolved ids instead of names.
+**Shipped:** `index_note()` now splits the note into chunks (`_split_chunks()`, by H1–H3
+heading, `chunk_id = "{doc_id}#s{n:04d}"`). Pass 1 runs per chunk: block or LLM extraction
+→ `_resolve_entity()` per node → chunk-level `insert_mention()` → accumulate
+`doc_concept_map: dict[name→id]`. All `_resolve_entity()` calls happen before
+`graph_store.connect()` opens (avoids SQLite WAL lock contention between two write-capable
+connections to `concepts.db`). Pass 2 runs once on full text: new `PASS2_EDGE_PROMPT`
+passes `{concept_id → name}` dict so the LLM emits edges keyed by canonical ID; new
+`_normalize_edge_endpoint()` resolves LLM output to canonical IDs (passthrough → name
+lookup → `normalize()`-folded → warn+skip). No `_resolve_entity()` calls on edge endpoints
+any more. `_get_candidate_context()` now returns `dict[str,str]` (id→label); the
+vector-store branch was dead (chunk `source` = note filename, never matched a QID/CUST_
+graph key) and has been removed with a Phase 5 TODO. Branch: `phase4-resolve-then-link`,
+4 commits (`6bd2ec9`…`ff73c02`). Tests: 24/25 (1 pre-existing LanceDB failure, Phase 5).
 
 ### Phase 5 — Retrieval over the new shape
 - Engine calls `/neighborhood?ids=…&hops=1` instead of reconstructing the graph.

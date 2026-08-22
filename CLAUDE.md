@@ -79,25 +79,20 @@ already indexed — no in-memory-only mutation risk remains for graph structure.
 is now only an export, written by `save_graph()` for two direct-file consumers that never go
 through this class: `src/server.py`'s `/api/graph` and `scripts/graph_health.py`.
 
-Graph extraction is deliberately two decoupled LLM calls
-([services/graph/app/indexer.py](services/graph/app/indexer.py)): pass 1 emits concept
-nodes + taxonomy, pass 2 links edges. Both fall back Gemini → Ollama → a deterministic
-block parser.
+Graph extraction is two decoupled LLM calls ([services/graph/app/indexer.py](services/graph/app/indexer.py)). Pass 1 runs per markdown section (split by H1–H3 heading, `chunk_id="{doc_id}#s{n:04d}"`): extracts concept nodes, resolves each to a canonical id, writes `mentions` with chunk-level `chunk_id`, accumulates `doc_concept_map`. Pass 2 runs once on the full document with the accumulated id-map; the LLM emits edges keyed by canonical id. Both fall back Gemini → Ollama → deterministic block parser.
 
 For the full picture see [docs/flow.md](docs/flow.md) (data shapes, stage-by-stage I/O) and
 [docs/structure.md](docs/structure.md) (call chains, module reference, dead code).
 
 ## Invariants — breaking these causes silent, hard-to-trace bugs
 
-- **`_resolve_entity` is a deterministic lookup, not embedding similarity, as of plan.md
-  Phase 1.** It delegates to `authority.resolve_concept()` (`services/graph/app/authority.py`):
-  document → course → global-authority (Wikidata, on-demand + cached in
-  `.storage/concepts.db`) → mint a `CUST_<hash>` id. It no longer needs `vector_store` at
-  all — a node's graph key is now an opaque id (a QID or `CUST_` hash), with the human-
-  readable name stored separately in that node's `label` attribute. `vector_store` is still
-  used for Pass-2 LLM candidate context (`_get_candidate_context`) — nothing else. The old
-  `dedupe_graph()`/`ENTITY_MERGE_THRESHOLD` cosine-merge path was deleted in plan.md Phase 6;
-  there is no dead code left on this path.
+- **`_resolve_entity` is a deterministic lookup, not embedding similarity (plan.md Phase 1).**
+  Delegates to `authority.resolve_concept()`: document → course → global-authority (Wikidata,
+  cached in `.storage/concepts.db`) → mint `CUST_<hash>`. Node graph key is an opaque id
+  (QID or `CUST_`); human label stored in `label` attribute. `vector_store` is no longer used
+  by the extraction pipeline at all — the `graph → vector` dependency is fully removed as of
+  Phase 4 (`_get_candidate_context` was the last use; that branch was dead and deleted).
+  `dedupe_graph()`/`ENTITY_MERGE_THRESHOLD` deleted in Phase 6; no dead code on this path.
 - **`export_graph_json()` (graph_store.py) writes `entity_type` as `type`** in graph.json —
   a holdover from when that file was the store of record, kept because
   `scripts/graph_health.py` and `src/server.py`'s `/api/graph` both parse it directly and
