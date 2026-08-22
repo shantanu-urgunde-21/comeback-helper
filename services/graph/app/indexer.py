@@ -42,33 +42,6 @@ NOISE_PATTERN = re.compile(
 _STRIP_WORDS = {"a", "an", "the", "of", "in", "on", "for", "to", "and", "or", "is", "are", "was", "were"}
 
 
-def _snake_case_redirects(node_ids: List[str]) -> dict[str, str]:
-    """Maps an all-lowercase, underscore-separated node id to its exact
-    Title Case sibling when both exist as separate nodes.
-
-    Two extraction paths in this codebase produce different id conventions
-    for the same concept: the LLM pass is prompted to Title Case names but
-    doesn't always comply, while the deterministic block-extraction path
-    preserves whatever casing/formatting appeared in the note (often a
-    snake_case wikilink target). When both forms end up in the graph, the
-    snake_case one is a separate node with its own (usually empty) edge set
-    — a real chunk of "isolated nodes" is this, not an absence of any
-    relation. Deliberately narrow: only exact `foo_bar` -> `Foo Bar` matches
-    redirect. Near-duplicates with different wording or punctuation (e.g.
-    two different snake_case phrasings of the same theorem, or hyphenated
-    ids) need semantic matching, not a string transform, and are left alone
-    here rather than guessed at.
-    """
-    id_set = set(node_ids)
-    redirects = {}
-    for nid in node_ids:
-        if "_" in nid and nid == nid.lower():
-            title_form = nid.replace("_", " ").title()
-            if title_form in id_set and title_form != nid:
-                redirects[nid] = title_form
-    return redirects
-
-
 def _normalize_relation(source: str, target: str, relation: str) -> tuple[str, str, str]:
     """Canonicalizes inverse relation types onto one direction.
 
@@ -196,9 +169,7 @@ class MathGraphIndexer:
             try:
                 data = json.loads(self.graph_file.read_text(encoding="utf-8"))
                 raw_nodes = data.get("nodes", [])
-                redirects = _snake_case_redirects([n["id"] for n in raw_nodes])
 
-                nodes_by_id: dict[str, dict] = {}
                 for node in raw_nodes:
                     # save_graph() serializes the role field as "type" (the
                     # on-disk/API key); everywhere else in this codebase reads
@@ -211,29 +182,6 @@ class MathGraphIndexer:
                     taxonomy = node.get("taxonomy")
                     if isinstance(taxonomy, dict) and "domain" in taxonomy:
                         taxonomy["domain"] = normalize_domain_casing(taxonomy["domain"])
-
-                    canonical = redirects.get(node["id"], node["id"])
-                    if canonical not in nodes_by_id:
-                        node["id"] = canonical
-                        nodes_by_id[canonical] = node
-                    else:
-                        # Fold the snake_case duplicate into its Title Case
-                        # sibling instead of silently dropping it: keep its
-                        # provenance and record its id as an alias.
-                        kept = nodes_by_id[canonical]
-                        kept_prov = kept.get("provenance") or []
-                        for p in node.get("provenance") or []:
-                            if p not in kept_prov:
-                                kept_prov.append(p)
-                        kept["provenance"] = kept_prov
-                        kept_aliases = kept.get("aliases") or []
-                        if node["id"] not in kept_aliases:
-                            kept_aliases.append(node["id"])
-                        kept["aliases"] = kept_aliases
-                        if not kept.get("description") and node.get("description"):
-                            kept["description"] = node["description"]
-
-                for node in nodes_by_id.values():
                     G.add_node(node["id"], **node)
 
                 for edge in data.get("edges", []):
@@ -244,9 +192,9 @@ class MathGraphIndexer:
                         # list, so this edge type is retired rather than kept
                         # in sync in two places.
                         continue
-                    src = redirects.get(edge["source"], edge["source"])
-                    tgt = redirects.get(edge["target"], edge["target"])
-                    src, tgt, relation = _normalize_relation(src, tgt, relation)
+                    src, tgt, relation = _normalize_relation(
+                        edge["source"], edge["target"], relation
+                    )
                     G.add_edge(src, tgt, relation=relation)
                 log.info(
                     f"Loaded existing graph ({G.number_of_nodes()} nodes, "
@@ -570,16 +518,6 @@ class MathGraphIndexer:
     # Entity Resolution (deduplication)
     # ------------------------------------------------------------------
 
-    # Below this similarity, two names are not considered the same entity.
-    # Raised from 0.88: at that threshold names embedded alone routinely
-    # merged entities that share a word but not a meaning (e.g. "normal
-    # subgroup" and "normal operator"). Literature on LLM-judged entity
-    # matching puts the reliable tier at >=0.9 even for description-rich
-    # comparisons; 0.93 leaves margin above that given this is name+
-    # description similarity from a general-purpose embedding model, not a
-    # matcher tuned for the task.
-    ENTITY_MERGE_THRESHOLD = 0.93
-
     def _resolve_entity(
         self, name: str, document_id: Optional[str] = None, course: Optional[str] = None
     ) -> str:
@@ -750,120 +688,6 @@ class MathGraphIndexer:
             "final_node_count": self.graph.number_of_nodes(),
             "final_edge_count": self.graph.number_of_edges(),
         }
-
-    def dedupe_graph(self) -> int:
-        """One-time (or periodic) pass that merges nodes already sitting in
-        the graph as separate entries for the same entity.
-
-        _resolve_entity only ever compares one freshly-extracted candidate
-        against the graph as it already stood — it has no way to retroactively
-        merge two nodes that both already exist as separate entries (e.g.
-        left over from before entity resolution was correctly wired into
-        rebuild-graph, or from a run with no vector store at all). This walks
-        every existing node once, comparing it against the canonical nodes
-        accepted so far using the same name/description similarity rule as
-        _resolve_entity, and folds true duplicates into their canonical form.
-
-        Processing order prefers keeping the richer node as canonical: has a
-        real description, then higher degree, then a non-lowercase/
-        underscored id — so e.g. "Wronskian" (empty description, created only
-        as an edge endpoint) still loses its position as canonical to
-        "wronskian" (has the real description) if that's the richer entry,
-        while a plain snake_case duplicate loses to its Title Case sibling
-        when neither has a description advantage. Returns the number of
-        nodes merged away.
-
-        Excludes leftover note-container nodes (description prefixed
-        "Course Note" — a pre-CONTAINS-removal artifact) from comparison
-        entirely: these carry the same generic description across every
-        note in a course ("Course Note (differential equations)"), which
-        pushed unrelated lecture notes' similarity above threshold on a
-        first version of this pass and merged genuinely distinct source
-        documents together (confirmed: "MA301 Lecture 2" through "7" all
-        collapsed into "MA301 Lecture 1"). These nodes aren't concepts and
-        have no legitimate reason to ever merge with each other.
-        """
-        if not self._vector_store or self.graph.number_of_nodes() < 2:
-            return 0
-
-        import numpy as np
-
-        def cos(a, b) -> float:
-            return float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-9))
-
-        def is_legacy_note_node(nid: str) -> bool:
-            return str(self.graph.nodes[nid].get("description", "")).startswith("Course Note")
-
-        def sort_key(nid: str):
-            data = self.graph.nodes[nid]
-            has_desc = bool(data.get("description"))
-            looks_snake = "_" in nid and nid == nid.lower()
-            return (0 if has_desc else 1, -self.graph.degree(nid), looks_snake, nid)
-
-        node_ids = sorted(
-            (n for n in self.graph.nodes if not is_legacy_note_node(n)), key=sort_key
-        )
-
-        # canonical id -> (name_embedding, description_embedding_or_None)
-        canonical_embeddings: dict[str, tuple] = {}
-        redirects: dict[str, str] = {}
-
-        for nid in node_ids:
-            desc = self.graph.nodes[nid].get("description", "")
-            name_emb = np.array(self._vector_store.embed_texts([nid])[0])
-            desc_emb = (
-                np.array(self._vector_store.embed_texts([f"{nid}: {desc}"])[0])
-                if desc else None
-            )
-
-            best_match, best_sim = None, 0.0
-            for canon_id, (c_name_emb, c_desc_emb) in canonical_embeddings.items():
-                if desc_emb is not None and c_desc_emb is not None:
-                    sim = cos(desc_emb, c_desc_emb)
-                else:
-                    sim = cos(name_emb, c_name_emb)
-                if sim > best_sim:
-                    best_sim, best_match = sim, canon_id
-
-            if best_match and best_sim > self.ENTITY_MERGE_THRESHOLD:
-                redirects[nid] = best_match
-            else:
-                canonical_embeddings[nid] = (name_emb, desc_emb)
-
-        for dup_id, canon_id in redirects.items():
-            dup_data = self.graph.nodes[dup_id]
-            canon_data = self.graph.nodes[canon_id]
-            log.info(f"Dedup: '{dup_id}' -> '{canon_id}'")
-
-            if not canon_data.get("description") and dup_data.get("description"):
-                canon_data["description"] = dup_data["description"]
-
-            canon_prov = canon_data.get("provenance") or []
-            for p in dup_data.get("provenance") or []:
-                if p not in canon_prov:
-                    canon_prov.append(p)
-            canon_data["provenance"] = canon_prov
-
-            canon_aliases = canon_data.get("aliases") or []
-            for a in [dup_id, *(dup_data.get("aliases") or [])]:
-                if a not in canon_aliases:
-                    canon_aliases.append(a)
-            canon_data["aliases"] = canon_aliases
-
-            for _, tgt, edata in list(self.graph.out_edges(dup_id, data=True)):
-                tgt = redirects.get(tgt, tgt)
-                if tgt != canon_id:
-                    self.graph.add_edge(canon_id, tgt, **edata)
-            for src, _, edata in list(self.graph.in_edges(dup_id, data=True)):
-                src = redirects.get(src, src)
-                if src != canon_id:
-                    self.graph.add_edge(src, canon_id, **edata)
-
-            self.graph.remove_node(dup_id)
-
-        if redirects:
-            log.info(f"Dedup pass merged {len(redirects)} duplicate node(s).")
-        return len(redirects)
 
     # ------------------------------------------------------------------
     # Note indexing

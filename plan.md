@@ -239,13 +239,32 @@ Provenance dedup on write was already free from reusing `dedupe_graph()`'s merge
 
 **Exit:** retrieval no longer imports `networkx`.
 
-### Phase 6 — Delete what identity made unnecessary
+### Phase 6 — Delete what identity made unnecessary — **DONE** (partial scope, see below)
 - `dedupe_graph()` — nothing to repair when ids are canonical before edges exist.
 - `ENTITY_MERGE_THRESHOLD` and the whole cosine-merge path.
 - `_snake_case_redirects` and the load-time self-heal.
 - The `graph ──▶ vector` dependency.
 
 **Exit:** the diagnosis document describes history, not present tense.
+
+**Shipped:** `dedupe_graph()`, `ENTITY_MERGE_THRESHOLD`, and the `graph-dedupe` CLI verb /
+`/dedupe` HTTP endpoint are deleted from `services/graph/app/indexer.py`,
+`services/graph/main.py` and `src/cli.py`. `_snake_case_redirects()` and the id-folding
+block it fed in `_load_graph()` are deleted too; `_load_graph()` now only does the
+unrelated, still-needed normalization (rename `type`→`entity_type`, taxonomy domain
+casing, drop legacy `CONTAINS` edges) — nothing left to self-heal since identity is
+canonical at write time (Phases 1-2). `VectorStoreClient.embed_texts()` in
+`services/graph/app/clients.py` is deleted (it existed only for `dedupe_graph()`'s cosine
+comparison).
+
+**Not shipped — the `graph ──▶ vector` dependency stays, narrowed but not removed.**
+`_get_candidate_context()` still calls `self._vector_store.search_similar()` for Pass-2 LLM
+candidate context (existing concept names fed into the edge-linking prompt), and
+`services/graph/main.py` still constructs `MathGraphIndexer(vector_store=VectorStoreClient())`
+to support it. Removing this dependency outright requires re-sourcing Pass-2 candidates from
+the concept table instead of chunk search — deferred, since that's a design change (which
+concepts to offer as candidates), not a deletion, and belongs with Phase 3/4 once the concept
+table is the thing to source from.
 
 ### Phase 7 — Assemble
 - Decide the real topology. The decomposition was a rewrite tool; a single-user local app may
@@ -256,15 +275,15 @@ Provenance dedup on write was already free from reusing `dedupe_graph()`'s merge
 
 ## What this deletes
 
-| Goes away | Because |
-|---|---|
-| Embedding-based entity resolution | Deterministic lookup replaces it |
-| `ENTITY_MERGE_THRESHOLD` | No threshold exists that separates the two populations |
-| `dedupe_graph()` | Nothing to deduplicate after the fact |
-| Load-time self-heal | Nothing to heal |
-| `graph.json` as source of truth | Becomes an export |
-| Free-text `domain` / `subdomain` | MSC2020 codes |
-| `graph → vector` dependency | Resolution no longer needs embeddings |
+| Goes away | Because | Status |
+|---|---|---|
+| Embedding-based entity resolution | Deterministic lookup replaces it | Done (Phase 1) |
+| `ENTITY_MERGE_THRESHOLD` | No threshold exists that separates the two populations | Done (Phase 6) |
+| `dedupe_graph()` | Nothing to deduplicate after the fact | Done (Phase 6) |
+| Load-time self-heal | Nothing to heal | Done (Phase 6) |
+| `graph.json` as source of truth | Becomes an export | Not started (Phase 3) |
+| Free-text `domain` / `subdomain` | MSC2020 codes | Not started |
+| `graph → vector` dependency | Resolution no longer needs embeddings | Partial — the dedupe-only slice is gone; Pass-2 candidate context still uses it (see Phase 6 note) |
 
 ---
 

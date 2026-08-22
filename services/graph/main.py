@@ -1,15 +1,13 @@
 """Graph service — concept extraction and the concept graph itself.
 
 This is the service the Base-Graph rewrite targets. Today it wraps the
-extracted `indexer.py` unchanged: two LLM passes, embedding-based entity
-resolution, an in-RAM `nx.DiGraph` persisted to graph.json.
+extracted `indexer.py`: two LLM passes, deterministic entity resolution via
+`authority.resolve_concept()`, an in-RAM `nx.DiGraph` persisted to graph.json.
 
-The endpoints below are drawn to survive that rewrite. `/extract`,
-`/index`, `/graph` and `/neighborhood` describe *what the service does*, not
-how it currently does it, so replacing the internals with SQLite-backed
-canonical IDs should not change this surface. `/dedupe` is the exception: it
-exists only to repair identity that was never assigned, and is expected to be
-deleted rather than reimplemented.
+The endpoints below are drawn to survive the rest of that rewrite (plan.md
+Phase 3+). `/extract`, `/index`, `/graph` and `/neighborhood` describe *what
+the service does*, not how it currently does it, so replacing the internals
+with SQLite-backed canonical IDs should not change this surface.
 """
 
 from pathlib import Path
@@ -20,7 +18,6 @@ from pydantic import BaseModel
 
 from app.clients import VectorStoreClient
 from app.indexer import MathGraphIndexer
-from shared.logger import log
 
 app = FastAPI(title="Comeback Helper — Graph Service")
 
@@ -143,18 +140,3 @@ def index_note(body: IndexIn):
 def rebuild(body: RebuildIn):
     G = indexer.build_or_update_index(use_llm=body.use_llm, force=body.force)
     return {"status": "success", "nodes": G.number_of_nodes(), "edges": G.number_of_edges()}
-
-
-@app.post("/dedupe")
-def dedupe():
-    """Repair pass for identity that was never assigned.
-
-    Slated for deletion: under the Base-Graph design IDs are canonical before
-    edges are drawn, so there is nothing to deduplicate after the fact.
-    """
-    merged = indexer.dedupe_graph()
-    if merged:
-        indexer.save_graph()
-    log.info(f"Dedupe merged {merged} node(s)")
-    return {"status": "success", "merged": merged,
-            "nodes": indexer.graph.number_of_nodes()}

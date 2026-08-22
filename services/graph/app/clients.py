@@ -70,23 +70,16 @@ class ObsidianVaultManager:
 class VectorStoreClient:
     """Client for the vector service.
 
-    Only the two methods the indexer actually used are implemented:
-    `embed_texts` (entity resolution) and `search_similar` (Pass 2 candidate
-    context).
-
-    Both of these disappear in the Base-Graph design — resolution becomes a
-    deterministic SQLite lookup, and candidate context comes from the concept
-    table rather than chunk search. This client is therefore expected to be
-    *deleted*, not optimised. See plan.md.
+    Only `search_similar` is used, for Pass 2 candidate context (existing
+    concept names fed into the edge-linking prompt). Entity resolution no
+    longer needs embeddings at all (see `_resolve_entity` in indexer.py), and
+    candidate context is expected to move to the concept table rather than
+    chunk search in a later phase — at that point this client goes away
+    entirely. See plan.md.
     """
 
     def __init__(self, base_url: str = VECTOR_URL):
         self.base_url = base_url.rstrip("/")
-
-    def embed_texts(self, texts: List[str]) -> List[List[float]]:
-        r = requests.post(f"{self.base_url}/embed", json={"texts": texts}, timeout=TIMEOUT)
-        r.raise_for_status()
-        return r.json()["vectors"]
 
     def search_similar(self, query: str, top_k: int = 5, course: Optional[str] = None,
                        query_type: str = "hybrid") -> List[Dict[str, Any]]:

@@ -18,7 +18,6 @@ answers grounded in that graph.
 /comeback-helper preview <note.md>                # dry-run extraction, writes nothing
 /comeback-helper health                           # full graph quality report
 /comeback-helper stats                            # quick node/edge counts
-/comeback-helper dedupe                           # merge duplicate nodes
 /comeback-helper rebuild                          # re-extract every note (expensive)
 ```
 
@@ -115,17 +114,13 @@ Read-only, stdlib only, no `.env` needed. Its output is human-formatted, not JSO
 
 ### Step 4 — Repair, carefully
 
-```bash
-python -m src.cli graph-dedupe --json
-```
-
-Embedding comparison only, no LLM calls, safe to re-run. Report `merged`.
+There is no `dedupe` verb anymore: node identity is resolved deterministically before edges
+are drawn (see "Known state" below), so there is nothing left to merge after the fact. If
+`graph_health.py` still reports duplicate groups, that is a new bug, not something a repair
+command can paper over — investigate rather than reaching for a merge pass.
 
 **Do not** attempt these without the user explicitly asking:
 
-- Tuning `ENTITY_MERGE_THRESHOLD`. It sits at 0.93 and still misses exact duplicates whose
-  descriptions were worded differently. The two populations overlap; no threshold separates
-  them. This has been tried.
 - A full `rebuild-graph` as a repair. It re-rolls every naming decision, changing *which*
   duplicates exist rather than whether they exist.
 - Editing `graph.json` by hand.
@@ -158,6 +153,11 @@ Node ids are now opaque (a QID or `CUST_` hash); the human-readable name lives i
 node's separate `label` field. Three more CLI verbs exist for the identity layer,
 independent of `graph.json`: `authority-seed-msc`, `authority-resolve --label "..."`,
 `authority-stats`.
+
+As of `plan.md` Phase 6, the embedding-similarity repair path (`dedupe_graph()`,
+`ENTITY_MERGE_THRESHOLD`, the `graph-dedupe` verb) and the load-time snake_case/Title-Case
+self-heal are deleted, not just unused — they're gone from the codebase entirely, so don't
+suggest them even as a fallback.
 
 The LanceDB vector table is currently empty and its data files are missing, so chunk
 retrieval returns nothing and queries run graph-only. Recovery is to delete

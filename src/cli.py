@@ -370,39 +370,5 @@ def graph_migrate_identity(yes: bool, as_json: bool):
         _fail(as_json, "Graph Migrate Identity", e)
 
 
-@main.command(name="graph-dedupe")
-@_JSON
-def graph_dedupe(as_json: bool):
-    """Merge nodes already in the graph that are the same entity under a
-    different spelling/casing (e.g. "Wronskian" vs "wronskian"). Uses
-    embedding comparison only — no LLM calls, safe to re-run anytime."""
-    if not as_json:
-        console.print("[bold cyan]Scanning graph for duplicate nodes...[/bold cyan]")
-    try:
-        from src.wiring import build_indexer
-        from vector.app.store import LocalVectorStore
-        indexer = build_indexer(vector_store=LocalVectorStore())
-        merged = indexer.dedupe_graph()
-        if merged:
-            indexer.save_graph()
-
-        if as_json:
-            _emit({
-                "status": "success",
-                "command": "graph-dedupe",
-                "merged": merged,
-                "nodes": indexer.graph.number_of_nodes(),
-                "edges": indexer.graph.number_of_edges(),
-            })
-        else:
-            console.print(Panel(
-                f"[bold green]Dedup Complete![/bold green]\nMerged: {merged} node(s)\n"
-                f"Total Nodes: {indexer.graph.number_of_nodes()}\nTotal Edges: {indexer.graph.number_of_edges()}",
-                title="Dedup Success",
-            ))
-    except Exception as e:
-        _fail(as_json, "Dedup", e)
-
-
 if __name__ == "__main__":
     main()
