@@ -1,0 +1,293 @@
+# Plan: the Base-Graph Atlas
+
+The single idea, the target design, and the order to get there.
+
+Companion docs: [docs/diagnosis.md](docs/diagnosis.md) (why the current graph fails),
+[docs/flow.md](docs/flow.md) (how data moves today), [docs/structure.md](docs/structure.md)
+(call chains), [services/README.md](services/README.md) (the decomposition).
+
+---
+
+## The idea, in one page
+
+Every defect in the current graph traces to one absence: **nothing decides what a concept
+is called before edges are drawn between concepts.** `GraphNode.id` defaults to the
+LLM-generated display name, so the same idea gets re-coined as `Lipschitz Condition`,
+`lipschitz-condition`, `lipschitz_condition` — and embedding similarity is then paid,
+repeatedly, to guess which of those were meant to be the same thing.
+
+The fix is to assign identity **before** extracting relationships, deterministically, from
+an authority that lives outside the model. That is the Base-Graph proposal and it is right.
+
+The one correction it needs: **a surface string and a concept are not the same object.**
+`T` is a linear map in one lecture, a topology in another; `L` is a Lipschitz constant here
+and a differential operator there. Overloading is the default in mathematics, not an edge
+case. A global string→ID map would make the graph cleaner and less true — and the
+distinctions it would flatten are precisely the ones this atlas exists to show.
+
+So: **resolve identity deterministically, but resolve it in scope.**
+
+```
+mention  ──resolve(scope)──▶  concept  ──▶  edges drawn between concept ids
+(surface form,               (canonical,
+ at a location)               global)
+```
+
+---
+
+## Target data model
+
+Four tables. The one that carries the idea is `mentions`.
+
+```sql
+concepts (
+  id              TEXT PRIMARY KEY,   -- Q1059, or CUST_<hash of normalized key>
+  label           TEXT NOT NULL,      -- display name
+  msc_code        TEXT,               -- MSC2020, closed vocabulary (replaces free-text taxonomy)
+  authority       TEXT,               -- wikidata | msc | local
+  authority_ver   TEXT,               -- so seeding is re-runnable, not once-only
+  status          TEXT                -- confirmed | provisional
+);
+
+aliases (
+  surface_norm    TEXT NOT NULL,      -- normalized key, NOT the raw string
+  concept_id      TEXT NOT NULL REFERENCES concepts(id),
+  scope           TEXT NOT NULL,      -- global | course | document
+  scope_ref       TEXT,               -- course name or doc id when scoped
+  PRIMARY KEY (surface_norm, scope, scope_ref)
+);
+
+mentions (
+  chunk_id        TEXT NOT NULL,
+  surface_text    TEXT NOT NULL,      -- exactly as written on the page
+  concept_id      TEXT NOT NULL REFERENCES concepts(id),
+  char_span       TEXT
+);
+
+edges (
+  source_id       TEXT NOT NULL REFERENCES concepts(id),
+  target_id       TEXT NOT NULL REFERENCES concepts(id),
+  relation        TEXT NOT NULL,
+  chunk_id        TEXT,               -- provenance: where this was claimed
+  quote           TEXT,               -- the sentence that supports it
+  origin          TEXT NOT NULL       -- extracted | inferred | authority
+);
+```
+
+`mentions` gives provenance for free, lets the same string resolve differently in different
+documents, and preserves *how a concept was written in each place* — which for a maths
+atlas is content, not metadata.
+
+`edges.origin` is the `EXTRACTED`/`INFERRED` split. The `atlas-model-b` branch already had
+this as `sources: ["llm"] | ["wikipedia"]` in `review_queue.json`. Bring it forward rather
+than reinventing it.
+
+### The resolution ladder
+
+Narrowest scope first. Never a similarity threshold.
+
+| Rung | Rule |
+|---|---|
+| **document** | Surface form already bound in this document? Reuse that binding. |
+| **course** | Bound elsewhere in this course? Reuse — notation is usually stable within a course. |
+| **global** | Exact match on the normalized key against the authority. |
+| **miss** | Mint `CUST_<hash(normalized key)>`, propose near-matches, **queue for review**. |
+
+Two rules that make or break this:
+
+1. **Hash the normalized key, never the raw surface.** `hash("ker(T)")` and
+   `hash("kernel of T")` are different IDs for one concept — the current bug in hex. Use the
+   same fold `scripts/graph_health.py::normalize` already implements.
+2. **Fuzzy matching proposes, it never commits.** `LIKE '%ker(T)%'` over a namespace full of
+   single letters will confidently unify `ker(T)` and `ker(S)`. Exact-on-normalized is the
+   only path that writes without review.
+
+---
+
+## Target topology
+
+Five services, already isolated in [`services/`](services/). Dependency edges:
+
+```
+ingestion ──▶ vault                    (vault is the only writer)
+graph     ──▶ vault
+retrieval ──▶ graph, vector
+```
+
+Two edges present today that the rewrite **removes**:
+
+- `graph ──▶ vector` — exists only for embedding-based entity resolution. Deterministic
+  lookup replaces it, and the graph service stops needing the vector service at all.
+- `retrieval` rebuilding the whole graph locally — replaced by the graph service's
+  `/neighborhood` endpoint, after which retrieval no longer needs `networkx`.
+
+That is the test of whether this design is working: **the dependency graph gets sparser.**
+
+---
+
+## Order of work
+
+Each phase is independently landable and leaves the system working. Phases 1–2 belong in the
+monolith; only from phase 3 does the service split start to matter.
+
+### Phase 0 — Seed the authority — **DONE** (revised scope, see below)
+- Fetch MSC2020 (taxonomy tier) and a Wikidata mathematics subset (concept tier).
+- Write `concepts` + `aliases` with `authority_ver` stamped.
+- **Idempotent and re-runnable.** "Run once" is a trap: coverage you want later isn't in
+  today's snapshot, and re-seeding must not orphan existing IDs.
+- *Use them at different tiers.* MSC2020 is ~6k subject areas, not a concept list — it
+  replaces the free-text `domain`/`subdomain` fields. Wikidata supplies concept identity.
+  Import Wikidata *edges* selectively or not at all: they are ontological (`subclass of`),
+  and this atlas needs pedagogical (`must understand first`).
+
+**Exit:** `concepts` populated, `graph_health.py` unchanged, nothing else touched.
+
+**Measured, then revised:** open question 1 (below) was answered before building this —
+Wikidata exact-label coverage on 92 real concepts from the live graph is ~15-21%, not the
+near-total coverage bulk-seeding would imply is worth curating for. So Phase 0 shipped as:
+MSC2020 bulk-seeded in full (6,603 codes, real data from `msc2020.org/MSC_2020.csv`, cp1252
+encoded — not UTF-8, causes a silent mis-decode of accented names like "Picard-Lindelöf" if
+you assume otherwise), and Wikidata as an **on-demand, cached lookup** instead of a curated
+subset — a normalized key crosses the network at most once, ever; the local corpus grows
+from usage, not from a one-time import. Implementation: `services/graph/app/authority.py`
+(`concepts`/`aliases`/`msc_taxonomy`/`wikidata_lookup_cache`/`review_queue` tables in
+`.storage/concepts.db`). CLI: `authority-seed-msc`, `authority-resolve --label`,
+`authority-stats`.
+
+### Phase 1 — Identity layer in the monolith — **DONE**
+- Add `normalize()` to `graph/schema.py` (lift from `scripts/graph_health.py`).
+- Give `GraphNode` a canonical key separate from its display name.
+- Make `_resolve_entity` a lookup: normalized key → alias table → scope ladder. Embeddings
+  demoted to *proposing* review-queue candidates only.
+- **This is the prerequisite for everything else.** An extractor that looks up concepts,
+  pointed at a graph that still holds three Lipschitz nodes, will link to whichever it finds
+  first and cement the duplicates.
+
+**Exit:** `graph_health.py` reports 0 duplicate groups.
+
+**Shipped:** `normalize()` lives in `services/graph/app/schema.py`. `_resolve_entity` in
+`services/graph/app/indexer.py` now delegates to `authority.resolve_concept()` — the
+document → course → global → mint ladder — and needs no `vector_store` at all (the plan's
+"dependency graph gets sparser" test, one edge down). `GraphNode`'s id is now genuinely
+opaque (a Wikidata QID or `CUST_<hash>`); nodes carry a separate `label` field for display,
+threaded through `save_graph()` and the Pass-2 candidate-context prompt (both used to assume
+node key == display name — that assumption is gone now, watch for it resurfacing anywhere
+else that reads a node id and expects readable text).
+
+Verified live against a real note (`MA301 Lecture 4.md`, isolated scratch storage, not the
+production `graph.json`): `Wronskian` → `Q124743`, `Characteristic Equation` → `Q33104580`,
+two concepts with no Wikidata match minted deterministic `CUST_` ids, all four edges
+resolved consistently. Full test suite: 11/12 pass, the one failure is the pre-existing
+corrupted-LanceDB issue this same document schedules a fix for in Phase 5, unrelated to this
+work. **Gap:** no permanent unit test added yet for the new resolver path — tests still only
+exercise `extraction`/schema objects directly, not `index_note`'s resolution. `dedupe_graph()`
+and `ENTITY_MERGE_THRESHOLD` are untouched (still there, unused by the new path, deletion is
+Phase 6) and the live 119-node `graph.json` is untouched (old string-keyed nodes) — that
+migration is Phase 2.
+
+### Phase 2 — Migrate the live graph — **DONE**
+- Map each of the existing 123 nodes through its alias list to a canonical id. This is where
+  the currently write-only `aliases` data finally earns its keep.
+- The 14 duplicate groups collapse as a side effect (123 → ~108).
+- Drop the 13 orphaned note-container nodes left behind when `CONTAINS` was retired, the
+  relation-name node (`DEPENDS_ON`), the placeholder labels, and the LaTeX fragment.
+- Deduplicate provenance records on write (60 nodes currently carry repeats).
+
+**Exit:** node count reflects concepts, not spellings. Isolated nodes are real, not debris.
+
+**Shipped:** `MathGraphIndexer.migrate_to_identity_layer()` in
+`services/graph/app/indexer.py`, exposed as `python -m src.cli graph-migrate-identity`
+(writes `graph.json.bak` first — this mutates the live graph, so it's not auto-run). Ran
+against the actual 119-node live graph (the 123 on-disk nodes minus 4 already folded by
+`_load_graph`'s in-memory self-heal): **17 junk nodes dropped, 27 duplicates merged, landing
+at 75 nodes / 121 edges.** `scripts/graph_health.py` confirms **0 duplicate groups** (was 14)
+against the migrated file. Node display labels are picked separately from the canonical id —
+a small tiered heuristic (proper name > name-with-digits > everything else, shortest within
+a tier) over every id/label/alias in a merged group, needed because the "richest" member by
+description/degree is often *not* the best-looking spelling (e.g. lowercase `wronskian`, or
+literal notation like `W(y1, y2)` recorded as an alias) and the graph is meant to be read.
+Provenance dedup on write was already free from reusing `dedupe_graph()`'s merge shape.
+9 isolated nodes remain — real standalone concepts now, not debris (verified via
+`graph_health.py`, which also reports these separately from suspect/junk).
+
+### Phase 3 — SQLite behind the graph service
+- Implement the four tables. `graph.json` becomes an export format, not the store of record.
+- Keep `nx.DiGraph` as a **derived, rebuildable projection** — do not delete it. Traversal,
+  topological layering, cycle detection and community detection are one-liners in NetworkX
+  and painful recursive CTEs in SQL. Demote it from truth to cache.
+
+**Exit:** graph service's public endpoints unchanged; internals relational.
+
+### Phase 4 — Resolve-then-link extraction
+- Pass 1 becomes: identify surface forms → `resolve_concept()` → return concept ids.
+- Pass 2 receives **ids**, not names, and is told to use only those ids.
+- **Accumulate resolved ids across the document, not per chunk.** Chunk-local linking can
+  only ever produce local clusters — it would reproduce today's 33-components symptom from a
+  new cause. The valuable edges are cross-chunk and cross-document: Lecture 7's theorem rests
+  on Lecture 2's definition.
+- Every edge carries `chunk_id`, `quote`, `origin`.
+
+**Exit:** new ingests add no duplicate concepts; edges carry evidence.
+
+### Phase 5 — Retrieval over the new shape
+- Engine calls `/neighborhood?ids=…&hops=1` instead of reconstructing the graph.
+- Serialize that subgraph straight to the vis.js payload — bounded, so the frontend layout
+  stops struggling.
+- Rebuild the vector index (currently empty and corrupted: delete `.storage/lancedb`,
+  restart, re-index) and make `add_chunks` delete-by-source before insert, since it is
+  append-only today and duplicates every chunk on re-index.
+
+**Exit:** retrieval no longer imports `networkx`.
+
+### Phase 6 — Delete what identity made unnecessary
+- `dedupe_graph()` — nothing to repair when ids are canonical before edges exist.
+- `ENTITY_MERGE_THRESHOLD` and the whole cosine-merge path.
+- `_snake_case_redirects` and the load-time self-heal.
+- The `graph ──▶ vector` dependency.
+
+**Exit:** the diagnosis document describes history, not present tense.
+
+### Phase 7 — Assemble
+- Decide the real topology. The decomposition was a rewrite tool; a single-user local app may
+  well be better served by one process with clean internal boundaries. That choice is
+  deliberately deferred to here, when the boundaries are known rather than guessed.
+
+---
+
+## What this deletes
+
+| Goes away | Because |
+|---|---|
+| Embedding-based entity resolution | Deterministic lookup replaces it |
+| `ENTITY_MERGE_THRESHOLD` | No threshold exists that separates the two populations |
+| `dedupe_graph()` | Nothing to deduplicate after the fact |
+| Load-time self-heal | Nothing to heal |
+| `graph.json` as source of truth | Becomes an export |
+| Free-text `domain` / `subdomain` | MSC2020 codes |
+| `graph → vector` dependency | Resolution no longer needs embeddings |
+
+---
+
+## Open questions
+
+1. ~~**Wikidata coverage for undergraduate maths** is thinner than it looks.~~ **Measured.**
+   92 canonical concepts (deduped via `normalize()`) across all 13 lecture notes in the live
+   differential-equations course — a bigger sample than "one lecture." Raw stored spelling:
+   14/92 (15%) exact label match. Humanized (kebab/snake → spaces) before querying: 19/92
+   (21%) — the other 5 were reclassified from "fuzzy hit" to "exact," not rescued from
+   "miss"; the miss count (62/92, 67%) is identical either way. The "close but not exact"
+   bucket (11-16/92) is mostly noise — single-token-overlap academic paper titles (`Mixing
+   Problem` → hepatic-artery-infusion papers), not real disambiguation candidates a review
+   queue could act on. **Conclusion, acted on:** yes, most concepts fall through to `CUST_*`
+   (~79%) — the review queue is the majority path, not an edge case, confirming the
+   suspicion below. Decision: don't pre-curate a Wikidata subset (low payoff at ~20%); do
+   on-demand exact lookup instead, cached so the network cost is paid once per normalized
+   key ever. See Phase 0.
+2. **Who curates the review queue?** It is the quality mechanism, so it needs an owner and a
+   surface. An agent pre-triaging into obvious/uncertain would keep it tractable.
+3. **Scope granularity.** Document-level may still be too coarse where notation is rebound
+   mid-lecture. Section-level is more correct and more expensive; start with document and
+   measure.
+4. **Relation vocabulary.** 77% of current edges are `DEPENDS_ON` and 0 are `USES_AXIOM`.
+   Before enriching the schema, find out whether the vocabulary is too fine for the model to
+   use reliably — a smaller, well-used vocabulary beats a large, ignored one.

@@ -1,0 +1,2 @@
+-r ../shared/requirements.txt
+# No extra deps: the vault service is stdlib + shared only.

@@ -1,0 +1,80 @@
+# Assembly definition for the decomposed pipeline.
+#
+# Nothing here is wired into the running monolith — `src/` still serves the
+# app on :8000. This file describes how the isolated pieces go back together
+# once each has been rewritten. Build context is `services/` for every service
+# so each image can copy `shared/` alongside its own code.
+#
+#   docker compose build            # build all five
+#   docker compose up vault vector  # bring up the leaves only
+#   docker compose up               # full assembly
+#
+# Storage is shared through one named volume rather than per-service volumes,
+# because the vault is a single source of truth and LanceDB/graph.json are
+# derived from it. When the graph service moves to SQLite this stays true —
+# one durable location, several derived stores inside it.
+
+name: comeback-helper
+
+x-common: &common
+  env_file: [../.env]
+  restart: unless-stopped
+  networks: [atlas]
+  volumes:
+    - storage:/data/.storage
+    - vault:/data/vault
+  environment:
+    STORAGE_DIR: /data/.storage
+    OBSIDIAN_VAULT_LOCATION: /data/vault
+
+services:
+
+  # ---- leaves: no dependencies on other services -------------------------
+
+  vault:
+    <<: *common
+    build: {context: ., dockerfile: vault/Dockerfile}
+    ports: ["8001:8001"]
+
+  vector:
+    <<: *common
+    build: {context: ., dockerfile: vector/Dockerfile}
+    ports: ["8003:8003"]
+
+  # ---- depends on the leaves --------------------------------------------
+
+  ingestion:
+    <<: *common
+    build: {context: ., dockerfile: ingestion/Dockerfile}
+    ports: ["8002:8002"]
+    depends_on:
+      vault: {condition: service_healthy}
+
+  graph:
+    <<: *common
+    build: {context: ., dockerfile: graph/Dockerfile}
+    ports: ["8004:8004"]
+    depends_on:
+      vault: {condition: service_healthy}
+      # Entity resolution only. This edge disappears under Base-Graph:
+      # deterministic SQLite lookup replaces embedding comparison, and the
+      # graph service stops needing the vector service at all.
+      vector: {condition: service_healthy}
+
+  # ---- top of the stack --------------------------------------------------
+
+  retrieval:
+    <<: *common
+    build: {context: ., dockerfile: retrieval/Dockerfile}
+    ports: ["8005:8005"]
+    depends_on:
+      graph: {condition: service_healthy}
+      vector: {condition: service_healthy}
+
+networks:
+  atlas:
+    driver: bridge
+
+volumes:
+  storage:
+  vault:

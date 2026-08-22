@@ -1,9 +1,12 @@
+# Puts the services root on sys.path under the module names the containers
+# use. Must precede the service imports below. See src/__init__.py.
+import src  # noqa: F401
 import unittest
 from PIL import Image, ImageDraw
 from pathlib import Path
-from src.ingestion.handwriting_provider import HandwritingOCRProvider
-from src.ingestion.handwriting.preprocessor import ImagePreprocessor
-from src.ingestion.handwriting.health import OllamaHealthCheck
+from ingestion.app.handwriting_provider import HandwritingOCRProvider
+from ingestion.app.handwriting.preprocessor import ImagePreprocessor
+from ingestion.app.handwriting.health import OllamaHealthCheck
 
 def create_mock_handwritten_page() -> Image.Image:
     """

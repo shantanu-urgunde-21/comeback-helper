@@ -1,7 +1,10 @@
+# Puts the services root on sys.path under the module names the containers
+# use. Must precede the service imports below. See src/__init__.py.
+import src  # noqa: F401
 import unittest
 from pathlib import Path
-from src.graph.schema import MathEntityExtraction, GraphNode, GraphEdge, MathEntityType, MathRelationType
-from src.graph.indexer import MathGraphIndexer
+from graph.app.schema import MathEntityExtraction, GraphNode, GraphEdge, MathEntityType, MathRelationType
+from graph.app.indexer import MathGraphIndexer
 
 class TestGraphIndexer(unittest.TestCase):
     def test_schema_models(self):

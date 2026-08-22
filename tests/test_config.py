@@ -1,5 +1,8 @@
+# Puts the services root on sys.path under the module names the containers
+# use. Must precede the service imports below. See src/__init__.py.
+import src  # noqa: F401
 import unittest
-from src.config import get_settings
+from shared.config import get_settings
 
 class TestSettings(unittest.TestCase):
     def test_settings_load(self):

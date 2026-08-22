@@ -1,9 +1,12 @@
+# Puts the services root on sys.path under the module names the containers
+# use. Must precede the service imports below. See src/__init__.py.
+import src  # noqa: F401
 import os
 import unittest
 from pathlib import Path
 from PIL import Image
-from src.ingestion.base import BaseOCRProvider
-from src.ingestion.pipeline import IngestionPipeline
+from ingestion.app.base import BaseOCRProvider
+from ingestion.app.pipeline import IngestionPipeline
 
 class DummyOCRProvider(BaseOCRProvider):
     def process_image(self, image: Image.Image) -> str:

@@ -9,11 +9,11 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field
 
-from src.config import get_settings
-from src.vault.manager import ObsidianVaultManager
-from src.ingestion.handwriting.health import OllamaHealthCheck
-from src.chunker import chunk_math_markdown
-from src.logger import log
+from shared.config import get_settings
+from vault.app.manager import ObsidianVaultManager
+from ingestion.app.handwriting.health import OllamaHealthCheck
+from vector.app.chunker import chunk_math_markdown
+from shared.logger import log
 
 # ---------------------------------------------------------------------------
 # App lifespan: initialize expensive objects once at startup, not per-request
@@ -23,18 +23,14 @@ from src.logger import log
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Create heavy singletons once at startup, sharing dependencies."""
-    from src.retrieval.engine import MathQueryEngine
-    from src.graph.indexer import MathGraphIndexer
-    from src.vector.store import LocalVectorStore
+    from src.wiring import build_stack
 
     log.info("Initializing app-scoped singletons...")
 
-    # Create in dependency order: vector store → indexer → query engine
-    vector_store = LocalVectorStore()
-    graph_indexer = MathGraphIndexer(vector_store=vector_store)
-    query_engine = MathQueryEngine(
-        graph_indexer=graph_indexer, vector_store=vector_store
-    )
+    # Built in dependency order by the composition root, which supplies the
+    # in-process collaborators the service packages would otherwise default
+    # to HTTP clients for.
+    vector_store, graph_indexer, query_engine = build_stack()
 
     app.state.vector_store = vector_store
     app.state.graph_indexer = graph_indexer
@@ -130,15 +126,15 @@ async def ingest_pdf(
 
         # Configure OCR Provider based on user selection
         if ocr_mode == "local_handwriting":
-            from src.ingestion.handwriting_provider import HandwritingOCRProvider
+            from ingestion.app.handwriting_provider import HandwritingOCRProvider
             ocr_provider = HandwritingOCRProvider(
                 vault_attachments_dir=Path(f"./.storage/vault/{course}/attachments")
             )
         else:  # gemini_vision
-            from src.ingestion.gemini_ocr import GeminiOCRProvider
+            from ingestion.app.gemini_ocr import GeminiOCRProvider
             ocr_provider = GeminiOCRProvider()
 
-        from src.ingestion.pipeline import IngestionPipeline
+        from ingestion.app.pipeline import IngestionPipeline
         pipeline = IngestionPipeline(ocr_provider=ocr_provider)
         target_note_path = pipeline.process_pdf(
             pdf_path=temp_pdf_path,

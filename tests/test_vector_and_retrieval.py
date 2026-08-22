@@ -1,7 +1,10 @@
+# Puts the services root on sys.path under the module names the containers
+# use. Must precede the service imports below. See src/__init__.py.
+import src  # noqa: F401
 import unittest
 from pathlib import Path
-from src.vector.store import LocalVectorStore
-from src.retrieval.engine import MathQueryEngine
+from vector.app.store import LocalVectorStore
+from retrieval.app.engine import MathQueryEngine
 
 class TestVectorAndRetrieval(unittest.TestCase):
     def test_vector_store_indexing_and_search(self):
