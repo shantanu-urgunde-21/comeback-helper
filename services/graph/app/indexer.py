@@ -438,34 +438,28 @@ class MathGraphIndexer:
     # ------------------------------------------------------------------
 
     def _get_candidate_context(self, text: str) -> dict[str, str]:
-        """Returns {concept_id: display_label} for the most relevant existing
-        concepts, used as Pass 2 context. Capped at 25 entries to keep the
-        prompt size bounded.
+        """Returns {concept_id: display_label} for existing graph concepts, used
+        as Pass 2 context. Capped at 25 entries.
+
+        TODO (Phase 5): source relevance ranking via the vector store. The
+        vector store's chunk `source` field holds note filenames, not graph
+        node keys (QIDs/CUST_), so the query result cannot be joined back to
+        graph nodes without a round-trip through the `mentions` table. Until
+        that join is implemented, all graph nodes contribute equally.
         """
         candidates: dict[str, str] = {}
-        if self._vector_store is not None:
-            try:
-                summary = text[:500]
-                results = self._vector_store.search_similar(summary, top_k=20)
-                for r in results:
-                    source = r.get("source", "")
-                    if source and source != "init.md" and source in self.graph.nodes:
-                        label = self.graph.nodes[source].get("label", source)
-                        candidates[source] = label
-            except Exception:
-                pass
-
-        for n in list(self.graph.nodes)[:30]:
-            if n not in candidates:
-                candidates[n] = self.graph.nodes[n].get("label", n)
-
-        return dict(list(candidates.items())[:25])
+        for n in list(self.graph.nodes)[:25]:
+            candidates[n] = self.graph.nodes[n].get("label", n)
+        return candidates
 
     def _split_chunks(self, text: str, document_id: str) -> list[tuple[str, str]]:
         """Split markdown text into (chunk_id, chunk_text) by heading (H1–H3).
 
-        Each section heading starts a new chunk. Empty sections are dropped.
-        chunk_id format: '{document_id}#s{n:04d}', zero-indexed.
+        Each section heading starts a new chunk. Sections that contain only a
+        heading line (no content beyond the heading itself) are treated as empty
+        and dropped — a heading with no body has nothing for Pass 1 to extract.
+        chunk_id format: '{document_id}#s{n:04d}', zero-indexed over non-empty
+        sections only.
         Falls back to the whole document as one chunk when no headings exist.
         """
         sections = re.split(r'\n(?=#{1,3} )', text)
