@@ -438,6 +438,33 @@ class MathGraphIndexer:
 
         return list(candidates)[:25]
 
+    def _split_chunks(self, text: str, document_id: str) -> list[tuple[str, str]]:
+        """Split markdown text into (chunk_id, chunk_text) by heading (H1–H3).
+
+        Each section heading starts a new chunk. Empty sections are dropped.
+        chunk_id format: '{document_id}#s{n:04d}', zero-indexed.
+        Falls back to the whole document as one chunk when no headings exist.
+        """
+        sections = re.split(r'\n(?=#{1,3} )', text)
+        chunks = []
+        for s in sections:
+            stripped = s.strip()
+            if not stripped:
+                continue
+            # Check if this section has content beyond just headings
+            lines = stripped.split('\n')
+            has_content = False
+            for line in lines:
+                # If a line doesn't start with # and has text, it's content
+                if line.strip() and not re.match(r'^#+\s', line):
+                    has_content = True
+                    break
+            # Keep the chunk if it has non-heading content, or if it's a plain line (no heading)
+            if has_content or (len(lines) == 1 and not re.match(r'^#+\s', lines[0].strip())):
+                chunks.append((f"{document_id}#s{len(chunks):04d}", stripped))
+
+        return chunks if chunks else [(f"{document_id}#s0000", text)]
+
     def extract_from_text(
         self,
         text: str,

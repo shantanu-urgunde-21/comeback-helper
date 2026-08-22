@@ -36,5 +36,39 @@ class TestGraphIndexer(unittest.TestCase):
         self.assertIn("Linear Independence", indexer.graph.nodes)
         self.assertTrue(indexer.graph.has_edge("Linear Independence", "Vector Space"))
 
+class TestPhase4(unittest.TestCase):
+    def setUp(self):
+        self.indexer = MathGraphIndexer()
+        self.doc_id = "/vault/course/note.md"
+
+    def test_split_chunks_with_headings(self):
+        text = "## Section 1\nContent A\n## Section 2\nContent B"
+        chunks = self.indexer._split_chunks(text, self.doc_id)
+        self.assertEqual(len(chunks), 2)
+        self.assertEqual(chunks[0][0], f"{self.doc_id}#s0000")
+        self.assertEqual(chunks[1][0], f"{self.doc_id}#s0001")
+        self.assertIn("Content A", chunks[0][1])
+        self.assertIn("Content B", chunks[1][1])
+
+    def test_split_chunks_no_headings_returns_one_chunk(self):
+        text = "No headings here, just plain content."
+        chunks = self.indexer._split_chunks(text, self.doc_id)
+        self.assertEqual(len(chunks), 1)
+        self.assertEqual(chunks[0][0], f"{self.doc_id}#s0000")
+        self.assertIn("plain content", chunks[0][1])
+
+    def test_split_chunks_skips_empty_sections(self):
+        # First section has no content after heading — should be skipped
+        text = "## Empty Section\n\n## Real Section\nContent B"
+        chunks = self.indexer._split_chunks(text, self.doc_id)
+        # Only the non-empty section should appear
+        self.assertEqual(len(chunks), 1)
+        self.assertIn("Content B", chunks[0][1])
+
+    def test_split_chunks_three_levels(self):
+        text = "# H1\nContent A\n## H2\nContent B\n### H3\nContent C"
+        chunks = self.indexer._split_chunks(text, self.doc_id)
+        self.assertEqual(len(chunks), 3)
+
 if __name__ == "__main__":
     unittest.main()
