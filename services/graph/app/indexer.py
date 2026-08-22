@@ -16,7 +16,6 @@ from .schema import (
     GraphEdge,
     ConceptTaxonomy,
     Provenance,
-    normalize_domain_casing,
 )
 from shared.llm.gemini import get_gemini_client, get_gemini_model_name, get_gemini_candidate_models
 from shared.llm.ollama import get_ollama_client
@@ -163,50 +162,26 @@ class MathGraphIndexer:
     # ------------------------------------------------------------------
 
     def _load_graph(self) -> nx.DiGraph:
-        """Loads NetworkX graph from .storage/graph.json if it exists."""
-        G = nx.DiGraph()
-        if self.graph_file.exists():
-            try:
-                data = json.loads(self.graph_file.read_text(encoding="utf-8"))
-                raw_nodes = data.get("nodes", [])
-
-                for node in raw_nodes:
-                    # save_graph() serializes the role field as "type" (the
-                    # on-disk/API key); everywhere else in this codebase reads
-                    # it back as "entity_type". Left as "type", every node
-                    # silently fell back to the get(...) default on the very
-                    # next load, which is why graph-stats and the retrieval
-                    # context builder always reported every node as "Concept".
-                    if "type" in node:
-                        node["entity_type"] = node.pop("type")
-                    taxonomy = node.get("taxonomy")
-                    if isinstance(taxonomy, dict) and "domain" in taxonomy:
-                        taxonomy["domain"] = normalize_domain_casing(taxonomy["domain"])
-                    G.add_node(node["id"], **node)
-
-                for edge in data.get("edges", []):
-                    relation = edge.get("relation", "DEPENDS_ON")
-                    if relation == "CONTAINS":
-                        # Legacy note->concept membership edge. The same fact
-                        # already lives in each concept node's `provenance`
-                        # list, so this edge type is retired rather than kept
-                        # in sync in two places.
-                        continue
-                    src, tgt, relation = _normalize_relation(
-                        edge["source"], edge["target"], relation
-                    )
-                    G.add_edge(src, tgt, relation=relation)
-                log.info(
-                    f"Loaded existing graph ({G.number_of_nodes()} nodes, "
-                    f"{G.number_of_edges()} edges)"
-                )
-            except Exception as e:
-                log.warning(f"Failed to load graph.json ({e}), starting empty.")
-        return G
+        """Builds the in-memory graph from SQLite (.storage/concepts.db) —
+        the store of record as of plan.md Phase 3. graph.json is now only a
+        cache/export written by save_graph(); this no longer reads it.
+        """
+        from . import graph_store
+        return graph_store.load_graph()
 
     def clear_graph(self):
-        """Clears in-memory graph, graph.json, and state tracker."""
+        """Clears in-memory graph, the SQLite store of record, graph.json,
+        and state tracker.
+
+        As of plan.md Phase 3, graph.json alone is not enough to clear —
+        _load_graph now rebuilds from SQLite, so a restart after this would
+        otherwise resurrect everything. concepts/aliases (identity) are
+        deliberately left intact by graph_store.clear_all — see its
+        docstring.
+        """
+        from . import graph_store
         self.graph.clear()
+        graph_store.clear_all()
         if self.graph_file.exists():
             try:
                 self.graph_file.write_text(
@@ -219,40 +194,18 @@ class MathGraphIndexer:
         log.info("Knowledge graph and vault state cleared.")
 
     def save_graph(self):
-        """Saves NetworkX graph to graph.json."""
-        data = {
-            "nodes": [
-                {
-                    "id": n,
-                    "label": self.graph.nodes[n].get("label", n),
-                    "type": self.graph.nodes[n].get("entity_type", "Concept"),
-                    "description": self.graph.nodes[n].get("description", ""),
-                    "taxonomy": self.graph.nodes[n].get(
-                        "taxonomy",
-                        {"domain": "General Math", "subdomain": "General", "topic": n},
-                    ),
-                    "provenance": self.graph.nodes[n].get("provenance", []),
-                    "aliases": self.graph.nodes[n].get("aliases", []),
-                }
-                for n in self.graph.nodes
-            ],
-            "edges": [
-                {
-                    "from": u,
-                    "to": v,
-                    "source": u,
-                    "target": v,
-                    "relation": d.get("relation", "DEPENDS_ON"),
-                    "label": d.get("relation", "DEPENDS_ON"),
-                }
-                for u, v, d in self.graph.edges(data=True)
-            ],
-        }
-        self.graph_file.parent.mkdir(parents=True, exist_ok=True)
-        self.graph_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
-        log.info(
-            f"Saved graph ({len(data['nodes'])} nodes, {len(data['edges'])} edges)"
-        )
+        """Exports the in-memory graph to graph.json.
+
+        As of plan.md Phase 3, SQLite (.storage/concepts.db) is the store of
+        record — this is now a cache/export step, not the persistence
+        mechanism. Kept as its own call (same call sites as before) because
+        two consumers read graph.json directly off disk, never through this
+        class: src/server.py's `/api/graph` and the stdlib-only
+        scripts/graph_health.py. Both depend on this running at the same
+        points it always has and producing the same file shape.
+        """
+        from . import graph_store
+        graph_store.export_graph_json(self.graph, self.graph_file)
 
     # ------------------------------------------------------------------
     # Pass 1: Node & Taxonomy Extraction
@@ -689,6 +642,74 @@ class MathGraphIndexer:
             "final_edge_count": self.graph.number_of_edges(),
         }
 
+    def backfill_sql_store(self) -> dict:
+        """Plan.md Phase 3: one-time backfill of `mentions`/`edges` (and the
+        `concepts.node_attrs_json` bridge column) from the graph already
+        sitting in memory (loaded from graph.json at construction time).
+
+        Must run before `_load_graph` is switched over to read from SQLite —
+        it is what populates the store `_load_graph` will then read from.
+        Every node id here is already a `concepts` row (Phases 1-2's
+        `resolve_concept` guarantees that), so `upsert_node_attrs` — UPDATE-
+        only by design — is safe to call unconditionally.
+
+        Two known, deliberate approximations, not silently treated as
+        equivalent to what `index_note` writes going forward:
+          - Backfilled `mentions.surface_text` uses each node's current
+            display label, not the literal surface string a given document
+            used — today's `Provenance` records never captured that
+            separately.
+          - Backfilled `edges` carry no `quote` and share the chunk_id
+            sentinel `"__backfill__"` (not NULL, so the composite PK's
+            dedup — NULL != NULL in SQLite — still works on a re-run):
+            nothing wrote per-edge evidence before this phase existed, so
+            there is nothing genuine to backfill.
+        """
+        from . import graph_store
+
+        concepts_touched = 0
+        mentions_inserted = 0
+        edges_inserted = 0
+
+        with graph_store.connect() as conn:
+            for n_id, data in self.graph.nodes(data=True):
+                graph_store.upsert_node_attrs(
+                    conn, n_id,
+                    label=data.get("label", n_id),
+                    entity_type=data.get("entity_type", "Concept"),
+                    taxonomy=data.get("taxonomy", {}),
+                    description=data.get("description", ""),
+                    provenance=data.get("provenance", []),
+                    aliases=data.get("aliases", []),
+                )
+                concepts_touched += 1
+
+                seen_docs = set()
+                for prov in data.get("provenance", []) or []:
+                    doc_id = prov.get("doc_id") if isinstance(prov, dict) else None
+                    if doc_id and doc_id not in seen_docs:
+                        seen_docs.add(doc_id)
+                        graph_store.insert_mention(
+                            conn, chunk_id=doc_id,
+                            surface_text=data.get("label", n_id),
+                            concept_id=n_id,
+                        )
+                        mentions_inserted += 1
+
+            for u, v, edata in self.graph.edges(data=True):
+                graph_store.insert_edge(
+                    conn, source_id=u, target_id=v,
+                    relation=edata.get("relation", "DEPENDS_ON"),
+                    chunk_id="__backfill__", quote=None, origin="extracted",
+                )
+                edges_inserted += 1
+
+        return {
+            "concepts_touched": concepts_touched,
+            "mentions_inserted": mentions_inserted,
+            "edges_inserted": edges_inserted,
+        }
+
     # ------------------------------------------------------------------
     # Note indexing
     # ------------------------------------------------------------------
@@ -718,43 +739,66 @@ class MathGraphIndexer:
 
         document_id = str(note_path)
 
-        for node in extraction.nodes:
-            n_id = self._resolve_entity(node.id or node.name, document_id=document_id, course=course)
-            etype = node.entity_type.value if hasattr(node.entity_type, "value") else str(node.entity_type)
-            tax_dict = node.taxonomy.model_dump() if hasattr(node.taxonomy, "model_dump") else {"domain": course, "subdomain": "Course Notes", "topic": n_id}
+        from . import graph_store
 
-            if n_id not in self.graph:
-                self.graph.add_node(
-                    n_id,
-                    id=n_id,
-                    label=node.name,
-                    entity_type=etype,
-                    taxonomy=tax_dict,
-                    description=node.description,
-                    provenance=[prov_record],
-                    aliases=node.aliases if hasattr(node, "aliases") else [],
+        with graph_store.connect() as conn:
+            for node in extraction.nodes:
+                n_id = self._resolve_entity(node.id or node.name, document_id=document_id, course=course)
+                etype = node.entity_type.value if hasattr(node.entity_type, "value") else str(node.entity_type)
+                tax_dict = node.taxonomy.model_dump() if hasattr(node.taxonomy, "model_dump") else {"domain": course, "subdomain": "Course Notes", "topic": n_id}
+
+                if n_id not in self.graph:
+                    self.graph.add_node(
+                        n_id,
+                        id=n_id,
+                        label=node.name,
+                        entity_type=etype,
+                        taxonomy=tax_dict,
+                        description=node.description,
+                        provenance=[prov_record],
+                        aliases=node.aliases if hasattr(node, "aliases") else [],
+                    )
+                else:
+                    self.graph.nodes[n_id]["taxonomy"] = tax_dict
+                    prov_list = self.graph.nodes[n_id].get("provenance", [])
+                    if isinstance(prov_list, list):
+                        prov_list.append(prov_record)
+                        self.graph.nodes[n_id]["provenance"] = prov_list
+
+                node_data = self.graph.nodes[n_id]
+                graph_store.upsert_node_attrs(
+                    conn, n_id,
+                    label=node_data.get("label", n_id),
+                    entity_type=node_data.get("entity_type", "Concept"),
+                    taxonomy=node_data.get("taxonomy", {}),
+                    description=node_data.get("description", ""),
+                    provenance=node_data.get("provenance", []),
+                    aliases=node_data.get("aliases", []),
                 )
-            else:
-                self.graph.nodes[n_id]["taxonomy"] = tax_dict
-                prov_list = self.graph.nodes[n_id].get("provenance", [])
-                if isinstance(prov_list, list):
-                    prov_list.append(prov_record)
-                    self.graph.nodes[n_id]["provenance"] = prov_list
+                graph_store.insert_mention(
+                    conn, chunk_id=document_id, surface_text=node.name, concept_id=n_id
+                )
 
-        for edge in extraction.edges:
-            src = self._resolve_entity(edge.source, document_id=document_id, course=course)
-            tgt = self._resolve_entity(edge.target, document_id=document_id, course=course)
-            # The canonical id (a Wikidata QID or CUST_<hash>) is not a
-            # display string — a node first seen only as an edge endpoint
-            # still needs its surface form recorded as the display label,
-            # or the UI would render the opaque id instead.
-            if src not in self.graph:
-                self.graph.add_node(src, id=src, label=edge.source)
-            if tgt not in self.graph:
-                self.graph.add_node(tgt, id=tgt, label=edge.target)
-            rel = edge.relation.value if hasattr(edge.relation, "value") else str(edge.relation)
-            src, tgt, rel = _normalize_relation(src, tgt, rel)
-            self.graph.add_edge(src, tgt, relation=rel, label=rel)
+            for edge in extraction.edges:
+                src = self._resolve_entity(edge.source, document_id=document_id, course=course)
+                tgt = self._resolve_entity(edge.target, document_id=document_id, course=course)
+                # The canonical id (a Wikidata QID or CUST_<hash>) is not a
+                # display string — a node first seen only as an edge endpoint
+                # still needs its surface form recorded as the display label,
+                # or the UI would render the opaque id instead.
+                if src not in self.graph:
+                    self.graph.add_node(src, id=src, label=edge.source)
+                    graph_store.upsert_node_attrs(conn, src, label=edge.source)
+                if tgt not in self.graph:
+                    self.graph.add_node(tgt, id=tgt, label=edge.target)
+                    graph_store.upsert_node_attrs(conn, tgt, label=edge.target)
+                rel = edge.relation.value if hasattr(edge.relation, "value") else str(edge.relation)
+                src, tgt, rel = _normalize_relation(src, tgt, rel)
+                self.graph.add_edge(src, tgt, relation=rel, label=rel)
+                graph_store.insert_edge(
+                    conn, source_id=src, target_id=tgt, relation=rel,
+                    chunk_id=document_id, quote=edge.description, origin="extracted",
+                )
 
     # ------------------------------------------------------------------
     # Full index build

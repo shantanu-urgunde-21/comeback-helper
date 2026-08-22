@@ -210,13 +210,48 @@ Provenance dedup on write was already free from reusing `dedupe_graph()`'s merge
 9 isolated nodes remain — real standalone concepts now, not debris (verified via
 `graph_health.py`, which also reports these separately from suspect/junk).
 
-### Phase 3 — SQLite behind the graph service
+### Phase 3 — SQLite behind the graph service — **DONE**
 - Implement the four tables. `graph.json` becomes an export format, not the store of record.
 - Keep `nx.DiGraph` as a **derived, rebuildable projection** — do not delete it. Traversal,
   topological layering, cycle detection and community detection are one-liners in NetworkX
   and painful recursive CTEs in SQL. Demote it from truth to cache.
 
 **Exit:** graph service's public endpoints unchanged; internals relational.
+
+**Shipped:** new `mentions`/`edges` tables in `.storage/concepts.db`
+(`services/graph/app/graph_store.py`), joining the `concepts`/`aliases` tables Phase 0/1
+already populate. One deliberate deviation from the literal schema: `concepts` gained an
+additive `node_attrs_json` column (entity_type/taxonomy/description/provenance/aliases/label
+as one JSON blob) rather than typed columns for `description`/taxonomy — nothing queries
+those fields via SQL yet, and typed columns would be schema investment in a shape this
+document's own "What this deletes" table already marks for replacement by `msc_code`.
+`msc_code`/`msc_taxonomy` bulk-seeding stays unstarted (`authority-seed-msc` has still never
+actually been run — `msc_codes: 0`). `index_note()` dual-writes: the existing in-memory
+`self.graph.add_node`/`add_edge` calls are untouched, and SQLite writes happen alongside —
+including finally reading `edge.description` (Pass-2 already asks the LLM for evidence
+quotes; nothing persisted them before this). `_load_graph`/`save_graph` flipped to
+`graph_store.load_graph`/`export_graph_json`; a one-time `graph-backfill-sql` CLI verb
+populated the new tables from the live 75-node/121-edge graph before the flip.
+`clear_graph()` now also clears SQLite structure (not just graph.json) — see its docstring
+for why this was a real gap, not a hypothetical one, once SQLite became the store of record.
+
+**Bug caught during this phase, not shipped broken:** the first backfill run used
+`concepts.label` (authority.py's identity-resolution bookkeeping — whichever surface form
+first resolved a concept) as the graph node's display label, instead of the graph's own
+curated label (e.g. Phase 2's `migrate_to_identity_layer` best-of-group spelling) — a
+byte-diff of the re-exported `graph.json` against a pre-flip backup caught all 62 nodes'
+labels silently reverting. Fixed by storing `label` inside `node_attrs_json` itself and
+preferring it on read; see the CLAUDE.md invariant on this. Verified after the fix: 0 diffs
+node-for-node and edge-for-edge against the pre-Phase-3 graph.json, full test suite
+unchanged (11/12, same pre-existing LanceDB failure), `graph_health.py` unchanged
+(75/121/10 components/9 isolated/0 duplicate groups), and an end-to-end `query` smoke test
+still finds node descriptions post-flip.
+
+**Not shipped — deliberately out of scope, not forgotten:** `msc_code` assignment/MSC
+bulk-seeding (no domain-string→MSC mapper exists); the `graph → vector` dependency Phase 6
+left narrowed (Pass-2 candidate context still calls `vector_store.search_similar()` — see
+Phase 6's note, unchanged by this phase); retrieval still reads `indexer.graph`/`/graph`
+directly rather than `/neighborhood` (Phase 5's job).
 
 ### Phase 4 — Resolve-then-link extraction
 - Pass 1 becomes: identify surface forms → `resolve_concept()` → return concept ids.
@@ -228,6 +263,11 @@ Provenance dedup on write was already free from reusing `dedupe_graph()`'s merge
 - Every edge carries `chunk_id`, `quote`, `origin`.
 
 **Exit:** new ingests add no duplicate concepts; edges carry evidence.
+
+**Head start from Phase 3:** `edges.quote`/`chunk_id`/`origin` already exist and are already
+populated by `index_note()` going forward (reading `edge.description`, previously discarded)
+— what Phase 4 actually still owes is chunk-level (not document-level) granularity, and
+teaching Pass 1/2 to work in terms of resolved ids instead of names.
 
 ### Phase 5 — Retrieval over the new shape
 - Engine calls `/neighborhood?ids=…&hops=1` instead of reconstructing the graph.
@@ -281,7 +321,7 @@ table is the thing to source from.
 | `ENTITY_MERGE_THRESHOLD` | No threshold exists that separates the two populations | Done (Phase 6) |
 | `dedupe_graph()` | Nothing to deduplicate after the fact | Done (Phase 6) |
 | Load-time self-heal | Nothing to heal | Done (Phase 6) |
-| `graph.json` as source of truth | Becomes an export | Not started (Phase 3) |
+| `graph.json` as source of truth | Becomes an export | Done (Phase 3) |
 | Free-text `domain` / `subdomain` | MSC2020 codes | Not started |
 | `graph → vector` dependency | Resolution no longer needs embeddings | Partial — the dedupe-only slice is gone; Pass-2 candidate context still uses it (see Phase 6 note) |
 

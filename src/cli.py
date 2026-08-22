@@ -370,5 +370,53 @@ def graph_migrate_identity(yes: bool, as_json: bool):
         _fail(as_json, "Graph Migrate Identity", e)
 
 
+@main.command(name="graph-backfill-sql")
+@click.option("--yes", is_flag=True, help="Skip the confirmation prompt (still writes a .bak of concepts.db first)")
+@_JSON
+def graph_backfill_sql(yes: bool, as_json: bool):
+    """One-time backfill of the SQLite mentions/edges tables from the live
+    graph (plan.md Phase 3).
+
+    Populates .storage/concepts.db's `mentions`/`edges` tables (previously
+    empty) and the `concepts.node_attrs_json` bridge column from whatever is
+    currently in graph.json. Run this once, before the graph service's read
+    path switches over to SQLite. Idempotent (INSERT OR IGNORE throughout).
+    Writes concepts.db.bak before writing.
+    """
+    try:
+        from src.wiring import build_indexer
+        from shared.config import get_settings
+        indexer = build_indexer()
+
+        if not as_json and not yes:
+            console.print(
+                f"[yellow]About to backfill SQLite from {indexer.graph.number_of_nodes()} nodes / "
+                f"{indexer.graph.number_of_edges()} edges in {indexer.graph_file}. "
+                f"A .bak copy of concepts.db will be written first.[/yellow]"
+            )
+            click.confirm("Proceed?", abort=True)
+
+        db_file = get_settings().storage_path / "concepts.db"
+        backup_path = db_file.with_suffix(".db.bak")
+        if db_file.exists():
+            backup_path.write_bytes(db_file.read_bytes())
+
+        result = indexer.backfill_sql_store()
+
+        if as_json:
+            _emit({"status": "success", "command": "graph-backfill-sql", "backup": str(backup_path), **result})
+        else:
+            console.print(Panel(
+                f"[bold green]Backfill complete.[/bold green]\n"
+                f"Concepts touched: {result['concepts_touched']}\n"
+                f"Mentions inserted: {result['mentions_inserted']}\n"
+                f"Edges inserted: {result['edges_inserted']}\n"
+                f"Backup: {backup_path}",
+                title="SQL Backfill",
+            ))
+    except Exception as e:
+        _fail(as_json, "Graph Backfill SQL", e)
+
+
 if __name__ == "__main__":
     main()

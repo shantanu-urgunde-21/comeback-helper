@@ -349,8 +349,11 @@ def resolve_concept(
             match = resolve_wikidata_exact(surface_text, db_path=db_path)
             if match:
                 conn.execute(
-                    "INSERT OR REPLACE INTO concepts (id, label, authority, authority_ver, status) "
-                    "VALUES (?, ?, 'wikidata', ?, 'confirmed')",
+                    "INSERT INTO concepts (id, label, authority, authority_ver, status) "
+                    "VALUES (?, ?, 'wikidata', ?, 'confirmed') "
+                    "ON CONFLICT(id) DO UPDATE SET label=excluded.label, "
+                    "authority=excluded.authority, authority_ver=excluded.authority_ver, "
+                    "status=excluded.status",
                     (match.qid, match.label, datetime.now(timezone.utc).date().isoformat()),
                 )
                 _bind_alias(conn, key, match.qid, "global", None)

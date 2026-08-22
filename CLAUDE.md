@@ -18,9 +18,10 @@ python -m src.cli graph-stats                      # node/edge counts, component
 python -m src.cli graph-preview --note "path.md"   # dry-run extraction, writes nothing
 python -m src.cli rebuild-graph                    # re-extract every vault note (LLM cost)
 python -m src.cli graph-migrate-identity           # one-time: migrate existing nodes onto authority.py ids (writes .bak first)
+python -m src.cli graph-backfill-sql               # one-time: backfill mentions/edges tables from graph.json (writes concepts.db.bak first)
 python -m src.cli query --prompt "..." --course "Differential Equations"
 
-# Identity authority (plan.md Phase 0/1) — .storage/concepts.db, independent of graph.json
+# Identity authority (plan.md Phase 0/1) — .storage/concepts.db, now the store of record for the whole graph (Phase 3)
 python -m src.cli authority-seed-msc               # bulk-load MSC2020 taxonomy (idempotent)
 python -m src.cli authority-resolve --label "..."  # resolve one surface form: alias -> Wikidata -> mint CUST_
 python -m src.cli authority-stats                  # concept/alias/cache/review-queue counts
@@ -69,9 +70,14 @@ Three heavy objects are constructed once in the FastAPI lifespan
 ([src/server.py](src/server.py)) and shared via `app.state`, in dependency order:
 `LocalVectorStore` → `MathGraphIndexer(vector_store=…)` → `MathQueryEngine(both)`.
 
-**The graph lives in RAM.** `app.state.graph_indexer.graph` is the live `nx.DiGraph`;
-`graph.json` is only a snapshot written by `save_graph()`. In-memory mutations that aren't
-followed by a save are lost on restart.
+**The graph lives in RAM, backed by SQLite.** `app.state.graph_indexer.graph` is a live
+`nx.DiGraph`, but as of plan.md Phase 3 it is a *derived cache*: `.storage/concepts.db` (four
+tables — `concepts`/`aliases` from Phase 0/1, `mentions`/`edges` from Phase 3) is the store of
+record. `index_note()` writes both the in-memory graph and SQLite in the same call, so a
+restart's `_load_graph()` (which now queries SQLite, not graph.json) picks up everything
+already indexed — no in-memory-only mutation risk remains for graph structure. `graph.json`
+is now only an export, written by `save_graph()` for two direct-file consumers that never go
+through this class: `src/server.py`'s `/api/graph` and `scripts/graph_health.py`.
 
 Graph extraction is deliberately two decoupled LLM calls
 ([services/graph/app/indexer.py](services/graph/app/indexer.py)): pass 1 emits concept
@@ -92,22 +98,33 @@ For the full picture see [docs/flow.md](docs/flow.md) (data shapes, stage-by-sta
   used for Pass-2 LLM candidate context (`_get_candidate_context`) — nothing else. The old
   `dedupe_graph()`/`ENTITY_MERGE_THRESHOLD` cosine-merge path was deleted in plan.md Phase 6;
   there is no dead code left on this path.
-- **`save_graph()` writes `entity_type` as `type`**, and `_load_graph` renames it back.
-  Anything reading `graph.json` directly must expect `type`.
+- **`export_graph_json()` (graph_store.py) writes `entity_type` as `type`** in graph.json —
+  a holdover from when that file was the store of record, kept because
+  `scripts/graph_health.py` and `src/server.py`'s `/api/graph` both parse it directly and
+  expect that key. `graph_store.load_graph()` (the actual read path since Phase 3) has no
+  such mapping — SQLite's `node_attrs_json` stores `entity_type` under its real name.
 - **`PREREQUISITE_FOR(A,B)` is canonicalized to `DEPENDS_ON(B,A)`** on both write and load.
   Never emit or store the inverse form — two directions between the same pair create fake
   cycles that break hierarchical layout.
 - **Notes are not graph nodes.** The `CONTAINS` note→concept edge was retired; which note a
   concept came from lives in that concept's `provenance` list. Do not reintroduce it.
-- **`_load_graph` still normalizes in memory only.** It renames `type` back to `entity_type`,
-  normalizes taxonomy domain casing, and drops legacy `CONTAINS` edges on every startup, but
-  only reaches disk if something later calls `save_graph()`. The snake_case/Title-Case
-  duplicate-folding self-heal that used to live here was deleted in plan.md Phase 6 — node
-  identity is now canonical at write time (Phase 1/2), so there is nothing left to fold on
-  load.
-- **Tests are not isolated.** They read and write the real `.storage/` — the live
-  `graph.json` and the production LanceDB table. `tests/test_vector_and_retrieval.py`
-  inserts chunks into it. There is no fixture directory or teardown.
+- **A node's display `label` lives in `node_attrs_json`, not in `concepts.label`.** They are
+  two different things that happen to often coincide: `concepts.label` (authority.py) is
+  identity-resolution bookkeeping — whichever surface form or Wikidata label first resolved
+  that concept — while `node_attrs_json["label"]` is the graph's own curated display label
+  (e.g. Phase 2's `migrate_to_identity_layer` picked a best-of-group spelling, which can
+  differ from what authority.py recorded). `graph_store.load_graph()` prefers
+  `node_attrs_json["label"]` and only falls back to `concepts.label` when a node's attrs
+  never recorded one. Any new write path must put `label` in the attrs dict passed to
+  `upsert_node_attrs` — omitting it silently reverts a node's display name to whatever
+  authority.py happened to store, which was caught once already (a byte-diff against a
+  pre-Phase-3 graph.json export caught every node's label reverting during that migration).
+- **Tests are not isolated**, with one exception. Most read and write the real `.storage/` —
+  the live `graph.json` and the production LanceDB table. `tests/test_vector_and_retrieval.py`
+  inserts chunks into it. There is no fixture directory or teardown. `tests/test_graph_store.py`
+  is the exception: it uses a throwaway `db_path` (the same override every `authority.py`/
+  `graph_store.py` function already accepts) — follow that pattern for new SQLite-touching
+  tests rather than the rest of the suite's shared-state default.
 - **`scripts/` is gitignored** ([.gitignore:37](.gitignore#L37)). Anything placed there
   won't be committed.
 

@@ -159,6 +159,13 @@ As of `plan.md` Phase 6, the embedding-similarity repair path (`dedupe_graph()`,
 self-heal are deleted, not just unused — they're gone from the codebase entirely, so don't
 suggest them even as a fallback.
 
+As of `plan.md` Phase 3, `.storage/concepts.db` (SQLite) is the store of record for the
+whole graph, not just identity — new `mentions`/`edges` tables joined `concepts`/`aliases`.
+`graph.json` is now only an export/cache; if you're ever tempted to read it directly, don't —
+that's exactly what the Contract section above already forbids, and it's now doubly true
+since the file isn't even the source anymore. The verb surface is unaffected — `graph-stats`,
+`query`, etc. all still work the same way.
+
 The LanceDB vector table is currently empty and its data files are missing, so chunk
 retrieval returns nothing and queries run graph-only. Recovery is to delete
 `.storage/lancedb`, restart the server, then POST `/api/rebuild/vectors`.
