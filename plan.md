@@ -279,13 +279,28 @@ graph key) and has been removed with a Phase 5 TODO. Branch: `phase4-resolve-the
 4 commits (`6bd2ec9`…`ff73c02`). Tests: 24/25 (1 pre-existing LanceDB failure, Phase 5).
 
 ### Phase 5 — Retrieval over the new shape — **DONE**
-- ✓ Engine calls `/neighborhood` instead of reconstructing the graph (retrieval/app/engine.py).
+- ✓ Engine calls `MathGraphIndexer.neighborhood()` for a bounded 1-hop subgraph instead of
+  walking `.graph` directly (retrieval/app/engine.py). Seed node ids for the neighborhood
+  call still come from embedding similarity — `_find_similar_nodes()` embeds every node's
+  label+description once at construction and compares against the query — that part was
+  never the thing this phase set out to change; what changed is that expansion from those
+  seeds now goes through the bounded endpoint instead of live `.neighbors()`/`.predecessors()`
+  calls on the in-memory graph. (First cut of this phase tried sourcing seed ids from vector
+  chunks' `source` field — note filenames — instead of node embeddings; that doesn't work,
+  since graph node ids are canonical concept ids, never filenames. Caught by testing after
+  the vector index rebuild below, fixed same day.)
 - ✓ `add_chunks` delete-by-source before insert for idempotent re-indexing (vector/app/store.py).
-- ⏳ Serialize that subgraph straight to the vis.js payload — bounded, so the frontend layout
-  stops struggling (optimization, not blocking).
+- ✓ Vector index rebuilt from the corrupted/empty state: `rm -rf .storage/lancedb`, then
+  re-chunked and re-embedded all 13 vault notes (246 chunks, no LLM cost — FastEmbed only).
+  `tests.test_vector_and_retrieval` now 2/2 (was failing on the corrupted table before).
+- ⏳ Serialize the neighborhood subgraph straight to the vis.js payload — bounded, so the
+  frontend layout stops struggling (optimization, not blocking).
 
-**Exit:** retrieval no longer imports `networkx`. To rebuild vector index from scratch:
-`rm -rf .storage/lancedb && python -m src.cli rebuild-graph`
+**Exit:** retrieval no longer imports `networkx`; full suite 25/25. To rebuild the vector
+index from scratch, there's no CLI verb yet — `rm -rf .storage/lancedb`, then either start
+the server and call `POST /api/rebuild/vectors`, or replicate that endpoint's chunk+embed
+loop (`vault.app.manager.ObsidianVaultManager` → `vector.app.chunker.chunk_math_markdown` →
+`vector.app.store.LocalVectorStore.add_chunks`) directly.
 
 ### Phase 6 — Delete what identity made unnecessary — **DONE**
 - ✓ `dedupe_graph()` — nothing to repair when ids are canonical before edges exist.

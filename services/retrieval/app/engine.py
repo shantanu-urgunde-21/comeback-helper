@@ -2,6 +2,7 @@ import re
 import json
 from typing import Optional
 
+import numpy as np
 from google.genai import types as genai_types
 
 from shared.config import get_settings
@@ -58,7 +59,69 @@ class MathQueryEngine:
         self.indexer = graph_indexer
         self.vector_store = vector_store
 
+        # Pre-compute graph node embeddings, used to find seed concepts for
+        # the bounded neighborhood lookup below.
+        self._node_embeddings: dict[str, list[float]] = {}
+        self._build_node_embeddings()
+
         log.info("Initialized MathQueryEngine with hybrid vector + graph retrieval (bounded neighborhood).")
+
+    # ------------------------------------------------------------------
+    # Graph node embedding index
+    # ------------------------------------------------------------------
+
+    def _build_node_embeddings(self):
+        """Embed every graph node's label+description for semantic seed matching.
+
+        Node ids are opaque (a Wikidata QID or CUST_<hash> — plan.md Phase 1),
+        so the embedded text uses each node's display `label`, not its id.
+        """
+        graph = self.indexer.graph
+        if graph.number_of_nodes() == 0:
+            return
+
+        node_ids = list(graph.nodes)
+        texts = []
+        for nid in node_ids:
+            label = graph.nodes[nid].get("label", nid)
+            desc = graph.nodes[nid].get("description", "")
+            texts.append(f"{label}: {desc}" if desc else label)
+
+        try:
+            embeddings = self.vector_store.embed_texts(texts)
+            for nid, emb in zip(node_ids, embeddings):
+                self._node_embeddings[nid] = emb
+            log.info(f"Pre-computed embeddings for {len(node_ids)} graph nodes.")
+        except Exception as e:
+            log.warning(f"Could not embed graph nodes ({e}).")
+
+    def refresh_node_embeddings(self):
+        """Re-build node embeddings (called after graph updates)."""
+        self._node_embeddings.clear()
+        self._build_node_embeddings()
+
+    def _find_similar_nodes(self, query: str, top_k: int = 3) -> list[str]:
+        """Find graph node ids semantically closest to the query."""
+        if not self._node_embeddings:
+            return []
+
+        try:
+            query_emb = self.vector_store.embed_texts([query])[0]
+            q = np.array(query_emb)
+
+            scored: list[tuple[str, float]] = []
+            for nid, emb in self._node_embeddings.items():
+                e = np.array(emb)
+                sim = float(
+                    np.dot(q, e) / (np.linalg.norm(q) * np.linalg.norm(e) + 1e-9)
+                )
+                scored.append((nid, sim))
+
+            scored.sort(key=lambda x: x[1], reverse=True)
+            return [nid for nid, sim in scored[:top_k] if sim > 0.3]
+        except Exception as e:
+            log.warning(f"Semantic node matching failed ({e}).")
+            return []
 
     # ------------------------------------------------------------------
     # Context retrieval
@@ -72,8 +135,9 @@ class MathQueryEngine:
         use_graph: bool = True,
     ) -> str:
         """
-        Retrieves top semantic text chunks from LanceDB and a bounded
-        neighborhood subgraph from the graph service's /neighborhood endpoint.
+        Retrieves top semantic text chunks from LanceDB, plus a bounded
+        1-hop neighborhood (via `MathGraphIndexer.neighborhood()`) around the
+        graph nodes semantically closest to the prompt.
         """
         # 1. Semantic Vector Search via LanceDB (Hybrid BM25 + Vector)
         vector_results = self.vector_store.search_similar(
@@ -88,18 +152,11 @@ class MathQueryEngine:
                 f"[Chunk {idx} — {source} ({course_tag})]\n{text}"
             )
 
-        # 2. Bounded Graph Neighborhood via /neighborhood endpoint
+        # 2. Bounded Graph Neighborhood: semantic node match, then 1-hop expand
         graph_context = []
         if use_graph:
             try:
-                # Try to extract seed concept IDs from vector results.
-                # Vector chunks may carry concept_id in metadata (future);
-                # for now, use note source as a heuristic starting point.
-                seed_ids = []
-                for res in vector_results[:3]:
-                    source = res.get("source", "").replace(".md", "").strip()
-                    if source and source not in ["", "init"]:
-                        seed_ids.append(source)
+                seed_ids = self._find_similar_nodes(prompt, top_k=3)
 
                 if seed_ids:
                     neighborhood = self.indexer.neighborhood(seed_ids, hops=1)

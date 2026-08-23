@@ -89,9 +89,17 @@ For the full picture see [docs/flow.md](docs/flow.md) (data shapes, stage-by-sta
   cached in `.storage/concepts.db`) → mint `CUST_<hash>`. Node graph key is an opaque id
   (QID or `CUST_`); human label stored in `label` attribute. `vector_store` is no longer used
   by the extraction pipeline at all — the `graph → vector` dependency is fully removed as of
-  Phase 4. The retrieval engine (Phase 5) calls `MathGraphIndexer.neighborhood(ids, hops)`
-  for a bounded subgraph instead of walking `.graph` directly.
-  `dedupe_graph()`/`ENTITY_MERGE_THRESHOLD` deleted in Phase 6; no dead code on this path.
+  Phase 4. `dedupe_graph()`/`ENTITY_MERGE_THRESHOLD` deleted in Phase 6; no dead code on this
+  path.
+- **Retrieval (`retrieval/app/engine.py`) finds graph seed nodes by embedding, then expands
+  bounded (plan.md Phase 5).** `_find_similar_nodes()` embeds every node's `label`+
+  `description` once at construction and compares against the query — node **ids** are opaque
+  (`CUST_<hash>`/QID) so nothing about a query can match them directly; only the human-readable
+  label carries meaning. Once seed ids are found, expansion goes through
+  `MathGraphIndexer.neighborhood(ids, hops)`, not live `.neighbors()`/`.predecessors()` calls
+  on `.graph` — that's the part Phase 5 actually changed. Don't try to source seed ids from a
+  vector chunk's `source` field (note filename) — it was tried, and note filenames never match
+  graph node ids, so the neighborhood lookup silently returns nothing.
 - **`export_graph_json()` (graph_store.py) writes `entity_type` as `type`** in graph.json —
   a holdover from when that file was the store of record, kept because
   `scripts/graph_health.py` and `src/server.py`'s `/api/graph` both parse it directly and
