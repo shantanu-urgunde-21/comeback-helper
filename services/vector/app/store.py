@@ -73,9 +73,19 @@ class LocalVectorStore:
         """
         Embeds text chunks and inserts them into LanceDB table.
         Each chunk is a dict: {"id": str, "text": str, "course": str, "source": str}
+
+        Deletes existing chunks from the same source first (idempotent re-indexing).
         """
         if not chunks:
             return
+
+        # Extract unique sources and delete existing records from those sources
+        sources = set(c.get("source", "") for c in chunks if c.get("source"))
+        for source in sources:
+            try:
+                self.table.delete(f"source = '{source}'")
+            except Exception as e:
+                log.debug(f"Could not delete old chunks from '{source}' ({e}).")
 
         texts = [c["text"] for c in chunks]
         embeddings = list(self.embed_model.embed(texts))
