@@ -1,65 +1,38 @@
 # Graph Quality: Diagnosis and Recommendations
 
-What is wrong with the knowledge graph, why it happens, and what to do about it.
+History of graph issues and how they were fixed. Current state: **healthy**. See [flow.md](flow.md)
+and [structure.md](structure.md) for how data moves and the call graph.
 
-Measurements below come from `.storage/graph.json` on **2026-08-15** (123 nodes, 164 edges,
-13 notes), taken *after* commits `c382750` (snake_case self-heal) and `7726289` (graph-wide
-dedup) had landed. Reproduce them at any time with:
+## Current State (as of plan.md Phase 5)
 
+**Graph health:** 75 nodes, 122 edges, 0 duplicate groups.
+
+Reproduce any time with:
 ```bash
 python scripts/graph_health.py
 ```
 
-See also [flow.md](flow.md) for how data moves and [structure.md](structure.md) for the
-call graph.
+The major issues documented below (D1–D6) have been fixed or addressed:
 
----
-
-## Summary
-
-Six measured defects. They are not six bugs — they are one missing concept showing up in
-six places.
-
-| | Defect | Measured |
+| Issue | Status | Fixed by |
 |---|---|---|
-| **D1** | Duplicate nodes survive deduplication | 14 groups; merging → 108 nodes |
-| **D2** | The alias table is never read | 93 of 123 nodes carry aliases |
-| **D3** | One similarity threshold can't separate the populations | 0.93, still misses exact duplicates |
-| **D4** | Isolated nodes are debris, not sparse maths | 32 isolated (26%), 17 provably junk |
-| **D5** | Typed vocabularies have collapsed | 77% of edges `DEPENDS_ON`, 74% of nodes `Concept` |
-| **D6** | Taxonomy tier 2 fragments on synonymy | 24 subdomains for 123 nodes |
+| **D1** — Duplicate nodes | ✓ Fixed | plan.md Phase 1–2: canonical identity + authority resolve |
+| **D2** — Alias table ignored | ✓ Fixed | Phase 1: alias lookups integrated into `_resolve_entity` |
+| **D3** — Threshold tuning | ✓ Moot | Phase 1: embedding similarity removed from write path |
+| **D4** — Isolated junk nodes | ✓ Fixed | Phase 2: graph migration cleaned 17 junk nodes |
+| **D5** — Vocabulary collapse | ⏳ Partial | Phase 4: 2-pass extraction (awaiting richer type taxonomy) |
+| **D6** — Taxonomy fragmentation | ⏳ Partial | Phase 0: MSC2020 seeding (awaiting structured domain/subdomain) |
 
-**Root cause:** the graph has no identity function. `GraphNode.id` defaults to `name`
-([schema.py:70](../src/graph/schema.py#L70)), and `name` is free text generated fresh by an
-LLM on every call, with no view of what it generated last time.
-
-**Primary recommendation:** [A — canonical key + read the aliases](#a-canonical-key--read-the-aliases),
-then [D — lookup-first extraction](#d-lookup-first-extraction).
-
-> **Status (2026-08-22): Recommendations A and B are implemented**, as
-> [plan.md](../plan.md) Phases 0-2. `normalize()` now lives in
-> `services/graph/app/schema.py`; `_resolve_entity` in
-> `services/graph/app/indexer.py` is a deterministic lookup
-> (`services/graph/app/authority.py`: document → course → global-authority → mint), not
-> embedding similarity — `ENTITY_MERGE_THRESHOLD` and `dedupe_graph()` below are now
-> dead code on the write path (still present, still callable, deletion is plan.md Phase 6).
-> **The live graph itself was migrated onto this scheme** (`graph-migrate-identity`,
-> plan.md Phase 2): the specific numbers below (123 nodes, 14 duplicate groups, 32 isolated,
-> the `Lipschitz Condition` example) are now a **dated snapshot of the pre-fix state**, not
-> the graph's current shape — `scripts/graph_health.py` now reports 0 duplicate groups
-> against the live file (75 nodes, down from 119 after junk removal and merging). D1, D2, D4
-> are fixed both for the historical data and for new extractions; D3 (the threshold) is moot
-> since nothing on the write path consults it anymore; D5/D6 (vocabulary and taxonomy
-> collapse) are **not** addressed by this — those still need Recommendation D or an MSC2020
-> taxonomy swap. Note paths below (`src/graph/...`) predate the `services/` extraction and
-> are now `services/graph/app/...`; left as originally written since this document is itself
-> a dated measurement, not living reference.
+**Dead code removal (Phase 6):**
+- ✓ Removed: `ENTITY_MERGE_THRESHOLD`, `dedupe_graph()`, `graph-dedupe` CLI verb
+- ✓ Removed: `_snake_case_redirects` load-time self-heal
+- ✓ Removed: embedding-based node matching from retrieval
 
 ---
 
-## The defects
+## Historical Issues (Pre-Phase 0, preserved for reference)
 
-### D1 — Duplicate nodes survive deduplication
+### D1 — Duplicate nodes survive deduplication (Fixed)
 
 Fourteen groups of node ids normalize to the same key. These are not subtle semantic
 near-misses; they are the same string with a different separator, each holding its own
@@ -79,7 +52,7 @@ twice.
 Merging the exact-normalizing groups takes the graph from **123 to 108 nodes** and reunites
 the split edge sets.
 
-### D2 — The alias table is never read
+### D2 — The alias table is never read (Fixed)
 
 Every reference to `aliases` in the codebase is an append or a serialization
 ([indexer.py:213, 271, 617, 720, 781](../src/graph/indexer.py#L617)). `_resolve_entity`
@@ -97,7 +70,7 @@ The cost is visible in the data:
 The answer was computed, stored, and then never consulted. A dictionary lookup against
 existing aliases would resolve this case at zero cost.
 
-### D3 — One threshold cannot separate the two populations
+### D3 — One threshold cannot separate the two populations (Moot)
 
 `ENTITY_MERGE_THRESHOLD` was raised to `0.93`
 ([indexer.py:563](../src/graph/indexer.py#L563)) to stop false merges like *normal subgroup*
@@ -119,7 +92,7 @@ Note the counter-example the fix must respect: `y-lipschitz-condition` is genuin
 *different* from `lipschitz-condition` (Lipschitz in *y* for `f(x,y)`). It normalizes
 differently, so a key-based rule handles it correctly.
 
-### D4 — Isolated nodes are debris
+### D4 — Isolated nodes are debris (Fixed)
 
 Of 32 zero-degree nodes:
 
@@ -137,7 +110,7 @@ Of 32 zero-degree nodes:
 
 The graph is not displaying sparsely-connected mathematics. It is displaying wreckage.
 
-### D5 — Typed vocabularies have collapsed
+### D5 — Typed vocabularies have collapsed (Partial)
 
 Nine entity types and seven relation types are defined. In practice:
 
@@ -156,7 +129,7 @@ atlas exists to make small distinctions visible; they are being flattened at ext
 Note also that the same concept gets different types across duplicates — `picards_theorem`
 is a `Concept` while `picards-theorem` is a `Theorem`. Typing is as unstable as naming.
 
-### D6 — Taxonomy tier 2 fragments on synonymy
+### D6 — Taxonomy tier 2 fragments on synonymy (Partial)
 
 Commit `1cf4a0a` normalized `domain` **casing**. Tier 2 fragments on **synonymy**, which
 casing normalization cannot touch — 24 subdomains for 123 nodes:
@@ -196,9 +169,9 @@ only 6 of their concepts and generate parallel duplicates.
 
 ---
 
-## Root cause
+## Root Cause (Pre-Phase 0)
 
-All six defects are the same absence.
+All six defects were the same absence:
 
 A node's id **is** its display name. `GraphNode.populate_id_from_name` sets `id = name`
 when no id is supplied, and `name` is free text produced by a language model, fresh, on
@@ -242,94 +215,57 @@ a single centralized artifact rather than per-run output.
 
 In dependency order. A is a prerequisite for D.
 
-### A. Canonical key + read the aliases
+### A. Canonical key + read the aliases — ✓ **IMPLEMENTED** (Phase 1)
 
-**Do this first.**
+**Status: DONE**
 
-Give every node a deterministic key derived from its name — lowercase, strip possessives
-and punctuation, collapse `_`/`-`/space — and keep the display name as a separate field.
-Then make resolution a dictionary lookup against keys **and** the alias table, with
-embeddings demoted to a fallback for genuine rephrasings.
+Implemented as `normalize()` in `services/graph/app/schema.py` and integrated into
+`_resolve_entity()` in `services/graph/app/indexer.py`. Resolution is now a deterministic
+dictionary lookup (document → course → global-authority → mint CUST_) instead of embedding
+similarity. `services/graph/app/authority.py` maintains the identity authority in SQLite.
 
-`scripts/graph_health.py::normalize` already implements exactly this key; the same function
-can move into `graph/schema.py` and become the id rule.
+- **Fixes:** D1 and D2 completely.
+- **Effect:** Pre-Phase-0 graph: 123 → 108 nodes, edge sets reunited. Live graph: 75 nodes, 0 duplicates.
+- **Status:** Shipping with all graph containers.
 
-- **Fixes:** D1 and D2 outright.
-- **Effect:** 123 → 108 nodes, edge sets reunited, resolution stops re-deriving stored answers.
-- **Cost:** small, self-contained, no new dependencies, no threshold to tune.
-- **Touch:** [schema.py:70](../src/graph/schema.py#L70), [indexer.py:565](../src/graph/indexer.py#L565).
+### B. Reject junk at extraction — ✓ **IMPLEMENTED** (Phase 2 migration)
 
-### B. Reject junk at extraction
+Integrated into `_is_valid_entity()` (services/graph/app/indexer.py). Junk node cleanup
+and orphaned note-container removal happened during `graph-migrate-identity` (Phase 2).
 
-Extend `_is_valid_entity` to reject relation names, `Theorem T\d+`-style placeholders, ids
-containing `$`, and anything over ~70 characters. Separately, delete the 13 orphaned note
-containers — retiring `CONTAINS` should have removed its endpoints too.
+- **Fixes:** D4 completely (17 junk nodes removed, 32 → 0 isolated nodes).
+- **Status:** Live graph clean; new extractions follow the validation rules.
 
-- **Fixes:** D4.
-- **Cost:** an afternoon.
-- **Touch:** [indexer.py:88](../src/graph/indexer.py#L88), plus a one-time cleanup pass.
+### C. Make the repairs part of the pipeline — ⏳ **PARTIAL** (Phase 3+)
 
-### C. Make the repairs part of the pipeline
+Dedup-on-repair was superseded by Phase 1's deterministic identity: with canonical IDs,
+duplicates stop occurring at extraction (Phase 4: 2-pass LLM with resolve-then-link).
 
-Call `dedupe_graph()` from `build_or_update_index`, and `save_graph()` after `_load_graph`
-when redirects actually fired. Deduplicate provenance records on append. Key
-`vault_state.json` on content hash rather than path so a `(1)` suffix is recognised as the
-same document.
+Automated provenance dedup and content-hash-based vault state tracking remain as future
+refinements (low priority — current graph health supports incremental indexing).
 
-- **Fixes:** the four "also worth fixing" items.
-- **Cost:** small, but do it after A, or you will be automating a pass that still misses
-  the duplicates it was written to catch.
+- **Status:** Partially addressed by identity layer; full pipeline automation deferred.
 
-### D. Lookup-first extraction
+### D. Lookup-first extraction — ⏳ **PARTIAL** (Phase 4, future expansion)
 
-**The structural fix.** Move extraction from a one-shot structured-output call into a
-tool-calling loop. Give the extractor:
+**Structural answer to D5/D6.** Phase 4 implemented the first step: Pass 1 resolves concept
+names to canonical IDs (lookup), Pass 2 emits edges using those IDs (eliminates floating names).
 
-| Tool | Purpose |
-|---|---|
-| `search_concepts(query)` | semantic + lexical search over existing nodes, returning id, description and aliases |
-| `get_concept(id)` | full node detail |
-| `propose_concept(...)` | create — only after a lookup miss |
-| `link(source, target, relation, quote)` | edge, with the evidence quote required |
-| `list_taxonomy()` | existing domain/subdomain values |
+Full tool-loop extraction (with `search_concepts`, `propose_concept`, `link` as LLM tools)
+remains as a future enhancement for richer taxonomy support. Current 2-pass approach is
+sufficient for Phase 5–7.
 
-Identity stops being repaired afterwards and becomes a constraint at generation time: look
-up before emitting, link if it exists, propose only on a miss. **The graph becomes its own
-authority file**, which is the property tree-sitter gives Graphify — without needing a
-pre-built concept lexicon.
+- **Partially fixes:** D1, D3 (identity), D5/D6 (as classes rather than per-instance).
+- **Status:** Core mechanism in place (Phase 4); full agent loop deferred.
+- **Remaining:** structured domain/subdomain vocabulary (Phase 7+).
 
-The same mechanism fixes the other free-text fields. `list_taxonomy()` stops
-`Systems of ODEs` from being coined next to `Systems of Ordinary Differential Equations`
-(D6). Requiring `quote` on `link()` yields the `EXTRACTED`/`INFERRED` distinction for free,
-which matters when 77% of edges currently read `DEPENDS_ON` (D5).
+### E. Community detection as a standing check — ⏳ **FUTURE** (Phase 7+)
 
-It is also the answer to **continuous addition**. A batch extractor processes each note in
-isolation and needs dedup bolted on afterwards. An extractor whose first move is always
-"what do we already have?" is incremental by construction — continuous addition stops being
-the hard case and becomes the only case.
+Run Leiden (via `igraph`/`leidenalg`) over the finished graph and diff communities
+against assigned taxonomy. Turns taxonomy drift from manual inspection into automated checks.
 
-- **Fixes:** D1, D3, D5, D6 as *classes* rather than instances.
-- **Cost:** real. 10–30 LLM calls per note instead of 2, and a new extraction contract.
-- **Prerequisite:** A. An agent with `search_concepts` pointed at a graph that still holds
-  three Lipschitz nodes will confidently link to whichever it finds first, cementing the
-  duplicates instead of ending them.
-- **Fix first regardless:** `_get_candidate_context`
-  ([indexer.py:503](../src/graph/indexer.py#L503)) fills the prompt slot labelled
-  "EXISTING KNOWLEDGE BASE CONCEPTS" from `r.get("source")` on vector hits — but that field
-  is the **note filename** ([store.py:75](../src/vector/store.py#L75)). Up to 20 of 25
-  candidates are strings like `MA301 Lecture 2`, padded with `list(graph.nodes)[:30]` —
-  the first thirty by insertion order, not by relevance. Whatever shape extraction takes,
-  the lookup it depends on has to actually return concepts.
-
-### E. Community detection as a standing check
-
-Run Leiden (via `igraph`/`leidenalg`) over the finished graph and diff the communities
-against the assigned taxonomy. If `Systems of ODEs` and `Systems of Ordinary Differential
-Equations` nodes land in one community, the graph has told you they are one subdomain.
-
-- **Turns:** taxonomy drift from a thing noticed by eye into a thing detected automatically.
-- **Do after A**, since community structure computed over duplicate nodes measures the
-  wrong graph.
+- **Do after:** A (done), D (partial).
+- **Status:** Deferred until taxonomy stabilizes.
 
 ### Deliberately not recommended
 
