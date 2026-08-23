@@ -1,5 +1,0 @@
--r ../shared/requirements.txt
-# networkx is only needed while the engine rebuilds the graph locally.
-# Drops out once it calls the graph service's /neighborhood endpoint.
-networkx>=3.2.0
-numpy>=1.26.0

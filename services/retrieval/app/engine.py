@@ -44,20 +44,16 @@ class MathQueryEngine:
         vector_store=None,
     ):
         """
-        Both dependencies are injected. The container passes HTTP clients from
-        .clients; run in-process the monolith passes the real objects.
-
-        The fallbacks are imported lazily rather than at module scope so this
-        module does not hard-wire itself to a deployment shape — importing the
-        HTTP clients up front would make the retrieval package unusable
-        outside its own container.
+        Both dependencies are optional — default to the real classes so
+        callers that only need one (e.g. tests) don't have to wire up both
+        by hand.
         """
         self.settings = get_settings()
         if graph_indexer is None:
-            from .clients import MathGraphIndexer
+            from graph.app.indexer import MathGraphIndexer
             graph_indexer = MathGraphIndexer()
         if vector_store is None:
-            from .clients import LocalVectorStore
+            from vector.app.store import LocalVectorStore
             vector_store = LocalVectorStore()
         self.indexer = graph_indexer
         self.vector_store = vector_store

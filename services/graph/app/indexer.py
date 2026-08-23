@@ -133,15 +133,9 @@ class MathGraphIndexer:
         vault_manager=None,
     ):
         """
-        `vault_manager` and `vector_store` are injected rather than imported.
-
-        In a container the caller passes the HTTP clients from .clients; run
-        in-process (the monolith) it passes the real objects. Importing either
-        one at module scope would hard-wire this module to a deployment shape
-        and make the graph package unimportable outside its own container.
-
-        Falling back to the HTTP client when nothing is passed keeps the
-        containerised default working with no wiring.
+        `vault_manager` is optional — defaults to a real `ObsidianVaultManager`
+        over `vault_path`/`storage_path` so callers that only need read access
+        (tests, dry-run extraction) don't have to construct one by hand.
         """
         self.settings = get_settings()
         self.storage_path = storage_path or self.settings.storage_path
@@ -151,7 +145,7 @@ class MathGraphIndexer:
         self.graph = self._load_graph()
 
         if vault_manager is None:
-            from .clients import ObsidianVaultManager
+            from vault.app.manager import ObsidianVaultManager
             vault_manager = ObsidianVaultManager(
                 vault_path=self.vault_path,
                 state_file_path=self.storage_path / "vault_state.json",

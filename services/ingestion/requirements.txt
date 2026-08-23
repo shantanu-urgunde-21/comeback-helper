@@ -1,5 +1,0 @@
--r ../shared/requirements.txt
-pymupdf>=1.23.0
-pillow>=10.0.0
-opencv-python-headless>=4.9.0
-python-multipart>=0.0.9
