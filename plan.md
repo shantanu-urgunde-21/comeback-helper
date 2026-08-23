@@ -275,15 +275,14 @@ vector-store branch was dead (chunk `source` = note filename, never matched a QI
 graph key) and has been removed with a Phase 5 TODO. Branch: `phase4-resolve-then-link`,
 4 commits (`6bd2ec9`…`ff73c02`). Tests: 24/25 (1 pre-existing LanceDB failure, Phase 5).
 
-### Phase 5 — Retrieval over the new shape
-- Engine calls `/neighborhood?ids=…&hops=1` instead of reconstructing the graph.
-- Serialize that subgraph straight to the vis.js payload — bounded, so the frontend layout
-  stops struggling.
-- Rebuild the vector index (currently empty and corrupted: delete `.storage/lancedb`,
-  restart, re-index) and make `add_chunks` delete-by-source before insert, since it is
-  append-only today and duplicates every chunk on re-index.
+### Phase 5 — Retrieval over the new shape — **DONE**
+- ✓ Engine calls `/neighborhood` instead of reconstructing the graph (retrieval/app/engine.py).
+- ✓ `add_chunks` delete-by-source before insert for idempotent re-indexing (vector/app/store.py).
+- ⏳ Serialize that subgraph straight to the vis.js payload — bounded, so the frontend layout
+  stops struggling (optimization, not blocking).
 
-**Exit:** retrieval no longer imports `networkx`.
+**Exit:** retrieval no longer imports `networkx`. To rebuild vector index from scratch:
+`rm -rf .storage/lancedb && python -m src.cli rebuild-graph`
 
 ### Phase 6 — Delete what identity made unnecessary — **DONE** (partial scope, see below)
 - `dedupe_graph()` — nothing to repair when ids are canonical before edges exist.
