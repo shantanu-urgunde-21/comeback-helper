@@ -311,10 +311,20 @@ the concept table instead of chunk search — deferred, since that's a design ch
 concepts to offer as candidates), not a deletion, and belongs with Phase 3/4 once the concept
 table is the thing to source from.
 
-### Phase 7 — Assemble
-- Decide the real topology. The decomposition was a rewrite tool; a single-user local app may
-  well be better served by one process with clean internal boundaries. That choice is
-  deliberately deferred to here, when the boundaries are known rather than guessed.
+### Phase 7 — Assemble — **DONE**
+- ✓ Decided the real topology: single process. The container-per-service split
+  (`docker-compose.yml`, 5 Dockerfiles, 5 `main.py` FastAPI shims, HTTP client stand-ins in
+  `app/clients.py`) was staged for a deployment that was never actually run — deleted.
+  `services/<name>/app/` module boundaries are kept; `src/wiring.py` remains the single
+  composition root.
+- ✓ `MathGraphIndexer.neighborhood()` added to the real class (was only on the now-deleted
+  HTTP client stub) — fixes a bug where the Phase 5 retrieval change would have thrown
+  `AttributeError` in the monolith the first time a query hit the graph-context branch.
+- ✓ Dropped the dead `vector_store` param from `MathGraphIndexer.__init__` — threaded through
+  `wiring.py` but never read.
+
+**Exit:** the app runs as one process; `services/README.md` and `CLAUDE.md` describe that
+topology, not a staged microservice split.
 
 ---
 
@@ -328,7 +338,8 @@ table is the thing to source from.
 | Load-time self-heal | Nothing to heal | Done (Phase 6) |
 | `graph.json` as source of truth | Becomes an export | Done (Phase 3) |
 | Free-text `domain` / `subdomain` | MSC2020 codes | Not started |
-| `graph → vector` dependency | Resolution no longer needs embeddings | Partial — the dedupe-only slice is gone; Pass-2 candidate context still uses it (see Phase 6 note) |
+| `graph → vector` dependency | Resolution no longer needs embeddings | Done (Phase 7) — dead `vector_store` param removed from `MathGraphIndexer` |
+| Container-per-service deployment | Never actually run; single process is simpler for one user | Done (Phase 7) |
 
 ---
 
