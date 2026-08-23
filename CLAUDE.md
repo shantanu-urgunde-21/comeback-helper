@@ -17,8 +17,6 @@ python -m unittest tests.test_graph_indexer.TestGraphIndexer.test_schema_models 
 python -m src.cli graph-stats                      # node/edge counts, components, isolates
 python -m src.cli graph-preview --note "path.md"   # dry-run extraction, writes nothing
 python -m src.cli rebuild-graph                    # re-extract every vault note (LLM cost)
-python -m src.cli graph-migrate-identity           # one-time: migrate existing nodes onto authority.py ids (writes .bak first)
-python -m src.cli graph-backfill-sql               # one-time: backfill mentions/edges tables from graph.json (writes concepts.db.bak first)
 python -m src.cli query --prompt "..." --course "Differential Equations"
 
 # Identity authority (plan.md Phase 0/1) — .storage/concepts.db, now the store of record for the whole graph (Phase 3)

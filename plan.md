@@ -225,8 +225,11 @@ additive `node_attrs_json` column (entity_type/taxonomy/description/provenance/a
 as one JSON blob) rather than typed columns for `description`/taxonomy — nothing queries
 those fields via SQL yet, and typed columns would be schema investment in a shape this
 document's own "What this deletes" table already marks for replacement by `msc_code`.
-`msc_code`/`msc_taxonomy` bulk-seeding stays unstarted (`authority-seed-msc` has still never
-actually been run — `msc_codes: 0`). `index_note()` dual-writes: the existing in-memory
+`msc_code`/`msc_taxonomy` bulk-seeding (`authority-seed-msc`) ran on 2026-08-24, well after
+this section was written — 6,603 codes loaded (`msc_codes: 6603`). The `concepts`/`aliases`
+tables it feeds still aren't consulted by anything on the extraction write path (that's the
+"Free-text domain/subdomain" row in "What this deletes", still Not started); seeding populated
+the table but did not wire it in. `index_note()` dual-writes: the existing in-memory
 `self.graph.add_node`/`add_edge` calls are untouched, and SQLite writes happen alongside —
 including finally reading `edge.description` (Pass-2 already asks the LLM for evidence
 quotes; nothing persisted them before this). `_load_graph`/`save_graph` flipped to
