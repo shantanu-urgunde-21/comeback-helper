@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Comeback Helper | STEM Math Knowledge Base & Ingestion Assistant</title>
-    
+    <link rel="icon" type="image/png" href="/static/img/logo.png">
+
     <!-- Google Fonts: Inter & JetBrains Mono -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -22,14 +23,14 @@
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
 
     <!-- App Styles -->
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/style.css?v=3">
 </head>
 <body class="dark-theme">
     <div class="app-layout">
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="brand">
-                <div class="logo-icon">∑</div>
+                <div class="logo-icon"><img src="/static/img/logo.png" alt="Comeback Helper concept graph"></div>
                 <div class="brand-text">
                     <h2>Comeback Helper</h2>
                     <span>Math RAG & Ingestion System</span>
@@ -266,9 +267,9 @@
                         <div class="setting-item">
                             <label for="graph-layout-solver">Layout Solver</label>
                             <select id="graph-layout-solver" class="custom-select custom-select-sm">
-                                <option value="barnesHut" selected>Barnes-Hut (Organic Clusters)</option>
+                                <option value="barnesHut">Barnes-Hut (Organic Clusters)</option>
                                 <option value="forceAtlas2Based">Force-Atlas 2 (Spread Out)</option>
-                                <option value="hierarchical">Hierarchical (Dependency Tree)</option>
+                                <option value="hierarchical" selected>Hierarchical (Dependency Tree)</option>
                             </select>
                         </div>
                         <div class="setting-item">
@@ -304,8 +305,26 @@
                     </div>
                 </details>
 
+                <!-- Graph Legend -->
+                <div class="graph-legend">
+                    <div class="legend-group">
+                        <span class="legend-label">Node Color — Hierarchy Depth</span>
+                        <div class="legend-gradient-row">
+                            <span class="legend-gradient-end">Foundational</span>
+                            <div class="legend-gradient-bar"></div>
+                            <span class="legend-gradient-end">Advanced</span>
+                        </div>
+                    </div>
+                    <div class="legend-group">
+                        <span class="legend-label">Concept type — click any node to see it</span>
+                    </div>
+                </div>
+
                 <div class="graph-container">
                     <div id="vis-graph-canvas" class="graph-canvas"></div>
+                    <div class="graph-detail-panel" id="graph-detail-panel">
+                        <div class="graph-detail-placeholder">Click a node to see its full details.</div>
+                    </div>
                 </div>
             </section>
 
@@ -428,6 +447,6 @@
     </div>
 
     <!-- App JavaScript -->
-    <script src="/static/app.js"></script>
+    <script src="/static/app.js?v=3"></script>
 </body>
 </html>

@@ -390,9 +390,149 @@ document.addEventListener('DOMContentLoaded', () => {
                 springLength: springLength,
                 springConstant: 0.08
             };
+        } else if (solver === 'hierarchical') {
+            physicsConfig.solver = 'hierarchicalRepulsion';
+            physicsConfig.hierarchicalRepulsion = {
+                nodeDistance: 200,
+                centralGravity: 0.0,
+                springLength: 150,
+                springConstant: 0.01,
+                damping: 0.12,
+                avoidOverlap: 1
+            };
         }
 
         graphNetwork.setOptions({ physics: physicsConfig });
+    }
+
+    // ------------------------------------------------------------------
+    // Hierarchy depth → gradient fill color
+    // ------------------------------------------------------------------
+    // DEPENDS_ON(A, B) means A requires B (B is the more foundational
+    // concept) and is drawn edge.from=A, edge.to=B. A node that depends on
+    // nothing (no outgoing edge) is depth 0 — maximally foundational.
+    // depth(A) = 1 + max(depth(B)) over everything A depends on, so depth
+    // increases the further a concept sits from the foundations.
+    function computeNodeDepths(nodes, edges) {
+        const outgoing = new Map();
+        nodes.forEach(n => outgoing.set(n.id, []));
+        edges.forEach(e => {
+            if (outgoing.has(e.from)) outgoing.get(e.from).push(e.to);
+        });
+
+        const depths = new Map();
+        const visiting = new Set(); // cycle guard: a node revisited while
+                                     // still being computed contributes 0
+                                     // for that edge instead of recursing.
+        function depthOf(id) {
+            if (depths.has(id)) return depths.get(id);
+            if (visiting.has(id)) return 0;
+            visiting.add(id);
+            let d = 0;
+            for (const t of (outgoing.get(id) || [])) {
+                if (outgoing.has(t)) d = Math.max(d, 1 + depthOf(t));
+            }
+            visiting.delete(id);
+            depths.set(id, d);
+            return d;
+        }
+
+        nodes.forEach(n => depthOf(n.id));
+        const maxDepth = Math.max(0, ...depths.values());
+        return { depths, maxDepth };
+    }
+
+    const DEPTH_COLOR_START = [14, 165, 233];  // #0ea5e9 — foundational (electric blue)
+    const DEPTH_COLOR_END   = [239, 68, 68];   // #ef4444 — advanced (vivid red)
+
+    function depthToColor(depth, maxDepth) {
+        const t = maxDepth > 0 ? depth / maxDepth : 0;
+        const c = DEPTH_COLOR_START.map((v, i) => Math.round(v + (DEPTH_COLOR_END[i] - v) * t));
+        return `#${c.map(v => v.toString(16).padStart(2, '0')).join('')}`;
+    }
+
+    const ROLE_BORDER_COLORS = {
+        'Theorem':    '#f59e0b',
+        'Definition': '#10b981',
+        'Formula':    '#06b6d4',
+        'Proof':      '#ec4899',
+        'Lemma':      '#eab308',
+        'Note':       '#818cf8',
+        'Concept':    '#94a3b8',
+    };
+
+    // ------------------------------------------------------------------
+    // Node detail panel
+    // ------------------------------------------------------------------
+
+    function escapeHtml(s) {
+        const div = document.createElement('div');
+        div.textContent = s ?? '';
+        return div.innerHTML;
+    }
+
+    function clearNodeDetail() {
+        const panel = document.getElementById('graph-detail-panel');
+        if (!panel) return;
+        panel.innerHTML = '<div class="graph-detail-placeholder">Click a node to see its full details.</div>';
+    }
+
+    function showNodeDetail(nodeId) {
+        const panel = document.getElementById('graph-detail-panel');
+        if (!panel || !currentGraphData) return;
+
+        const n = currentGraphData.nodes.find(x => x.id === nodeId);
+        if (!n) { clearNodeDetail(); return; }
+
+        const role = n.type || n.entity_type || 'Concept';
+        const roleColor = ROLE_BORDER_COLORS[role] || '#94a3b8';
+        const tax = n.taxonomy || {};
+        const aliases = Array.isArray(n.aliases) ? n.aliases : [];
+        const provenance = Array.isArray(n.provenance) ? n.provenance : [];
+
+        let html = `<h3>${escapeHtml(n.label || n.id)}</h3>`;
+        html += `<span class="graph-detail-type" style="background:${roleColor}22; color:${roleColor};">${escapeHtml(role)}</span>`;
+
+        if (n.description) {
+            html += `<div class="graph-detail-section">
+                <div class="graph-detail-section-label">Description</div>
+                <div class="graph-detail-desc">${escapeHtml(n.description)}</div>
+            </div>`;
+        }
+
+        if (tax.domain || tax.subdomain || tax.topic) {
+            html += `<div class="graph-detail-section">
+                <div class="graph-detail-section-label">Taxonomy</div>
+                <div class="graph-detail-taxonomy">
+                    ${tax.domain ? `Domain: ${escapeHtml(tax.domain)}<br>` : ''}
+                    ${tax.subdomain ? `Subdomain: ${escapeHtml(tax.subdomain)}<br>` : ''}
+                    ${tax.topic ? `Topic: ${escapeHtml(tax.topic)}` : ''}
+                </div>
+            </div>`;
+        }
+
+        if (aliases.length) {
+            html += `<div class="graph-detail-section">
+                <div class="graph-detail-section-label">Aliases (${aliases.length})</div>
+                <div class="graph-detail-chips">
+                    ${aliases.map(a => `<span class="graph-detail-chip">${escapeHtml(a)}</span>`).join('')}
+                </div>
+            </div>`;
+        }
+
+        if (provenance.length) {
+            html += `<div class="graph-detail-section">
+                <div class="graph-detail-section-label">Source Notes (${provenance.length})</div>
+                ${provenance.map(p => `<div class="graph-detail-provenance-item">${escapeHtml(p.doc_title || p.doc_id || 'Unknown note')}</div>`).join('')}
+            </div>`;
+        }
+
+        html += `<div class="graph-detail-section">
+            <div class="graph-detail-section-label">Id</div>
+            <div class="graph-detail-taxonomy" style="word-break: break-all;">${escapeHtml(n.id)}</div>
+        </div>`;
+
+        panel.innerHTML = html;
     }
 
     function renderGraphWithFilters() {
@@ -417,45 +557,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const filteredEdges = currentGraphData.edges.filter(e => nodeIds.has(e.from) && nodeIds.has(e.to));
 
-        const domainColors = {
-            'Differential Equations': '#8b5cf6',
-            'Calculus':               '#10b981',
-            'Linear Algebra':         '#3b82f6',
-            'Handwritten Coursework': '#f43f5e',
-            'General':                '#6366f1',
-        };
-
-        const roleBorderColors = {
-            'Theorem':    '#f59e0b',
-            'Definition': '#10b981',
-            'Formula':    '#06b6d4',
-            'Proof':      '#ec4899',
-            'Lemma':      '#eab308',
-            'Note':       '#818cf8',
-            'Concept':    '#94a3b8',
-        };
+        // Depths computed over the full graph (not just the filtered view)
+        // so a node's color stays stable as filters toggle.
+        const { depths, maxDepth } = computeNodeDepths(currentGraphData.nodes, currentGraphData.edges);
 
         const nodesArray = filteredNodes.map(n => {
             const domain = (n.taxonomy && n.taxonomy.domain) ? n.taxonomy.domain : 'Differential Equations';
             const role = n.type || n.entity_type || 'Concept';
-            const fillColor = domainColors[domain] || '#6366f1';
-            const borderColor = roleBorderColors[role] || '#94a3b8';
-            const borderWidth = role === 'Theorem' ? 4 : (role === 'Definition' ? 3 : 2);
+            const depth = depths.get(n.id) || 0;
+            const fillColor = depthToColor(depth, maxDepth);
             const nodeSize = role === 'Note' ? Math.round(baseNodeSize * 1.3) : baseNodeSize;
 
             return {
                 id: n.id,
                 label: n.label || n.name || n.id,
+                // No per-type border ring — it competed with the depth
+                // gradient fill for attention. Type is still available on
+                // hover (title) and in the click-through detail panel.
                 color: {
                     background: fillColor,
-                    border: borderColor,
+                    border: fillColor,
                     highlight: { background: fillColor, border: '#ffffff' }
                 },
-                borderWidth: borderWidth,
+                borderWidth: 1,
                 font: { color: '#ffffff', face: 'Inter', size: 13 },
                 shape: 'dot',
                 size: nodeSize,
-                title: `[${role}] ${n.label || n.id}\nDomain: ${domain}`
+                title: `[${role}] ${n.label || n.id}\nDomain: ${domain}\nHierarchy depth: ${depth}`
             };
         });
 
@@ -479,15 +607,42 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         if (solver === 'hierarchical') {
+            // DEPENDS_ON(A, B) draws the edge from A (dependent) to B
+            // (prerequisite) — vis-network's directed sort puts an edge's
+            // 'from' at a lower level number than its 'to', and direction
+            // 'DU' renders level 0 at the bottom. Net effect: prerequisites
+            // (higher level number) render above the concepts that depend
+            // on them, top-to-bottom like a syllabus.
             options.layout = {
                 hierarchical: {
-                    direction: 'UD',
+                    direction: 'DU',
                     sortMethod: 'directed',
-                    nodeSpacing: springLength,
-                    levelSeparation: 120
+                    levelSeparation: 150,
+                    // Baseline only — hierarchicalRepulsion physics below
+                    // does the real spacing work, so this just keeps nodes
+                    // from starting on top of each other before physics
+                    // settles.
+                    nodeSpacing: 150
                 }
             };
-            options.physics = { enabled: false };
+            // A pure fixed grid (physics off) is what caused the label
+            // overlap: every node on a level gets the same slot width
+            // regardless of label length. hierarchicalRepulsion is built to
+            // pair with layout.hierarchical — it keeps the level structure
+            // (clear top-to-bottom entry points) while letting nodes push
+            // apart from crowded neighbors, within and across levels.
+            options.physics = {
+                enabled: physicsEnabled,
+                solver: 'hierarchicalRepulsion',
+                hierarchicalRepulsion: {
+                    nodeDistance: 200,
+                    centralGravity: 0.0,
+                    springLength: 150,
+                    springConstant: 0.01,
+                    damping: 0.12,
+                    avoidOverlap: 1
+                }
+            };
         } else if (solver === 'forceAtlas2Based') {
             options.physics = {
                 enabled: physicsEnabled,
@@ -514,6 +669,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         graphNetwork = new vis.Network(container, networkData, options);
+        graphNetwork.on('click', (params) => {
+            if (params.nodes && params.nodes.length > 0) {
+                showNodeDetail(params.nodes[0]);
+            } else {
+                clearNodeDetail();
+            }
+        });
     }
 
     // =====================================================================
