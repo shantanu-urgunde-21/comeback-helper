@@ -129,7 +129,6 @@ class MathGraphIndexer:
         self,
         storage_path: Optional[Path] = None,
         vault_path: Optional[Path] = None,
-        vector_store=None,
         vault_manager=None,
     ):
         """
@@ -152,7 +151,6 @@ class MathGraphIndexer:
             )
         self.vault_manager = vault_manager
 
-        self._vector_store = vector_store
         log.info("MathGraphIndexer initialized (2-Pass Architecture).")
 
     # ------------------------------------------------------------------
@@ -573,9 +571,8 @@ class MathGraphIndexer:
         embedding call per candidate on every extraction and still missed
         exact duplicates worded differently, because no similarity threshold
         separates "same concept, different words" from "different concept,
-        shared word". This does not need `self._vector_store` at all —
-        resolution no longer depends on the graph service having a vector
-        service dependency (plan.md's "dependency graph gets sparser").
+        shared word". This needs no vector store at all — the graph package
+        has no dependency on the vector package.
         """
         from .authority import resolve_concept
         return resolve_concept(name, document_id=document_id, course=course)

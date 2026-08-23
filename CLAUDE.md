@@ -44,13 +44,13 @@ so a missing `.env` fails at import time, including in tests. Copy `.env.example
 ## Architecture
 
 **The implementation lives in `services/`, not `src/`.** `src/` holds only the two entry
-points (`server.py`, `cli.py`) plus `wiring.py`, the composition root. There is one copy of
-every module, and it runs in two deployments: in-process (the monolith, dependencies
-injected by `wiring.py`) and containerised (`services/*/main.py`, dependencies defaulting to
-the HTTP clients in `app/clients.py`). See [services/README.md](services/README.md) for the
-two rules that keep both working, and [plan.md](plan.md) for where this is going.
+points (`server.py`, `cli.py`) plus `wiring.py`, the composition root that constructs every
+package's real classes and wires them together in one process. There is one copy of every
+module. plan.md Phase 7 deleted an earlier parallel container-per-service deployment
+(Dockerfiles, per-package HTTP client stubs) that was staged but never actually run — see
+[services/README.md](services/README.md) for what's left and why.
 
-Modules are imported under their container names — `shared.config`, `graph.app.indexer` —
+Modules are imported under short package names — `shared.config`, `graph.app.indexer` —
 never `services.shared.config`. `src/__init__.py` puts the services root on `sys.path` to
 make that spelling resolve. This is load-bearing: a module reached under two names becomes
 two module objects with separate state, which silently breaks the CLI's `--json` contract.
@@ -91,7 +91,8 @@ For the full picture see [docs/flow.md](docs/flow.md) (data shapes, stage-by-sta
   cached in `.storage/concepts.db`) → mint `CUST_<hash>`. Node graph key is an opaque id
   (QID or `CUST_`); human label stored in `label` attribute. `vector_store` is no longer used
   by the extraction pipeline at all — the `graph → vector` dependency is fully removed as of
-  Phase 4. The retrieval engine (Phase 5) calls `/neighborhood` instead of local graph traversal.
+  Phase 4. The retrieval engine (Phase 5) calls `MathGraphIndexer.neighborhood(ids, hops)`
+  for a bounded subgraph instead of walking `.graph` directly.
   `dedupe_graph()`/`ENTITY_MERGE_THRESHOLD` deleted in Phase 6; no dead code on this path.
 - **`export_graph_json()` (graph_store.py) writes `entity_type` as `type`** in graph.json —
   a holdover from when that file was the store of record, kept because
@@ -159,7 +160,8 @@ now that identity is canonical before edges are drawn.)
 - Logging is Loguru via `from shared.logger import log` — not `print`, not `logging`.
 - Config is read only through `get_settings()`, which is `lru_cache`d.
 - CLI imports are function-local so `--help` doesn't load FastEmbed or NetworkX.
-  Retrieval service does not import NetworkX (plan.md Phase 5) — calls `/neighborhood` instead.
+  `retrieval/app/engine.py` does not import NetworkX (plan.md Phase 5) — it calls
+  `MathGraphIndexer.neighborhood()` for a bounded subgraph instead.
 - New OCR providers subclass `BaseOCRProvider` and register in
   `IngestionPipeline.__init__`'s provider switch.
 - `docs/` is public documentation; `private_docs/` holds deeper design notes.
