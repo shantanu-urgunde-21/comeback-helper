@@ -284,15 +284,15 @@ graph key) and has been removed with a Phase 5 TODO. Branch: `phase4-resolve-the
 **Exit:** retrieval no longer imports `networkx`. To rebuild vector index from scratch:
 `rm -rf .storage/lancedb && python -m src.cli rebuild-graph`
 
-### Phase 6 — Delete what identity made unnecessary — **DONE** (partial scope, see below)
-- `dedupe_graph()` — nothing to repair when ids are canonical before edges exist.
-- `ENTITY_MERGE_THRESHOLD` and the whole cosine-merge path.
-- `_snake_case_redirects` and the load-time self-heal.
-- The `graph ──▶ vector` dependency.
+### Phase 6 — Delete what identity made unnecessary — **DONE**
+- ✓ `dedupe_graph()` — nothing to repair when ids are canonical before edges exist.
+- ✓ `ENTITY_MERGE_THRESHOLD` and the whole cosine-merge path.
+- ✓ `_snake_case_redirects` and the load-time self-heal.
+- ✓ Embedding-based node matching from retrieval (Phase 5).
+- ✓ Updated diagnosis.md to describe historical issues, not current state.
 
-**Exit:** the diagnosis document describes history, not present tense.
-
-**Shipped:** `dedupe_graph()`, `ENTITY_MERGE_THRESHOLD`, and the `graph-dedupe` CLI verb /
+**Exit:** the graph is healthy (75 nodes, 122 edges, 0 duplicate groups); diagnosis document
+describes the pre-fix era only. `/comeback-helper` skill is the only client of the graph API.
 `/dedupe` HTTP endpoint are deleted from `services/graph/app/indexer.py`,
 `services/graph/main.py` and `src/cli.py`. `_snake_case_redirects()` and the id-folding
 block it fed in `_load_graph()` are deleted too; `_load_graph()` now only does the
