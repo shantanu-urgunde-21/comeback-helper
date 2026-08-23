@@ -1,6 +1,5 @@
 import re
-import time
-import numpy as np
+import json
 from typing import Optional
 
 from google.genai import types as genai_types
@@ -63,63 +62,7 @@ class MathQueryEngine:
         self.indexer = graph_indexer
         self.vector_store = vector_store
 
-        # Pre-compute graph node embeddings for semantic matching
-        self._node_embeddings: dict[str, list[float]] = {}
-        self._build_node_embeddings()
-
-        log.info("Initialized MathQueryEngine with hybrid vector + graph retrieval.")
-
-    # ------------------------------------------------------------------
-    # Graph node embedding index
-    # ------------------------------------------------------------------
-
-    def _build_node_embeddings(self):
-        """Embed all graph node labels+descriptions for semantic matching."""
-        graph = self.indexer.graph
-        if graph.number_of_nodes() == 0:
-            return
-
-        node_ids = list(graph.nodes)
-        texts = []
-        for nid in node_ids:
-            desc = graph.nodes[nid].get("description", "")
-            texts.append(f"{nid}: {desc}" if desc else nid)
-
-        try:
-            embeddings = self.vector_store.embed_texts(texts)
-            for nid, emb in zip(node_ids, embeddings):
-                self._node_embeddings[nid] = emb
-            log.info(f"Pre-computed embeddings for {len(node_ids)} graph nodes.")
-        except Exception as e:
-            log.warning(f"Could not embed graph nodes ({e}).")
-
-    def refresh_node_embeddings(self):
-        """Re-build node embeddings (called after graph updates)."""
-        self._node_embeddings.clear()
-        self._build_node_embeddings()
-
-    def _find_similar_nodes(self, query: str, top_k: int = 3) -> list[str]:
-        """Find graph nodes semantically closest to the query."""
-        if not self._node_embeddings:
-            return []
-
-        try:
-            query_emb = self.vector_store.embed_texts([query])[0]
-            q = np.array(query_emb)
-
-            scored: list[tuple[str, float]] = []
-            for nid, emb in self._node_embeddings.items():
-                e = np.array(emb)
-                sim = float(
-                    np.dot(q, e) / (np.linalg.norm(q) * np.linalg.norm(e) + 1e-9)
-                )
-                scored.append((nid, sim))
-
-            scored.sort(key=lambda x: x[1], reverse=True)
-            return [nid for nid, sim in scored[:top_k] if sim > 0.3]
-        except Exception as e:
-            log.warning(f"Semantic node matching failed ({e}).")
-            return []
+        log.info("Initialized MathQueryEngine with hybrid vector + graph retrieval (bounded neighborhood).")
 
     # ------------------------------------------------------------------
     # Context retrieval
@@ -133,8 +76,8 @@ class MathQueryEngine:
         use_graph: bool = True,
     ) -> str:
         """
-        Retrieves top semantic text chunks from LanceDB and matching
-        graph nodes/edges from the NetworkX PropertyGraph.
+        Retrieves top semantic text chunks from LanceDB and a bounded
+        neighborhood subgraph from the graph service's /neighborhood endpoint.
         """
         # 1. Semantic Vector Search via LanceDB (Hybrid BM25 + Vector)
         vector_results = self.vector_store.search_similar(
@@ -149,32 +92,47 @@ class MathQueryEngine:
                 f"[Chunk {idx} — {source} ({course_tag})]\n{text}"
             )
 
-        # 2. Graph Traversal via NetworkX PropertyGraph
+        # 2. Bounded Graph Neighborhood via /neighborhood endpoint
         graph_context = []
         if use_graph:
-            graph = self.indexer.graph
-            matched_nodes = self._find_similar_nodes(prompt, top_k=3)
+            try:
+                # Try to extract seed concept IDs from vector results.
+                # Vector chunks may carry concept_id in metadata (future);
+                # for now, use note source as a heuristic starting point.
+                seed_ids = []
+                for res in vector_results[:3]:
+                    source = res.get("source", "").replace(".md", "").strip()
+                    if source and source not in ["", "init"]:
+                        seed_ids.append(source)
 
-            for n in matched_nodes:
-                if n not in graph.nodes:
-                    continue
-                node_data = graph.nodes[n]
-                node_type = node_data.get("entity_type", "Concept")
-                desc = node_data.get("description", "")
+                if seed_ids:
+                    neighborhood = self.indexer.neighborhood(seed_ids, hops=1)
+                    nodes = neighborhood.get("nodes", [])
+                    edges = neighborhood.get("edges", [])
 
-                rel_info = []
-                for nbr in list(graph.neighbors(n))[:4]:
-                    rel = graph.edges[n, nbr].get("relation", "DEPENDS_ON")
-                    rel_info.append(f"{n} --[{rel}]--> {nbr}")
+                    # Format nodes with their descriptions and immediate relations
+                    for node in nodes:
+                        node_id = node.get("id", "")
+                        node_type = node.get("entity_type", "Concept")
+                        label = node.get("label", node_id)
+                        desc = node.get("description", "")
 
-                for pred in list(graph.predecessors(n))[:4]:
-                    rel = graph.edges[pred, n].get("relation", "DEPENDS_ON")
-                    rel_info.append(f"{pred} --[{rel}]--> {n}")
+                        # Find edges connected to this node
+                        rel_info = []
+                        for edge in edges:
+                            if edge["source"] == node_id:
+                                rel = edge.get("relation", "DEPENDS_ON")
+                                rel_info.append(f"{label} --[{rel}]--> {edge['target']}")
+                            elif edge["target"] == node_id:
+                                rel = edge.get("relation", "DEPENDS_ON")
+                                rel_info.append(f"{edge['source']} --[{rel}]--> {label}")
 
-                node_str = f"• [{node_type}] {n}" + (f" — {desc}" if desc else "")
-                if rel_info:
-                    node_str += "\n  Relations: " + " | ".join(rel_info)
-                graph_context.append(node_str)
+                        node_str = f"• [{node_type}] {label}" + (f" — {desc}" if desc else "")
+                        if rel_info:
+                            node_str += "\n  " + " | ".join(rel_info[:2])
+                        graph_context.append(node_str)
+            except Exception as e:
+                log.warning(f"Graph neighborhood retrieval failed ({e}).")
 
         # Assemble unified context string
         context_parts = []
@@ -184,7 +142,7 @@ class MathQueryEngine:
             )
         if graph_context:
             context_parts.append(
-                "### Math PropertyGraph Nodes & Relations:\n"
+                "### Math PropertyGraph (1-hop neighborhood):\n"
                 + "\n".join(graph_context)
             )
 
