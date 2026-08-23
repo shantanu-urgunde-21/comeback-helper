@@ -91,7 +91,7 @@ For the full picture see [docs/flow.md](docs/flow.md) (data shapes, stage-by-sta
   cached in `.storage/concepts.db`) → mint `CUST_<hash>`. Node graph key is an opaque id
   (QID or `CUST_`); human label stored in `label` attribute. `vector_store` is no longer used
   by the extraction pipeline at all — the `graph → vector` dependency is fully removed as of
-  Phase 4 (`_get_candidate_context` was the last use; that branch was dead and deleted).
+  Phase 4. The retrieval engine (Phase 5) calls `/neighborhood` instead of local graph traversal.
   `dedupe_graph()`/`ENTITY_MERGE_THRESHOLD` deleted in Phase 6; no dead code on this path.
 - **`export_graph_json()` (graph_store.py) writes `entity_type` as `type`** in graph.json —
   a holdover from when that file was the store of record, kept because
@@ -114,6 +114,11 @@ For the full picture see [docs/flow.md](docs/flow.md) (data shapes, stage-by-sta
   `upsert_node_attrs` — omitting it silently reverts a node's display name to whatever
   authority.py happened to store, which was caught once already (a byte-diff against a
   pre-Phase-3 graph.json export caught every node's label reverting during that migration).
+- **Vector store `add_chunks()` deletes-by-source before inserting (plan.md Phase 5).**
+  Idempotent re-indexing — each call deletes all prior chunks from the same source(s)
+  before adding new ones. Prevents duplicates on graph rebuild. If you need to rebuild
+  the vector index from scratch, delete `.storage/lancedb`, restart the server, and call
+  `rebuild-graph` or `index-note` to re-chunk and re-embed the vault.
 - **Tests are not isolated**, with one exception. Most read and write the real `.storage/` —
   the live `graph.json` and the production LanceDB table. `tests/test_vector_and_retrieval.py`
   inserts chunks into it. There is no fixture directory or teardown. `tests/test_graph_store.py`
@@ -154,6 +159,7 @@ now that identity is canonical before edges are drawn.)
 - Logging is Loguru via `from shared.logger import log` — not `print`, not `logging`.
 - Config is read only through `get_settings()`, which is `lru_cache`d.
 - CLI imports are function-local so `--help` doesn't load FastEmbed or NetworkX.
+  Retrieval service does not import NetworkX (plan.md Phase 5) — calls `/neighborhood` instead.
 - New OCR providers subclass `BaseOCRProvider` and register in
   `IngestionPipeline.__init__`'s provider switch.
 - `docs/` is public documentation; `private_docs/` holds deeper design notes.
