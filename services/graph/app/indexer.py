@@ -452,6 +452,31 @@ class MathGraphIndexer:
             candidates[n] = self.graph.nodes[n].get("label", n)
         return candidates
 
+    def neighborhood(self, ids: list[str], hops: int = 1) -> dict:
+        """N-hop bounded subgraph around the given node ids.
+
+        What retrieval calls instead of walking `.graph` directly, so a
+        query only pulls in what it needs rather than the whole graph.
+        """
+        G = self.graph
+        keep: set = set()
+        frontier = {i for i in ids if i in G}
+        keep |= frontier
+        for _ in range(max(hops, 0)):
+            nxt: set = set()
+            for n in frontier:
+                nxt |= set(G.successors(n)) | set(G.predecessors(n))
+            nxt -= keep
+            keep |= nxt
+            frontier = nxt
+
+        return {
+            "nodes": [{"id": n, **{k: v for k, v in G.nodes[n].items() if k != "id"}} for n in keep],
+            "edges": [{"source": u, "target": v, "relation": d.get("relation", "DEPENDS_ON")}
+                      for u, v, d in G.edges(data=True) if u in keep and v in keep],
+            "seeds": ids,
+        }
+
     def _split_chunks(self, text: str, document_id: str) -> list[tuple[str, str]]:
         """Split markdown text into (chunk_id, chunk_text) by heading (H1–H3).
 
