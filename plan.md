@@ -2,9 +2,14 @@
 
 The single idea, the target design, and the order to get there.
 
-Companion docs: [docs/diagnosis.md](docs/diagnosis.md) (why the current graph fails),
-[docs/flow.md](docs/flow.md) (how data moves today), [docs/structure.md](docs/structure.md)
-(call chains), [services/README.md](services/README.md) (the decomposition).
+Companion docs: [docs/diagnosis.md](docs/diagnosis.md) (the identity defects, now fixed —
+historical), [docs/vocabulary-diagnosis.md](docs/vocabulary-diagnosis.md) (what is wrong
+*now*), [docs/flow.md](docs/flow.md) (how data moves), [docs/structure.md](docs/structure.md)
+(call chains), [services/README.md](services/README.md) (module layout).
+
+**Status:** Phases 0–7 are done — identity is deterministic, SQLite is the store of record,
+and the app runs as one process. Phase 8 (vocabulary) is planned and specified; Phase 9
+(DAG-ness) is not started.
 
 ---
 
@@ -127,8 +132,9 @@ That is the test of whether this design is working: **the dependency graph gets 
 
 ## Order of work
 
-Each phase is independently landable and leaves the system working. Phases 1–2 belong in the
-monolith; only from phase 3 does the service split start to matter.
+Each phase is independently landable and leaves the system working. Phases 1–2 landed in the
+monolith; Phase 3 moved the store of record to SQLite; Phase 7 concluded that the service
+split was not worth keeping and removed it.
 
 ### Phase 0 — Seed the authority — **DONE** (revised scope, see below)
 - Fetch MSC2020 (taxonomy tier) and a Wikidata mathematics subset (concept tier).
@@ -345,6 +351,73 @@ Pass-2 candidate context, and the graph container's `main.py` constructed
 **Exit:** the app runs as one process; `services/README.md` and `CLAUDE.md` describe that
 topology, not a staged microservice split.
 
+### Phase 8 — Vocabulary: two-axis typing and a mathematical relation set — **PLANNED**
+
+Spec: [docs/vocabulary-diagnosis.md](docs/vocabulary-diagnosis.md).
+Plan: [2026-08-24-vocabulary-redesign.md](docs/superpowers/plans/2026-08-24-vocabulary-redesign.md).
+
+**Why this is the next phase, not a new project.** Phases 0–7 answered one question
+deterministically — *what is this concept called?* — by taking it away from the model. Two
+fields the model still owns freely turn out to fail the same way, for the same reason. Measured
+after Phase 7: **76% of nodes are `Concept`, 78.5% of edges are `DEPENDS_ON`**, numbers
+essentially unchanged from before Phase 0. Identity was fixed; vocabulary was never touched.
+
+**How the fix differs from the identity fix.** Identity could be made *fully* deterministic,
+because an authority outside the model can settle it. Type and relation cannot — no lookup
+table can tell you whether a sentence states a hypothesis or a prerequisite. So instead of
+removing the decision from the model, Phase 8 constrains it three ways:
+
+| Failure | Constraint |
+|---|---|
+| `Concept` is both the default and the residual bucket | `kind` becomes **required, with no default** — the model cannot abstain into a catch-all |
+| One enum answered three different questions | Split into `kind` (intrinsic) and `role` (contextual) |
+| Only `DEPENDS_ON` was ever defined in the prompt | Every relation gets an explicit definition |
+
+**The correction to the target data model.** This plan already argues that *a surface string
+and a concept are not the same object*. Phase 8 applies the same distinction one level up:
+**an argument role and a node type are not the same object.** Whether a result is a lemma is
+not a property of the statement — it is a property of how some argument uses it. The graph
+already demonstrates the right answer: it holds **4 `COROLLARY_OF` edges and 0 `Corollary`
+nodes**. The relation captured the fact; the node type structurally could not.
+
+So `role` is **reported, never inferred** — set only when the document itself applies the
+label — and argument structure stays in edges. That yields a new invariant alongside "notes
+are not graph nodes":
+
+> **Argument roles are not node types.**
+
+**This answers open question 4, and reverses its expectation.** Q4 asked whether the relation
+vocabulary was too *fine* for the model to use, on the principle that a small well-used
+vocabulary beats a large ignored one. The measurement says the opposite: the vocabulary is
+under-*specified*, not over-large. The one relation with a written definition took 78.5%; the
+five without definitions split the rest; `USES_AXIOM` sat at 0 because it presupposed a node
+type that was also empty. Sampling shows `DEPENDS_ON` absorbing at least six distinct
+relations — hypothesis, generalization, characterization, proof-dependency, instantiation,
+and complement.
+
+Phase 8 therefore *grows* the relation set (7 → 12) while defining each one. That is a bet
+against Q4's stated intuition, so the plan's final task measures the outcome and records it
+whether or not it succeeded.
+
+**What it also exposes: the graph is not a DAG — 29 cycles.** Symmetric relations
+(complement, equivalence) have no representation, so the extractor emits directional
+`DEPENDS_ON` in both directions. Phase 8 prevents the mechanism (symmetric relations are
+canonicalized to one direction by endpoint id) but deliberately does **not** repair existing
+data; DAG-ness gets its own phase.
+
+**Untouched by this phase:** the identity ladder, `authority.py`, scoped resolution, SQLite
+as store of record, the single-process topology. Phase 8 changes what a node *says about
+itself* and what an edge *means* — not how either is identified or stored.
+
+**Exit:** no single relation above ~50% and no single kind above ~55% after re-extraction,
+with the actual numbers recorded in the spec.
+
+### Phase 9 — DAG-ness — **NOT STARTED**
+
+29 cycles exist today. Phase 8 removes one known cause; this phase measures what remains,
+repairs the data, and decides whether acyclicity is enforced at write time. Hierarchical
+layout and any depth metric both depend on it.
+
 ---
 
 ## What this deletes
@@ -356,9 +429,12 @@ topology, not a staged microservice split.
 | `dedupe_graph()` | Nothing to deduplicate after the fact | Done (Phase 6) |
 | Load-time self-heal | Nothing to heal | Done (Phase 6) |
 | `graph.json` as source of truth | Becomes an export | Done (Phase 3) |
-| Free-text `domain` / `subdomain` | MSC2020 codes | Not started |
+| Free-text `domain` / `subdomain` | MSC2020 codes (6,603 seeded; nothing reads them yet) | Not started |
 | `graph → vector` dependency | Resolution no longer needs embeddings | Done (Phase 7) — dead `vector_store` param removed from `MathGraphIndexer` |
 | Container-per-service deployment | Never actually run; single process is simpler for one user | Done (Phase 7) |
+| Single-axis `entity_type` | Conflated three orthogonal questions; 76% collapsed to `Concept` | Planned (Phase 8) |
+| `Lemma`/`Corollary`/`Axiom` as node types | Argument roles, not intrinsic types — edges already carry them | Planned (Phase 8) |
+| `USES_AXIOM` | 0 uses; redundant with `USES_IN_PROOF` at a node whose role is `Axiom` | Planned (Phase 8) |
 
 ---
 
@@ -382,6 +458,18 @@ topology, not a staged microservice split.
 3. **Scope granularity.** Document-level may still be too coarse where notation is rebound
    mid-lecture. Section-level is more correct and more expensive; start with document and
    measure.
-4. **Relation vocabulary.** 77% of current edges are `DEPENDS_ON` and 0 are `USES_AXIOM`.
+4. ~~**Relation vocabulary.** 77% of current edges are `DEPENDS_ON` and 0 are `USES_AXIOM`.
    Before enriching the schema, find out whether the vocabulary is too fine for the model to
-   use reliably — a smaller, well-used vocabulary beats a large, ignored one.
+   use reliably — a smaller, well-used vocabulary beats a large, ignored one.~~ **Measured,
+   and the expectation was wrong.** The vocabulary is under-specified, not over-large: only
+   `DEPENDS_ON` had a written definition in the Pass-2 prompt and it took 78.5%, while the
+   five undefined relations split the remainder. `USES_AXIOM` was 0 because it presupposed a
+   node type that was itself never emitted. Sampling shows `DEPENDS_ON` absorbing at least
+   six distinct relations. **Decision:** grow the set to 12 *and* define each one, then
+   measure — see Phase 8 and [docs/vocabulary-diagnosis.md](docs/vocabulary-diagnosis.md).
+   The bet is explicitly recorded so a poor outcome is visible rather than quietly absorbed.
+
+5. **Does a bigger defined vocabulary actually get used?** The counter-hypothesis to Q4's
+   resolution: definitions may not be enough, and the model may still collapse to the
+   broadest available relation. Phase 8's final task measures this directly. If it fails,
+   the next move is fewer relations with sharper definitions, not more.
