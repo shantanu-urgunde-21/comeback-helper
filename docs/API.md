@@ -1,147 +1,102 @@
 # API Reference
 
-Base URL: `http://127.0.0.1:8000`
+Base URL: `http://127.0.0.1:8000`. Interactive Swagger at **`/docs`**.
 
-Full interactive Swagger documentation available at **`/docs`**.
+| | Route | Purpose |
+|---|---|---|
+| GET | `/` | Dashboard (HTML) |
+| POST | `/api/ingest` | PDF → OCR → vault note |
+| POST | `/api/query` | Hybrid RAG answer |
+| GET | `/api/vault` | List courses and notes |
+| GET | `/api/graph` | Full graph as JSON |
+| GET | `/api/courses` | Course names present in the vault |
+| GET | `/api/settings` | Effective configuration (read-only) |
+| GET | `/api/health/ollama` | Local Ollama telemetry |
+| POST | `/api/rebuild/graph` | Re-extract every note (LLM cost) |
+| POST | `/api/rebuild/vectors` | Re-chunk and re-embed every note |
+| POST | `/api/clear` | Clear graph, vectors, and ingest state |
 
 ---
 
-## Ingestion API
+## `POST /api/ingest`
 
-### `POST /api/ingest`
+Runs OCR on a PDF and writes one Markdown note into the vault.
 
-Upload a PDF, run OCR (batched in 3-page chunks with 4s pacing delay), save a Markdown note to the vault, and optionally update the knowledge graph and vector index.
-
-**Request** (multipart/form-data):
+**Request** (`multipart/form-data`):
 
 | Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `file` | File | *required* | PDF file to ingest |
-| `course` | string | *required* | Target course folder name (e.g. `"Differential Equations"`) |
-| `ocr_mode` | string | `local_handwriting` | `local_handwriting` (Qwen2.5-VL 3B) or `gemini_vision` |
-| `dpi` | int | `200` | PDF render resolution (100–400 DPI) |
-| `auto_index` | bool | `true` | Whether to trigger graph indexing & vector embedding |
-
-**Response:**
+|---|---|---|---|
+| `file` | File | *required* | PDF to ingest |
+| `course` | string | *required* | Target course folder |
+| `ocr_mode` | string | `local_handwriting` | `local_handwriting` (Qwen2.5-VL) or `gemini_vision` |
+| `dpi` | int | `200` | Render resolution, 100–400 |
+| `auto_index` | bool | `true` | Also index into graph + vector store |
 
 ```json
 {
-    "status": "success",
-    "filename": "lecture_04.pdf",
-    "course": "Differential Equations",
-    "ocr_mode": "local_handwriting",
-    "note_path": ".storage/vault/Differential Equations/lecture_04.md",
-    "content": "# Lecture 04\n...",
-    "graph_indexed": true,
-    "vector_chunks": 12
+  "status": "success",
+  "note_path": ".storage/vault/Differential Equations/lecture_04.md",
+  "graph_indexed": true,
+  "vector_chunks": 12
 }
 ```
 
----
+## `POST /api/query`
 
-## RAG Query API
-
-### `POST /api/query`
-
-Ask a mathematical question using the hybrid RAG engine (vector similarity + graph node matching + candidate model fallback synthesis).
-
-**Request** (application/json):
-
-```json
-{
-    "prompt": "Explain the Mixed Partials Theorem and its prerequisites",
-    "top_k": 5,
-    "temperature": 0.3,
-    "course": "Differential Equations",
-    "use_graph": true
-}
-```
+Hybrid retrieval (vector chunks + 1-hop graph neighbourhood) followed by LLM synthesis, with
+Gemini → Ollama fallback.
 
 | Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `prompt` | string | *required* | The mathematical query |
-| `top_k` | int | `5` | Number of vector chunks to retrieve (1–20) |
-| `temperature` | float | `0.3` | Synthesis temperature (0.0–1.0) |
-| `course` | string | `null` | Filter search to specific course, or `null` for all courses |
-| `use_graph` | bool | `true` | Include Knowledge Graph context and relationships |
-
-**Response:**
+|---|---|---|---|
+| `prompt` | string | *required* | The question |
+| `top_k` | int | `5` | Vector chunks to retrieve, 1–20 |
+| `temperature` | float | `0.3` | Synthesis temperature |
+| `course` | string \| null | `null` | Restrict to one course |
+| `use_graph` | bool | `true` | Include graph context |
 
 ```json
-{
-    "status": "success",
-    "answer": "The Mixed Partials Theorem states that..."
-}
+{ "status": "success", "answer": "The Mixed Partials Theorem states that..." }
 ```
 
----
+If both Gemini and Ollama are unavailable, the retrieved context is returned verbatim with a
+note appended, rather than erroring.
 
-## Vault & Knowledge Graph API
+## `GET /api/graph`
 
-### `GET /api/vault`
-
-List all course folders and notes in the Obsidian Vault.
+The whole graph, shaped for vis-network. Read directly from `graph.json`, so it reflects the
+last `save_graph()` rather than live in-memory state.
 
 ```json
 {
-    "vault": {
-        "Differential Equations": [
-            {"title": "Lecture notes 7 to 9.md", "path": "...", "size": 12345}
-        ]
+  "nodes": [
+    {
+      "id": "Q124743",
+      "label": "Wronskian",
+      "type": "Concept",
+      "taxonomy": {"domain": "Differential Equations", "subdomain": "Second-Order ODEs", "topic": "Wronskian"},
+      "description": "A determinant used to test linear independence of solutions."
     }
+  ],
+  "edges": [
+    {"from": "Q124743", "to": "CUST_a1b2c3d4e5f6", "relation": "DEPENDS_ON", "label": "DEPENDS_ON"}
+  ]
 }
 ```
 
-### `GET /api/graph`
+**`id` is opaque** — a Wikidata QID or a minted `CUST_<hash>`, never readable text. Render
+`label`. This changed in plan.md Phase 1; anything keying off a human-readable id is broken.
 
-Get the property graph nodes and edges as JSON (for Vis.js network visualization).
+`type` carries the node's entity type (the export renames `entity_type` → `type`).
+
+## `GET /api/vault`
 
 ```json
-{
-    "nodes": [
-        {
-            "id": "Exact Differential Equation",
-            "label": "Exact Differential Equation",
-            "type": "Definition",
-            "taxonomy": {
-                "domain": "Differential Equations",
-                "subdomain": "Course Notes",
-                "topic": "Exact Differential Equation"
-            },
-            "description": "A first-order ODE of the form M(x,y)dx + N(x,y)dy = 0..."
-        }
-    ],
-    "edges": [
-        {
-            "from": "Exact Differential Equation",
-            "to": "Total Differential",
-            "relation": "DEPENDS_ON",
-            "label": "DEPENDS_ON"
-        }
-    ]
-}
+{"vault": {"Differential Equations": [{"title": "Lecture 7.md", "path": "...", "size": 12345}]}}
 ```
 
-### `GET /api/courses`
+## Maintenance
 
-Returns a list of available course names present in the vault.
-
----
-
-## Index Maintenance & Health
-
-### `POST /api/rebuild/graph`
-
-Re-indexes all vault notes into the Knowledge Graph using the decoupled 2-pass extraction pipeline.
-
-### `POST /api/rebuild/vectors`
-
-Re-chunks and re-embeds all vault notes into the LanceDB vector store.
-
-### `POST /api/clear`
-
-Clears the Knowledge Graph index, LanceDB vector store, and vault state hashes.
-
-### `GET /api/health/ollama`
-
-Returns live telemetry for local Ollama service and available models.
+`POST /api/rebuild/graph` re-extracts every note through the 2-pass pipeline — this spends
+LLM budget. `POST /api/rebuild/vectors` re-chunks and re-embeds; it is local-only and free.
+`POST /api/clear` drops graph structure, vectors, and ingest-state hashes, but **preserves
+the identity tables** (`concepts`/`aliases`), so canonical ids survive a rebuild.

@@ -37,7 +37,7 @@ Comeback Helper addresses these challenges through custom OpenCV pre-processing,
 
 ---
 
-## 1. Cloud Gemini Vision Subsystem (`src/ingestion/gemini_ocr.py`)
+## 1. Cloud Gemini Vision Subsystem (`services/ingestion/app/gemini_ocr.py`)
 
 ### 3-Page Multi-Image Batching (`process_images_batch`)
 - Groups **3 consecutive page images per API call** (`batch_size = 3`).
@@ -53,7 +53,7 @@ Comeback Helper addresses these challenges through custom OpenCV pre-processing,
 
 ---
 
-## 2. Local 4-Station VLM Subsystem (`src/ingestion/handwriting/`)
+## 2. Local 4-Station VLM Subsystem (`services/ingestion/app/handwriting/`)
 
 ### Station 1: Red Channel Thresholding (`preprocessor.py`)
 Standard blue or gray notebook lines overlap handwritten ink. In RGB color space, blue lines have high values in the Blue and Green channels but low values in the Red channel. Pencil and black ink have low values across all three channels.

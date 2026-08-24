@@ -10,7 +10,7 @@ Comeback Helper solves this with **Math-Aware Chunking**, **LanceDB Vector Simil
 
 ---
 
-## 1. Math-Aware Chunking Algorithm (`src/chunker.py`)
+## 1. Math-Aware Chunking Algorithm (`services/vector/app/chunker.py`)
 
 The chunking algorithm follows a strict hierarchy designed to protect mathematical structures:
 
@@ -39,7 +39,7 @@ The chunking algorithm follows a strict hierarchy designed to protect mathematic
 
 ---
 
-## 2. Vector Subsystem (`src/vector/store.py`)
+## 2. Vector Subsystem (`services/vector/app/store.py`)
 
 ### LanceDB Integration
 LanceDB is an embedded, serverless vector database stored at `.storage/lancedb/`.
@@ -63,7 +63,7 @@ records.append({
 
 ---
 
-## 3. Decoupled 2-Pass Math PropertyGraph Indexer (`src/graph/indexer.py`)
+## 3. Decoupled 2-Pass Math PropertyGraph Indexer (`services/graph/app/indexer.py`)
 
 ### Decoupled 2-Pass Pipeline Architecture
 
@@ -114,7 +114,7 @@ Extraction is decoupled into two separate, focused passes to eliminate token tru
 
 ## 4. Semantic Graph Node Matching & Candidate Fallbacks
 
-### Embedding-Based Node Matching (`src/retrieval/engine.py`)
+### Embedding-Based Node Matching (`services/retrieval/app/engine.py`)
 
 ```python
 # Pre-compute graph node embeddings

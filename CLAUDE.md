@@ -1,17 +1,15 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code working in this repository.
 
 ## Commands
 
 ```bash
-# Run the server (dashboard + API on http://127.0.0.1:8000, --reload enabled)
-python -m src.server
+python -m src.server                               # dashboard + API on 127.0.0.1:8000
 
 # Tests — unittest, not pytest (pytest is not a dependency)
 python -m unittest discover -s tests -v
-python -m unittest tests.test_graph_indexer -v                    # one module
-python -m unittest tests.test_graph_indexer.TestGraphIndexer.test_schema_models   # one test
+python -m unittest tests.test_graph_indexer -v     # one module
 
 # CLI
 python -m src.cli graph-stats                      # node/edge counts, components, isolates
@@ -19,155 +17,113 @@ python -m src.cli graph-preview --note "path.md"   # dry-run extraction, writes 
 python -m src.cli rebuild-graph                    # re-extract every vault note (LLM cost)
 python -m src.cli query --prompt "..." --course "Differential Equations"
 
-# Identity authority (plan.md Phase 0/1) — .storage/concepts.db, now the store of record for the whole graph (Phase 3)
+# Identity authority — .storage/concepts.db
 python -m src.cli authority-seed-msc               # bulk-load MSC2020 taxonomy (idempotent)
-python -m src.cli authority-resolve --label "..."  # resolve one surface form: alias -> Wikidata -> mint CUST_
+python -m src.cli authority-resolve --label "..."  # alias -> Wikidata -> mint CUST_
 python -m src.cli authority-stats                  # concept/alias/cache/review-queue counts
 
-# Graph health report (read-only, stdlib only, no .env needed)
-python scripts/graph_health.py
+python scripts/graph_health.py                     # read-only report, stdlib only, no .env
 ```
 
-Every CLI verb accepts `--json`, which prints exactly one JSON object on stdout and routes
-logs to stderr. That is the contract the `/comeback-helper` skill
-([.claude/skills/comeback-helper/SKILL.md](.claude/skills/comeback-helper/SKILL.md)) is
-built on: the skill talks to the engine **only** through these verbs, never by importing
-`src/` or reading `graph.json`. Keep the verb surface stable when refactoring internals —
-if a verb's output shape changes, update the skill in the same commit.
+Every verb accepts `--json`: exactly one JSON object on stdout, logs to stderr. That is the
+`/comeback-helper` skill's contract ([SKILL.md](.claude/skills/comeback-helper/SKILL.md)) —
+the skill talks to the engine *only* through these verbs, never by importing `src/` or
+reading `graph.json`. **If a verb's output shape changes, update the skill in the same commit.**
 
-`.env` is **required for any import of `src`** — `Settings.gemini_api_key` and
-`obsidian_vault_location` have no defaults ([services/shared/config.py](services/shared/config.py)),
-so a missing `.env` fails at import time, including in tests. Copy `.env.example`.
+`.env` is **required for any `import src`** — `gemini_api_key` and `obsidian_vault_location`
+have no defaults ([config.py](services/shared/config.py)), so it fails at import time,
+including in tests. Copy `.env.example`.
 
 ## Architecture
 
-**The implementation lives in `services/`, not `src/`.** `src/` holds only the two entry
-points (`server.py`, `cli.py`) plus `wiring.py`, the composition root that constructs every
-package's real classes and wires them together in one process. There is one copy of every
-module. plan.md Phase 7 deleted an earlier parallel container-per-service deployment
-(Dockerfiles, per-package HTTP client stubs) that was staged but never actually run — see
-[services/README.md](services/README.md) for what's left and why.
+**Implementation lives in `services/`, not `src/`.** `src/` holds two entry points
+(`server.py`, `cli.py`) plus `wiring.py`, the composition root that builds every package's
+real classes into one process. One copy of every module. See
+[services/README.md](services/README.md).
 
-Modules are imported under short package names — `shared.config`, `graph.app.indexer` —
-never `services.shared.config`. `src/__init__.py` puts the services root on `sys.path` to
-make that spelling resolve. This is load-bearing: a module reached under two names becomes
-two module objects with separate state, which silently breaks the CLI's `--json` contract.
+Modules import under short names — `shared.config`, `graph.app.indexer` — never
+`services.shared.config`. `src/__init__.py` puts the services root on `sys.path`.
+Load-bearing: a module reached under two names becomes two module objects with separate
+state, which silently breaks the `--json` contract.
 
-Four subsystems behind one FastAPI process. The **Obsidian vault is the source of truth**;
-the graph and the vector index both derive from it and are rebuildable, while the vault
-notes are not (re-OCR costs money and re-rolls transcription).
+The **Obsidian vault is the source of truth**. Graph and vector index derive from it and are
+rebuildable; vault notes are not (re-OCR costs money and re-rolls transcription).
 
 ```
-PDF → OCR → vault/<course>/<note>.md ─┬→ 2-pass LLM extraction → NetworkX graph → graph.json
+PDF → OCR → vault/<course>/<note>.md ─┬→ 2-pass LLM extraction → SQLite (+ graph.json export)
                                       └→ math-aware chunking → FastEmbed → LanceDB
                                                     ↓
-                                    hybrid retrieval (chunks + graph traversal) → answer
+                                    hybrid retrieval (chunks + 1-hop subgraph) → answer
 ```
 
-Three heavy objects are constructed once in the FastAPI lifespan
-([src/server.py](src/server.py)) and shared via `app.state`, in dependency order:
-`LocalVectorStore` → `MathGraphIndexer(vector_store=…)` → `MathQueryEngine(both)`.
+Three heavy singletons are built once in the FastAPI lifespan ([server.py](src/server.py))
+and shared via `app.state`: `LocalVectorStore` → `MathGraphIndexer` → `MathQueryEngine(both)`.
 
-**The graph lives in RAM, backed by SQLite.** `app.state.graph_indexer.graph` is a live
-`nx.DiGraph`, but as of plan.md Phase 3 it is a *derived cache*: `.storage/concepts.db` (four
-tables — `concepts`/`aliases` from Phase 0/1, `mentions`/`edges` from Phase 3) is the store of
-record. `index_note()` writes both the in-memory graph and SQLite in the same call, so a
-restart's `_load_graph()` (which now queries SQLite, not graph.json) picks up everything
-already indexed — no in-memory-only mutation risk remains for graph structure. `graph.json`
-is now only an export, written by `save_graph()` for two direct-file consumers that never go
-through this class: `src/server.py`'s `/api/graph` and `scripts/graph_health.py`.
+**The graph lives in RAM, backed by SQLite.** `indexer.graph` is a live `nx.DiGraph` but a
+*derived cache*; `.storage/concepts.db` is the store of record (`concepts`/`aliases` +
+`mentions`/`edges`). `index_note()` writes both in the same call. `graph.json` is only an
+export, for the two consumers that read it directly: `/api/graph` and `graph_health.py`.
 
-Graph extraction is two decoupled LLM calls ([services/graph/app/indexer.py](services/graph/app/indexer.py)). Pass 1 runs per markdown section (split by H1–H3 heading, `chunk_id="{doc_id}#s{n:04d}"`): extracts concept nodes, resolves each to a canonical id, writes `mentions` with chunk-level `chunk_id`, accumulates `doc_concept_map`. Pass 2 runs once on the full document with the accumulated id-map; the LLM emits edges keyed by canonical id. Both fall back Gemini → Ollama → deterministic block parser.
+Extraction is two LLM calls ([indexer.py](services/graph/app/indexer.py)). **Pass 1** runs
+per markdown section (`chunk_id="{doc_id}#s{n:04d}"`): extracts nodes, resolves each to a
+canonical id, writes `mentions`, accumulates `doc_concept_map`. **Pass 2** runs once on the
+full document with that id-map and emits edges keyed by canonical id. Both fall back
+Gemini → Ollama → deterministic block parser.
 
-For the full picture see [docs/flow.md](docs/flow.md) (data shapes, stage-by-stage I/O) and
-[docs/structure.md](docs/structure.md) (call chains, module reference, dead code).
+Deeper: [docs/flow.md](docs/flow.md) (data shapes), [docs/structure.md](docs/structure.md)
+(call chains), [plan.md](plan.md) (roadmap, Phases 0–7 done).
 
 ## Invariants — breaking these causes silent, hard-to-trace bugs
 
-- **`_resolve_entity` is a deterministic lookup, not embedding similarity (plan.md Phase 1).**
-  Delegates to `authority.resolve_concept()`: document → course → global-authority (Wikidata,
-  cached in `.storage/concepts.db`) → mint `CUST_<hash>`. Node graph key is an opaque id
-  (QID or `CUST_`); human label stored in `label` attribute. `vector_store` is no longer used
-  by the extraction pipeline at all — the `graph → vector` dependency is fully removed as of
-  Phase 4. `dedupe_graph()`/`ENTITY_MERGE_THRESHOLD` deleted in Phase 6; no dead code on this
-  path.
-- **Retrieval (`retrieval/app/engine.py`) finds graph seed nodes by embedding, then expands
-  bounded (plan.md Phase 5).** `_find_similar_nodes()` embeds every node's `label`+
-  `description` once at construction and compares against the query — node **ids** are opaque
-  (`CUST_<hash>`/QID) so nothing about a query can match them directly; only the human-readable
-  label carries meaning. Once seed ids are found, expansion goes through
-  `MathGraphIndexer.neighborhood(ids, hops)`, not live `.neighbors()`/`.predecessors()` calls
-  on `.graph` — that's the part Phase 5 actually changed. Don't try to source seed ids from a
-  vector chunk's `source` field (note filename) — it was tried, and note filenames never match
-  graph node ids, so the neighborhood lookup silently returns nothing.
-- **`export_graph_json()` (graph_store.py) writes `entity_type` as `type`** in graph.json —
-  a holdover from when that file was the store of record, kept because
-  `scripts/graph_health.py` and `src/server.py`'s `/api/graph` both parse it directly and
-  expect that key. `graph_store.load_graph()` (the actual read path since Phase 3) has no
-  such mapping — SQLite's `node_attrs_json` stores `entity_type` under its real name.
-- **`PREREQUISITE_FOR(A,B)` is canonicalized to `DEPENDS_ON(B,A)`** on both write and load.
-  Never emit or store the inverse form — two directions between the same pair create fake
-  cycles that break hierarchical layout.
-- **Notes are not graph nodes.** The `CONTAINS` note→concept edge was retired; which note a
-  concept came from lives in that concept's `provenance` list. Do not reintroduce it.
-- **A node's display `label` lives in `node_attrs_json`, not in `concepts.label`.** They are
-  two different things that happen to often coincide: `concepts.label` (authority.py) is
-  identity-resolution bookkeeping — whichever surface form or Wikidata label first resolved
-  that concept — while `node_attrs_json["label"]` is the graph's own curated display label
-  (e.g. Phase 2's `migrate_to_identity_layer` picked a best-of-group spelling, which can
-  differ from what authority.py recorded). `graph_store.load_graph()` prefers
-  `node_attrs_json["label"]` and only falls back to `concepts.label` when a node's attrs
-  never recorded one. Any new write path must put `label` in the attrs dict passed to
-  `upsert_node_attrs` — omitting it silently reverts a node's display name to whatever
-  authority.py happened to store, which was caught once already (a byte-diff against a
-  pre-Phase-3 graph.json export caught every node's label reverting during that migration).
-- **Vector store `add_chunks()` deletes-by-source before inserting (plan.md Phase 5).**
-  Idempotent re-indexing — each call deletes all prior chunks from the same source(s)
-  before adding new ones. Prevents duplicates on graph rebuild. If you need to rebuild
-  the vector index from scratch, delete `.storage/lancedb`, restart the server, and call
-  `rebuild-graph` or `index-note` to re-chunk and re-embed the vault.
-- **Tests are not isolated**, with one exception. Most read and write the real `.storage/` —
-  the live `graph.json` and the production LanceDB table. `tests/test_vector_and_retrieval.py`
-  inserts chunks into it. There is no fixture directory or teardown. `tests/test_graph_store.py`
-  is the exception: it uses a throwaway `db_path` (the same override every `authority.py`/
-  `graph_store.py` function already accepts) — follow that pattern for new SQLite-touching
-  tests rather than the rest of the suite's shared-state default.
-- **`scripts/` is gitignored** ([.gitignore:37](.gitignore#L37)). Anything placed there
-  won't be committed.
+- **`_resolve_entity` is a deterministic lookup, not embedding similarity.** Delegates to
+  `authority.resolve_concept()`: document → course → Wikidata (cached) → mint `CUST_<hash>`.
+  The node key is an opaque id; the human label lives in the `label` attribute. The
+  extraction pipeline has no vector-store dependency at all.
+- **A node's display `label` lives in `node_attrs_json`, not `concepts.label`.**
+  `concepts.label` is identity bookkeeping (whichever surface form resolved first);
+  `node_attrs_json["label"]` is the curated display name. Any write path must put `label` in
+  the attrs dict passed to `upsert_node_attrs` — omitting it silently reverts the display
+  name to whatever authority.py happened to store.
+- **`export_graph_json()` writes `entity_type` under the key `type`** in graph.json, because
+  `graph_health.py` and `/api/graph` parse the file directly. `load_graph()` — the real read
+  path — has no such mapping.
+- **`PREREQUISITE_FOR(A,B)` is canonicalized to `DEPENDS_ON(B,A)`** on write and load. Two
+  directions between one pair create fake cycles that break hierarchical layout.
+- **Notes are not graph nodes.** Which note a concept came from lives in its `provenance`
+  list. The `CONTAINS` edge was retired; don't reintroduce it.
+- **Retrieval finds graph seeds by embedding, then expands bounded.**
+  `_find_similar_nodes()` embeds each node's `label`+`description` and compares to the query
+  — node *ids* are opaque, so only the label carries meaning. Expansion goes through
+  `MathGraphIndexer.neighborhood(ids, hops)`, never live `.neighbors()` on `.graph`. Do not
+  source seeds from a vector chunk's `source` field (a note filename); filenames never match
+  node ids and the lookup silently returns nothing.
+- **`add_chunks()` deletes-by-source before inserting**, so re-indexing is idempotent. To
+  rebuild the vector index: delete `.storage/lancedb`, then `POST /api/rebuild/vectors`.
+- **Tests are not isolated**, with one exception. Most read and write the real `.storage/`,
+  including the production LanceDB table; there is no teardown. `tests/test_graph_store.py`
+  is the exception — it uses a throwaway `db_path` (an override every `authority.py` /
+  `graph_store.py` function accepts). Follow that pattern for new SQLite-touching tests.
+- **`scripts/` is gitignored.** Anything placed there won't be committed.
 
-## Known defects — read before "fixing" the graph
+## Known defects
 
-[docs/diagnosis.md](docs/diagnosis.md) documents six measured defects, their root cause, and
-recommendations in dependency order. The short version, **as it stood before plan.md Phases
-0-1 landed**: node identity was the LLM-generated display name (`GraphNode.id` defaulted to
-`name`), so the same concept got re-coined as `Lipschitz Condition` / `lipschitz-condition` /
-`lipschitz_condition` and embedding similarity was used to repair it after the fact.
+Graph identity is fixed (75 nodes, 0 duplicate groups). [docs/diagnosis.md](docs/diagnosis.md)
+records the history — node identity used to be the LLM's display name, so one concept got
+re-coined under several spellings.
 
-**That root cause is fixed, both for new extractions and for the live graph.** See the
-`_resolve_entity` invariant above for new extractions; `.storage/graph.json` itself was
-migrated onto the new scheme via `graph-migrate-identity` (plan.md Phase 2) — 119 nodes
-(the 123 on-disk minus 4 folded by `_load_graph`'s self-heal) became 75: 17 junk nodes
-dropped (retired note-containers, a relation name that leaked in as a node, placeholder
-labels, a LaTeX fragment) and 27 duplicate spellings merged onto canonical ids.
-`graph_health.py` now reports 0 duplicate groups against the live file. A `.bak` of the
-pre-migration file was written to `.storage/graph.json.bak`.
+Still open, specified in [docs/vocabulary-diagnosis.md](docs/vocabulary-diagnosis.md):
+**type and relation vocabulary have collapsed** (76% `Concept`, 78.5% `DEPENDS_ON`), and the
+graph is **not a DAG** (29 cycles). Plan:
+[vocabulary-redesign](docs/superpowers/plans/2026-08-24-vocabulary-redesign.md).
 
-One trap remains:
-
-- **A full `rebuild-graph` is not a repair.** It re-rolls every naming decision, changing
-  which duplicates exist rather than whether they exist.
-
-(`ENTITY_MERGE_THRESHOLD`, `dedupe_graph()`, and the `_snake_case_redirects` self-heal — the
-other traps this section used to warn about — no longer exist; plan.md Phase 6 deleted them
-now that identity is canonical before edges are drawn.)
+One trap: **a full `rebuild-graph` is not a repair.** It re-rolls every naming decision,
+changing which duplicates exist rather than whether they exist.
 
 ## Conventions
 
 - Logging is Loguru via `from shared.logger import log` — not `print`, not `logging`.
 - Config is read only through `get_settings()`, which is `lru_cache`d.
 - CLI imports are function-local so `--help` doesn't load FastEmbed or NetworkX.
-  `retrieval/app/engine.py` does not import NetworkX (plan.md Phase 5) — it calls
-  `MathGraphIndexer.neighborhood()` for a bounded subgraph instead.
-- New OCR providers subclass `BaseOCRProvider` and register in
-  `IngestionPipeline.__init__`'s provider switch.
-- `docs/` is public documentation; `private_docs/` holds deeper design notes.
+  `retrieval/app/engine.py` does not import NetworkX.
+- New OCR providers subclass `BaseOCRProvider` and register in `IngestionPipeline.__init__`.
+- `docs/` is public; `private_docs/` holds deeper design notes.

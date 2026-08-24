@@ -68,7 +68,7 @@ It combines:
 
 ## Subsystem Breakdown
 
-### 1. Ingestion Subsystem (`src/ingestion/`)
+### 1. Ingestion Subsystem (`services/ingestion/app/`)
 
 * **`pipeline.py` (`IngestionPipeline`):** Orchestrates PDF page rendering via PyMuPDF (`fitz`), image preprocessing, OCR execution, and real-time page-by-page streaming to the Obsidian vault. Utilizes `process_images_batch` when supported by the OCR provider.
 * **`gemini_ocr.py` (`GeminiOCRProvider`):** Gemini Vision provider featuring **3-page multi-image batching** (`process_images_batch`), automatic **4-second pacing delay** between API calls to prevent 429 quota exhaustion, and candidate model fallback loops (`gemini-flash-latest` $\rightarrow$ `gemini-flash-lite-latest`).
@@ -78,7 +78,7 @@ It combines:
 
 ---
 
-### 2. Knowledge Graph Subsystem (`src/graph/`)
+### 2. Knowledge Graph Subsystem (`services/graph/app/`)
 
 * **`schema.py`:** Defines strict Pydantic models for 2-pass extraction:
   * `MathNodeExtraction` (Pass 1): Extracts formal concept entities, 1-2 sentence definitions, roles (`Theorem`, `Definition`, `Formula`, `Proof`, `Lemma`), and 3-tier SKOS taxonomy (`domain`, `subdomain`, `topic`).
@@ -87,7 +87,7 @@ It combines:
 
 ---
 
-### 3. Vector Subsystem (`src/vector/`) & Math Chunker (`src/chunker.py`)
+### 3. Vector Subsystem (`services/vector/app/`) & Math Chunker (`services/vector/app/chunker.py`)
 
 * **`chunker.py` (`chunk_math_markdown`):** Standard character-length chunkers destroy mathematical derivations by breaking equations mid-line. Our chunker:
   1. Splits on page markers (`<!-- Page N -->`).
@@ -99,7 +99,7 @@ It combines:
 
 ---
 
-### 4. Hybrid RAG Engine (`src/retrieval/engine.py`)
+### 4. Hybrid RAG Engine (`services/retrieval/app/engine.py`)
 
 * Combines vector similarity results with NetworkX semantic node matching.
 * Prompts Gemini / Ollama with retrieved vault context and question templates.

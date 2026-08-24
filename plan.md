@@ -320,14 +320,15 @@ canonical at write time (Phases 1-2). `VectorStoreClient.embed_texts()` in
 `services/graph/app/clients.py` is deleted (it existed only for `dedupe_graph()`'s cosine
 comparison).
 
-**Not shipped — the `graph ──▶ vector` dependency stays, narrowed but not removed.**
-`_get_candidate_context()` still calls `self._vector_store.search_similar()` for Pass-2 LLM
-candidate context (existing concept names fed into the edge-linking prompt), and
-`services/graph/main.py` still constructs `MathGraphIndexer(vector_store=VectorStoreClient())`
-to support it. Removing this dependency outright requires re-sourcing Pass-2 candidates from
-the concept table instead of chunk search — deferred, since that's a design change (which
-concepts to offer as candidates), not a deletion, and belongs with Phase 3/4 once the concept
-table is the thing to source from.
+**Not shipped at the time — the `graph ──▶ vector` dependency stayed, narrowed but not
+removed.** `_get_candidate_context()` still called `self._vector_store.search_similar()` for
+Pass-2 candidate context, and the graph container's `main.py` constructed
+`MathGraphIndexer(vector_store=VectorStoreClient())` to support it.
+
+> **Resolved later.** Phase 4 dropped that branch (it was dead — chunk `source` is a note
+> filename, never a graph node key), and Phase 7 removed the now-unused `vector_store`
+> parameter along with the container shims entirely. The graph package has no vector
+> dependency today.
 
 ### Phase 7 — Assemble — **DONE**
 - ✓ Decided the real topology: single process. The container-per-service split
