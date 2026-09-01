@@ -32,9 +32,13 @@ Thumbs.db
 *.dll
 *.so
 
+# Build / Static Export
+dist_static/
+
 # scripts
 .scripts/
 scripts/
+!scripts/export_static_site.py
 
 # docs
 docs/session_handover_context.md
