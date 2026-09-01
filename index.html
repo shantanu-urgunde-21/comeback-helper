@@ -26,6 +26,20 @@
     <link rel="stylesheet" href="./style.css?v=3">
 </head>
 <body class="dark-theme">
+    <!-- Mobile Top Navigation Bar -->
+    <header class="mobile-topbar">
+        <button id="btn-mobile-nav-toggle" class="mobile-menu-btn" aria-label="Open Navigation Menu">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+        <div class="mobile-brand">
+            <div class="logo-icon logo-icon-sm"><img src="./img/logo.png" alt="Logo"></div>
+            <span class="mobile-brand-title">Comeback Helper</span>
+        </div>
+    </header>
+
+    <!-- Mobile Sidebar Backdrop Overlay -->
+    <div id="sidebar-backdrop" class="sidebar-backdrop"></div>
+
     <div class="app-layout">
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
@@ -74,9 +88,17 @@
                             <h1>Visual Knowledge Graph</h1>
                             <p>Interactive map of theorems, concepts, and note links in your STEM Knowledge Base.</p>
                         </div>
-                        <button id="btn-fit-graph" class="btn-secondary">Center View</button>
-                        <button id="btn-refresh-graph" class="btn-secondary">Refresh Graph</button>
-                        <button id="btn-fullscreen-graph" class="btn-secondary">Fullscreen</button>
+                        <div class="header-actions">
+                            <button id="btn-multiselect-toggle" class="btn-secondary" title="Toggle multi-select mode (for touch/mobile)">
+                                <span class="multiselect-status-icon">☐</span> Multi-Select
+                            </button>
+                            <button id="btn-clear-selection" class="btn-secondary hidden" title="Clear current node selection">
+                                ✕ Clear (<span id="selected-count">0</span>)
+                            </button>
+                            <button id="btn-fit-graph" class="btn-secondary">Center View</button>
+                            <button id="btn-refresh-graph" class="btn-secondary">Refresh</button>
+                            <button id="btn-fullscreen-graph" class="btn-secondary">Fullscreen</button>
+                        </div>
                     </div>
                 </header>
 
