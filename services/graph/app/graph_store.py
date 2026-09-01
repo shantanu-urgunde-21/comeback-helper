@@ -46,6 +46,12 @@ CREATE TABLE IF NOT EXISTS edges (
 );
 """
 
+# Tiers `_extract_nodes_pass`/`_extract_edges_pass` can resolve to, in the
+# order index_note tries them. "block_parser" means both LLM tiers were
+# unavailable or returned nothing usable for that chunk/document, so a note
+# indexed on that tier got the regex/heading extractor, not an LLM.
+EXTRACTION_METHODS = ("gemini", "ollama", "block_parser")
+
 
 def _db_path() -> Path:
     from shared.config import get_settings
@@ -63,6 +69,17 @@ def _ensure_node_attrs_column(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE concepts ADD COLUMN node_attrs_json TEXT")
 
 
+def _ensure_edges_extraction_method_column(conn: sqlite3.Connection) -> None:
+    """Additive, idempotent ALTER TABLE for `edges.extraction_method` — which
+    LLM tier (or the block-parser fallback) produced this edge. NULL for rows
+    written before this column existed. Same guarded pattern as
+    `_ensure_node_attrs_column`.
+    """
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(edges)")}
+    if "extraction_method" not in cols:
+        conn.execute("ALTER TABLE edges ADD COLUMN extraction_method TEXT")
+
+
 @contextmanager
 def connect(db_path: Optional[Path] = None):
     path = db_path or _db_path()
@@ -71,6 +88,7 @@ def connect(db_path: Optional[Path] = None):
     try:
         conn.executescript(_SCHEMA)
         _ensure_node_attrs_column(conn)
+        _ensure_edges_extraction_method_column(conn)
         yield conn
         conn.commit()
     finally:
@@ -100,11 +118,12 @@ def insert_edge(
     chunk_id: str,
     quote: Optional[str],
     origin: str = "extracted",
+    extraction_method: Optional[str] = None,
 ) -> None:
     conn.execute(
-        "INSERT OR IGNORE INTO edges (source_id, target_id, relation, chunk_id, quote, origin) "
-        "VALUES (?, ?, ?, ?, ?, ?)",
-        (source_id, target_id, relation, chunk_id, quote, origin),
+        "INSERT OR IGNORE INTO edges (source_id, target_id, relation, chunk_id, quote, origin, extraction_method) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (source_id, target_id, relation, chunk_id, quote, origin, extraction_method),
     )
 
 
@@ -138,6 +157,7 @@ def upsert_node_attrs(
     description: str = "",
     provenance: "list | None" = None,
     aliases: "list | None" = None,
+    extraction_method: "str | None" = None,
 ) -> None:
     """UPDATE-only: the `concepts` row must already exist — every node id
     this is called with has already gone through `authority.resolve_concept`,
@@ -145,6 +165,8 @@ def upsert_node_attrs(
 
     `kind` carries the intrinsic MathEntityKind value; `role` carries the
     optional StatementRole (None for most nodes). See docs/vocabulary-diagnosis.md V2.
+    `extraction_method` (gemini | ollama | block_parser | None) records which
+    tier's output this node's attrs came from — see EXTRACTION_METHODS.
     """
     attrs = {
         "label": label,
@@ -154,6 +176,7 @@ def upsert_node_attrs(
         "description": description,
         "provenance": provenance or [],
         "aliases": aliases or [],
+        "extraction_method": extraction_method,
     }
     conn.execute(
         "UPDATE concepts SET node_attrs_json = ? WHERE id = ?",
@@ -221,10 +244,11 @@ def load_graph(db_path: Optional[Path] = None) -> nx.DiGraph:
                 attrs.setdefault("kind", "Object")
                 attrs.setdefault("role", None)
                 G.add_node(cid, id=cid, label=label, **attrs)
-            for src, tgt, relation in conn.execute(
-                "SELECT DISTINCT source_id, target_id, relation FROM edges"
+            for src, tgt, relation, extraction_method in conn.execute(
+                "SELECT source_id, target_id, relation, extraction_method FROM edges "
+                "GROUP BY source_id, target_id, relation"
             ):
-                G.add_edge(src, tgt, relation=relation, label=relation)
+                G.add_edge(src, tgt, relation=relation, label=relation, extraction_method=extraction_method)
         log.info(
             f"Loaded graph from SQLite ({G.number_of_nodes()} nodes, "
             f"{G.number_of_edges()} edges)"
@@ -259,6 +283,7 @@ def export_graph_json(graph: nx.DiGraph, path: Path) -> None:
                 ),
                 "provenance": graph.nodes[n].get("provenance", []),
                 "aliases": graph.nodes[n].get("aliases", []),
+                "extraction_method": graph.nodes[n].get("extraction_method"),
             }
             for n in graph.nodes
         ],
@@ -270,6 +295,7 @@ def export_graph_json(graph: nx.DiGraph, path: Path) -> None:
                 "target": v,
                 "relation": d.get("relation", "DEPENDS_ON"),
                 "label": d.get("relation", "DEPENDS_ON"),
+                "extraction_method": d.get("extraction_method"),
             }
             for u, v, d in graph.edges(data=True)
         ],

@@ -261,8 +261,14 @@ class MathGraphIndexer:
 
     def _extract_nodes_pass(
         self, text: str, course_domain: str
-    ) -> List[GraphNode]:
-        """Executes Pass 1 (Node & Taxonomy Extraction) via Gemini or Ollama."""
+    ) -> tuple[List[GraphNode], str]:
+        """Executes Pass 1 (Node & Taxonomy Extraction) via Gemini or Ollama.
+
+        Returns (nodes, method) — method is "gemini" or "ollama" on success,
+        "none" if every tier failed or was unavailable (index_note's caller
+        then falls back to the block parser and re-tags the chunk
+        "block_parser"). See graph_store.EXTRACTION_METHODS.
+        """
         client = get_gemini_client()
         if client:
             prompt = PASS1_NODE_PROMPT.format(text=text)
@@ -280,7 +286,7 @@ class MathGraphIndexer:
                     data = json.loads(response.text)
                     nodes = MathNodeExtraction(**data).nodes
                     log.info(f"Pass 1 (Gemini {model_name}): Extracted {len(nodes)} concept nodes.")
-                    return nodes
+                    return nodes, "gemini"
                 except Exception as e:
                     log.warning(f"Pass 1 Gemini ({model_name}) node extraction failed ({e}), trying candidate...")
 
@@ -303,11 +309,11 @@ class MathGraphIndexer:
                         data = json.loads(resp)
                         nodes = MathNodeExtraction(**data).nodes
                         log.info(f"Pass 1 (Ollama {model}): Extracted {len(nodes)} concept nodes.")
-                        return nodes
+                        return nodes, "ollama"
                     except Exception:
                         pass
 
-        return []
+        return [], "none"
 
     # ------------------------------------------------------------------
     # Pass 2: Edge & Relationship Extraction
@@ -319,15 +325,17 @@ class MathGraphIndexer:
         doc_concept_map: dict[str, str],       # surface name -> canonical_id (this document)
         existing_concept_map: dict[str, str],   # canonical_id -> label (existing graph)
         node_types: "dict[str, dict]",          # canonical_id -> {"kind":..., "role":...}
-    ) -> list[GraphEdge]:
+    ) -> "tuple[list[GraphEdge], str]":
         """Executes Pass 2 (Relationship & Edge Linker) via Gemini or Ollama.
 
         `node_types` is what lets the LLM pick type-appropriate relations —
         without it, Pass 2 was type-blind and emitted USES_LEMMA at theorems
         and PROVES at definitions (docs/vocabulary-diagnosis.md V3).
+
+        Returns (edges, method) — see `_extract_nodes_pass` for the method tag.
         """
         if not doc_concept_map:
-            return []
+            return [], "none"
 
         # Build the id->name view the prompt exposes to the LLM
         id_to_name: dict[str, str] = {v: k for k, v in doc_concept_map.items()}
@@ -368,7 +376,7 @@ class MathGraphIndexer:
                     data = json.loads(response.text)
                     edges = MathEdgeExtraction(**data).edges
                     log.info(f"Pass 2 (Gemini {model_name}): Linked {len(edges)} relationship edges.")
-                    return edges
+                    return edges, "gemini"
                 except Exception as e:
                     log.warning(f"Pass 2 Gemini ({model_name}) edge extraction failed ({e}), trying candidate...")
 
@@ -394,11 +402,11 @@ class MathGraphIndexer:
                         data = json.loads(resp)
                         edges = MathEdgeExtraction(**data).edges
                         log.info(f"Pass 2 (Ollama {model}): Linked {len(edges)} relationship edges.")
-                        return edges
+                        return edges, "ollama"
                     except Exception:
                         pass
 
-        return []
+        return [], "none"
 
     # ------------------------------------------------------------------
     # Tier 3: Deterministic LaTeX block + heading parser (NO prose regex)
@@ -622,7 +630,7 @@ class MathGraphIndexer:
             return self._block_extraction(text, course_domain)
 
         # Pass 1: Extract concept nodes
-        extracted_nodes = self._extract_nodes_pass(text, course_domain)
+        extracted_nodes, _ = self._extract_nodes_pass(text, course_domain)
 
         # Fallback to block extractor if LLM node extraction returned nothing
         if not extracted_nodes:
@@ -641,7 +649,7 @@ class MathGraphIndexer:
             }
             for n in valid_nodes
         }
-        extracted_edges = self._extract_edges_pass(text, doc_concept_map, existing_concept_map, node_types)
+        extracted_edges, _ = self._extract_edges_pass(text, doc_concept_map, existing_concept_map, node_types)
 
         return MathEntityExtraction(nodes=valid_nodes, edges=extracted_edges)
 
@@ -707,18 +715,22 @@ class MathGraphIndexer:
         # ------------------------------------------------------------------
         doc_concept_map: dict[str, str] = {}  # surface_name → canonical_id
         chunk_node_lists: list[tuple[str, list]] = []  # (chunk_id, [resolved node dicts])
+        chunk_methods: dict[str, str] = {}  # chunk_id → extraction tier actually used
 
         for chunk_id, chunk_text in chunks:
             if use_llm:
-                raw_nodes = self._extract_nodes_pass(chunk_text, course)
+                raw_nodes, method = self._extract_nodes_pass(chunk_text, course)
                 chunk_nodes = [n for n in raw_nodes if _is_valid_entity(n.name)]
                 if not chunk_nodes:
                     block = self._block_extraction(chunk_text, course)
                     chunk_nodes = [n for n in block.nodes if _is_valid_entity(n.name)]
+                    method = "block_parser"
             else:
                 block = self._block_extraction(chunk_text, course)
                 chunk_nodes = [n for n in block.nodes if _is_valid_entity(n.name)]
+                method = "block_parser"
 
+            chunk_methods[chunk_id] = method
             resolved_nodes = []
             for node in chunk_nodes:
                 n_id = self._resolve_entity(
@@ -752,10 +764,11 @@ class MathGraphIndexer:
                         "kind": self.graph.nodes[cid].get("kind", "Object"),
                         "role": self.graph.nodes[cid].get("role"),
                     }
-            raw_edges = self._extract_edges_pass(content, doc_concept_map, existing_concept_map, node_types)
+            raw_edges, edge_method = self._extract_edges_pass(content, doc_concept_map, existing_concept_map, node_types)
         else:
             block = self._block_extraction(content, course)
             raw_edges = block.edges
+            edge_method = "block_parser"
 
         # Build lookup maps for endpoint normalization
         id_to_name: dict[str, str] = {v: k for k, v in doc_concept_map.items()}
@@ -770,6 +783,7 @@ class MathGraphIndexer:
         with graph_store.connect() as conn:
             # Write nodes and chunk-level mentions
             for chunk_id, resolved_nodes in chunk_node_lists:
+                chunk_method = chunk_methods.get(chunk_id)
                 for node, n_id in resolved_nodes:
                     kind = node.kind.value if hasattr(node.kind, "value") else str(node.kind)
                     role = node.role.value if getattr(node, "role", None) is not None else None
@@ -790,6 +804,7 @@ class MathGraphIndexer:
                             description=node.description,
                             provenance=[prov_record],
                             aliases=node.aliases if hasattr(node, "aliases") else [],
+                            extraction_method=chunk_method,
                         )
                     else:
                         self.graph.nodes[n_id]["taxonomy"] = tax_dict
@@ -808,6 +823,7 @@ class MathGraphIndexer:
                         description=node_data.get("description", ""),
                         provenance=node_data.get("provenance", []),
                         aliases=node_data.get("aliases", []),
+                        extraction_method=node_data.get("extraction_method"),
                     )
                     # Chunk-level chunk_id (Phase 4: was document_id in Phase 3)
                     graph_store.insert_mention(
@@ -843,7 +859,7 @@ class MathGraphIndexer:
                     if outcome == "keep_forward":
                         self.graph.remove_edge(tgt, src)
                         graph_store.delete_edge(conn, tgt, src)
-                        self.graph.add_edge(src, tgt, relation=rel, label=rel)
+                        self.graph.add_edge(src, tgt, relation=rel, label=rel, extraction_method=edge_method)
                         graph_store.insert_edge(
                             conn,
                             source_id=src,
@@ -852,6 +868,7 @@ class MathGraphIndexer:
                             chunk_id=document_id,
                             quote=edge.description,
                             origin="extracted",
+                            extraction_method=edge_method,
                         )
                         log.info(f"DAG: Replaced weaker reverse edge {tgt} -> {src} with {src} -[{rel}]-> {tgt}")
                     elif outcome == "equivalent":
@@ -859,7 +876,7 @@ class MathGraphIndexer:
                         self.graph.remove_edge(tgt, src)
                         graph_store.delete_edge(conn, tgt, src)
                         canon_u, canon_v = sorted([src, tgt])
-                        self.graph.add_edge(canon_u, canon_v, relation="EQUIVALENT_TO", label="EQUIVALENT_TO")
+                        self.graph.add_edge(canon_u, canon_v, relation="EQUIVALENT_TO", label="EQUIVALENT_TO", extraction_method=edge_method)
                         graph_store.insert_edge(
                             conn,
                             source_id=canon_u,
@@ -868,12 +885,13 @@ class MathGraphIndexer:
                             chunk_id=document_id,
                             quote=edge.description,
                             origin="extracted",
+                            extraction_method=edge_method,
                         )
                         log.info(f"DAG: Converted mutual 2-cycle between {src} and {tgt} into EQUIVALENT_TO")
                     else:
                         log.info(f"DAG: Kept stronger existing edge {tgt} -[{existing_rel}]-> {src} over {src} -[{rel}]-> {tgt}")
                 else:
-                    self.graph.add_edge(src, tgt, relation=rel, label=rel)
+                    self.graph.add_edge(src, tgt, relation=rel, label=rel, extraction_method=edge_method)
                     graph_store.insert_edge(
                         conn,
                         source_id=src,
@@ -882,6 +900,7 @@ class MathGraphIndexer:
                         chunk_id=document_id,
                         quote=edge.description,
                         origin="extracted",
+                        extraction_method=edge_method,
                     )
 
     # ------------------------------------------------------------------

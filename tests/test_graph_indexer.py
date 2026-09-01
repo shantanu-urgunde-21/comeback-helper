@@ -214,6 +214,53 @@ class TestPhase4(unittest.TestCase):
         finally:
             os.unlink(tmp_path)
 
+    def test_index_note_tags_extraction_method_block_parser(self):
+        """use_llm=False must tag new nodes/edges block_parser, so graph_health.py
+        can tell degraded (non-LLM) content apart from Gemini/Ollama output."""
+        import tempfile, os
+        # Synthetic, unlikely-to-collide names — a name already present in the
+        # (unisolated, real) graph would hit the node-update branch instead of
+        # node-creation, which deliberately leaves extraction_method untouched.
+        note = (
+            "## Zzq Synthetic Extraction Probe\nA synthetic test concept.\n"
+            "## Zzq Synthetic Extraction Probe Two\nDepends on the probe above.\n"
+            "[[Zzq Synthetic Extraction Probe]]\n"
+        )
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".md", dir=self.indexer.vault_path,
+                                         delete=False, encoding="utf-8") as f:
+            f.write(note)
+            tmp_path = f.name
+        nodes_before = set(self.indexer.graph.nodes)
+        new_nodes: set = set()
+        try:
+            self.indexer.index_note(Path(tmp_path), use_llm=False)
+            new_nodes = set(self.indexer.graph.nodes) - nodes_before
+            self.assertTrue(new_nodes, "expected at least one newly created node")
+            node_methods = [self.indexer.graph.nodes[n].get("extraction_method") for n in new_nodes]
+            self.assertTrue(all(m == "block_parser" for m in node_methods),
+                            f"every newly created node from a use_llm=False index should be tagged block_parser, got {node_methods}")
+        finally:
+            os.unlink(tmp_path)
+            # This test writes real .storage/concepts.db (CLAUDE.md: tests
+            # aren't isolated) — unlike other tests here, the concept it
+            # creates is synthetic junk, not a real course concept worth
+            # keeping around, so scrub it rather than leaving it for
+            # graph_health.py to report as a suspect node forever.
+            for n in new_nodes:
+                self.indexer.graph.remove_node(n)
+            if new_nodes:
+                import sqlite3
+                from shared.config import get_settings
+                conn = sqlite3.connect(get_settings().storage_path / "concepts.db")
+                placeholders = ",".join("?" for _ in new_nodes)
+                ids = tuple(new_nodes)
+                conn.execute(f"DELETE FROM mentions WHERE concept_id IN ({placeholders})", ids)
+                conn.execute(f"DELETE FROM aliases WHERE concept_id IN ({placeholders})", ids)
+                conn.execute(f"DELETE FROM edges WHERE source_id IN ({placeholders}) OR target_id IN ({placeholders})", ids + ids)
+                conn.execute(f"DELETE FROM concepts WHERE id IN ({placeholders})", ids)
+                conn.commit()
+                conn.close()
+
 
 if __name__ == "__main__":
     unittest.main()

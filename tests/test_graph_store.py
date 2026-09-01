@@ -148,6 +148,44 @@ class TestGraphStore(unittest.TestCase):
         self.assertEqual(node["type"], "Statement")   # back-compat key carries kind
         self.assertEqual(node["role"], "Theorem")
 
+    def test_round_trip_preserves_extraction_method(self):
+        """Node and edge extraction_method survive a SQLite write/read cycle,
+        so degraded (block_parser) content stays distinguishable from LLM output."""
+        self._make_concept("CUST_g", "Gemini Node")
+        self._make_concept("CUST_b", "Block Node")
+        with graph_store.connect(self.db_path) as conn:
+            graph_store.upsert_node_attrs(
+                conn, "CUST_g", label="Gemini Node", kind="Object",
+                taxonomy={}, description="", provenance=[], aliases=[],
+                extraction_method="gemini",
+            )
+            graph_store.upsert_node_attrs(
+                conn, "CUST_b", label="Block Node", kind="Object",
+                taxonomy={}, description="", provenance=[], aliases=[],
+                extraction_method="block_parser",
+            )
+            graph_store.insert_edge(
+                conn, source_id="CUST_g", target_id="CUST_b", relation="DEPENDS_ON",
+                chunk_id="doc1", quote="", origin="extracted",
+                extraction_method="ollama",
+            )
+        G = graph_store.load_graph(db_path=self.db_path)
+        self.assertEqual(G.nodes["CUST_g"]["extraction_method"], "gemini")
+        self.assertEqual(G.nodes["CUST_b"]["extraction_method"], "block_parser")
+        self.assertEqual(G.edges["CUST_g", "CUST_b"]["extraction_method"], "ollama")
+
+    def test_legacy_node_without_extraction_method_loads_as_none(self):
+        """A node written before this column existed must still load (as None),
+        not crash graph_health.py's extraction-provenance report."""
+        self._make_concept("CUST_l", "Legacy")
+        with graph_store.connect(self.db_path) as conn:
+            conn.execute(
+                "UPDATE concepts SET node_attrs_json = ? WHERE id = ?",
+                (json.dumps({"label": "Legacy", "kind": "Object"}), "CUST_l"),
+            )
+        G = graph_store.load_graph(db_path=self.db_path)
+        self.assertIsNone(G.nodes["CUST_l"].get("extraction_method"))
+
 
 if __name__ == "__main__":
     unittest.main()

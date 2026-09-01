@@ -136,6 +136,7 @@ def graph_stats(as_json: bool):
         is_dag = True
         cycle_count = 0
         types_count: dict[str, int] = {}
+        extraction_methods: dict[str, int] = {}
         if G.number_of_nodes() > 0:
             components = nx.number_connected_components(G.to_undirected())
             isolates = len(list(nx.isolates(G)))
@@ -156,6 +157,9 @@ def graph_stats(as_json: bool):
                 label = f"{kind}/{role}" if (kind == "Statement" and role) else kind
                 types_count[label] = types_count.get(label, 0) + 1
 
+                method = data.get("extraction_method") or "unknown"
+                extraction_methods[method] = extraction_methods.get(method, 0) + 1
+
         if as_json:
             _emit({
                 "status": "success",
@@ -167,6 +171,7 @@ def graph_stats(as_json: bool):
                 "connected_components": components,
                 "isolated_nodes": isolates,
                 "kinds": types_count,
+                "extraction_methods": extraction_methods,
             })
             return
 
@@ -183,6 +188,10 @@ def graph_stats(as_json: bool):
             table.add_row("Isolated Nodes", f"{isolates} [Warning]" if isolates > 0 else f"{isolates} [OK]")
             types_str = ", ".join([f"{k}({v})" for k, v in types_count.items()])
             table.add_row("Node Kinds", types_str)
+            methods_str = ", ".join([f"{k}({v})" for k, v in extraction_methods.items()])
+            degraded = extraction_methods.get("block_parser", 0) + extraction_methods.get("unknown", 0)
+            style = "[bold yellow]" if degraded else ""
+            table.add_row("Extraction Tier", f"{style}{methods_str}")
 
         console.print(table)
     except Exception as e:

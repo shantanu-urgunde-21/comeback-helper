@@ -869,6 +869,14 @@ textarea:focus {
     display: flex;
 }
 
+.graph-container:fullscreen,
+.graph-container:-webkit-full-screen {
+    height: 100vh;
+    width: 100vw;
+    border-radius: 0;
+    border: none;
+}
+
 .graph-canvas {
     flex: 1 1 auto;
     height: 100%;

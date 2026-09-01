@@ -296,6 +296,33 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    const btnFullscreenGraph = document.getElementById('btn-fullscreen-graph');
+    const graphContainerEl = document.querySelector('.graph-container');
+    if (btnFullscreenGraph && graphContainerEl) {
+        btnFullscreenGraph.addEventListener('click', () => {
+            if (document.fullscreenElement) {
+                document.exitFullscreen();
+            } else {
+                const request = graphContainerEl.requestFullscreen || graphContainerEl.webkitRequestFullscreen;
+                if (request) request.call(graphContainerEl);
+            }
+        });
+        document.addEventListener('fullscreenchange', () => {
+            const isFullscreen = document.fullscreenElement === graphContainerEl;
+            btnFullscreenGraph.textContent = isFullscreen ? 'Exit Fullscreen' : 'Fullscreen';
+            // The canvas' pixel size changed (600px tall panel -> full
+            // viewport or back) — vis-network sizes its <canvas> off the
+            // container's dimensions at creation time, so it needs an
+            // explicit redraw/refit or it stays sized for the old box.
+            if (graphNetwork) {
+                setTimeout(() => {
+                    graphNetwork.redraw();
+                    graphNetwork.fit({ animation: { duration: 400, easingFunction: 'easeInOutQuad' } });
+                }, 50);
+            }
+        });
+    }
+
     // Attach filter & runtime customization listeners
     document.querySelectorAll('.graph-type-filter').forEach(cb => {
         cb.addEventListener('change', () => { if (currentGraphData) renderGraphWithFilters(); });
@@ -357,6 +384,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let currentGraphData = null;
     let graphNetwork = null;
+    let graphNodesDataSet = null;
+    let graphEdgesDataSet = null;
 
     async function loadKnowledgeGraph() {
         const container = document.getElementById('vis-graph-canvas');
@@ -374,7 +403,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateGraphRuntimeOptions() {
         if (!graphNetwork) return;
 
-        const solver = document.getElementById('graph-layout-solver')?.value || 'barnesHut';
+        const solver = document.getElementById('graph-layout-solver')?.value || 'forceAtlas2Based';
         const springLength = parseInt(document.getElementById('graph-spring-length')?.value || '180');
         const physicsEnabled = document.getElementById('graph-physics-toggle')?.checked ?? true;
 
@@ -489,6 +518,52 @@ document.addEventListener('DOMContentLoaded', () => {
         panel.innerHTML = '<div class="graph-detail-placeholder">Click a node to see its full details.</div>';
     }
 
+    const EDGE_BASE_COLOR = { color: '#3b82f6', opacity: 0.55 };
+    const EDGE_BASE_FONT = { color: '#9ca3af', size: 10, face: 'Inter', strokeWidth: 0 };
+    const NODE_BASE_FONT = { color: '#ffffff', face: 'Inter', size: 13 };
+    const NODE_DIM_FONT = { color: 'rgba(255,255,255,0.08)', face: 'Inter', size: 13 };
+
+    // The set of nodes the user has clicked (ctrl/cmd-click adds to it,
+    // a plain click replaces it) — highlightNeighborhood shows the union of
+    // every selected node's neighborhood, so selecting several nodes lets
+    // you compare their neighborhoods at once.
+    let selectedNodeIds = new Set();
+
+    function highlightNeighborhood(nodeIds) {
+        if (!graphNetwork || !graphNodesDataSet || !graphEdgesDataSet) return;
+        const keepNodes = new Set(nodeIds);
+        const keepEdges = new Set();
+        for (const id of nodeIds) {
+            graphNetwork.getConnectedNodes(id).forEach(n => keepNodes.add(n));
+            graphNetwork.getConnectedEdges(id).forEach(e => keepEdges.add(e));
+        }
+
+        graphNodesDataSet.update(graphNodesDataSet.get().map(n => ({
+            id: n.id,
+            opacity: keepNodes.has(n.id) ? 1 : 0.12,
+            font: keepNodes.has(n.id) ? NODE_BASE_FONT : NODE_DIM_FONT,
+        })));
+
+        graphEdgesDataSet.update(graphEdgesDataSet.get().map(e => {
+            const highlight = keepEdges.has(e.id);
+            return {
+                id: e.id,
+                color: highlight ? { color: '#f59e0b', opacity: 0.95 } : { color: EDGE_BASE_COLOR.color, opacity: 0.06 },
+                width: highlight ? 2.5 : 1,
+                font: highlight ? { ...EDGE_BASE_FONT, color: '#facc15' } : { ...EDGE_BASE_FONT, color: 'rgba(156,163,175,0.1)' },
+            };
+        }));
+    }
+
+    function clearHighlight() {
+        selectedNodeIds.clear();
+        if (!graphNodesDataSet || !graphEdgesDataSet) return;
+        graphNodesDataSet.update(graphNodesDataSet.get().map(n => ({ id: n.id, opacity: 1, font: NODE_BASE_FONT })));
+        graphEdgesDataSet.update(graphEdgesDataSet.get().map(e => ({
+            id: e.id, color: EDGE_BASE_COLOR, width: 1, font: EDGE_BASE_FONT,
+        })));
+    }
+
     function showNodeDetail(nodeId) {
         const panel = document.getElementById('graph-detail-panel');
         if (!panel || !currentGraphData) return;
@@ -554,7 +629,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const activeTypes = new Set();
         document.querySelectorAll('.graph-type-filter:checked').forEach(cb => activeTypes.add(cb.value));
         const courseFilter = document.getElementById('graph-course-filter')?.value || '';
-        const solver = document.getElementById('graph-layout-solver')?.value || 'barnesHut';
+        const solver = document.getElementById('graph-layout-solver')?.value || 'forceAtlas2Based';
         const springLength = parseInt(document.getElementById('graph-spring-length')?.value || '180');
         const baseNodeSize = parseInt(document.getElementById('graph-node-scale')?.value || '18');
         const showEdgeLabels = document.getElementById('graph-edge-labels')?.checked ?? true;
@@ -594,7 +669,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     highlight: { background: fillColor, border: '#ffffff' }
                 },
                 borderWidth: 1,
-                font: { color: '#ffffff', face: 'Inter', size: 13 },
+                font: NODE_BASE_FONT,
                 shape: 'dot',
                 size: nodeSize,
                 title: `[${role}] ${n.label || n.id}\nDomain: ${domain}\nHierarchy depth: ${depth}`
@@ -607,20 +682,37 @@ document.addEventListener('DOMContentLoaded', () => {
                 from: e.from || e.source,
                 to: e.to || e.target,
                 label: showEdgeLabels && rel !== 'links_to' ? rel : undefined,
-                color: { color: '#3b82f6', opacity: 0.55 },
+                color: EDGE_BASE_COLOR,
                 arrows: rel === 'EQUIVALENT_TO' ? undefined : 'to',
-                font: { color: '#9ca3af', size: 10, face: 'Inter', strokeWidth: 0 }
+                font: EDGE_BASE_FONT
             };
         });
 
+        graphNodesDataSet = new vis.DataSet(nodesArray);
+        graphEdgesDataSet = new vis.DataSet(edgesArray);
         const networkData = {
-            nodes: new vis.DataSet(nodesArray),
-            edges: new vis.DataSet(edgesArray)
+            nodes: graphNodesDataSet,
+            edges: graphEdgesDataSet
         };
 
         let options = {
-            interaction: { hover: true, tooltipDelay: 150 },
-            physics: { enabled: physicsEnabled }
+            interaction: { hover: true, tooltipDelay: 150, hideEdgesOnDrag: true, hideEdgesOnZoom: true },
+            // 'dynamic' (the vis-network default) gives every edge a hidden
+            // support node that physics also simulates — with ~175 edges
+            // that's ~175 phantom bodies on top of the real nodes, and the
+            // main cause of this view feeling unresponsive as the graph grew.
+            // 'continuous' still curves the line but is computed directly
+            // from a roundness formula, no physics support node involved,
+            // so it stays cheap.
+            edges: { smooth: { enabled: true, type: 'continuous', roundness: 0.15 } },
+            physics: {
+                enabled: physicsEnabled,
+                // Uncapped default is up to 1000 iterations; isolated nodes
+                // (unanchored — no springs, only repulsion/gravity) can keep
+                // the simulation oscillating below the auto-stop threshold
+                // instead of ever finishing, so cap it explicitly.
+                stabilization: { iterations: 200, fit: true }
+            }
         };
 
         if (solver === 'hierarchical') {
@@ -650,6 +742,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // apart from crowded neighbors, within and across levels.
             options.physics = {
                 enabled: physicsEnabled,
+                stabilization: { iterations: 200, fit: true },
                 solver: 'hierarchicalRepulsion',
                 hierarchicalRepulsion: {
                     nodeDistance: 200,
@@ -663,6 +756,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (solver === 'forceAtlas2Based') {
             options.physics = {
                 enabled: physicsEnabled,
+                stabilization: { iterations: 200, fit: true },
                 solver: 'forceAtlas2Based',
                 forceAtlas2Based: {
                     gravitationalConstant: -50,
@@ -674,13 +768,23 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             options.physics = {
                 enabled: physicsEnabled,
+                // A wider spread needs more iterations to settle than the
+                // tight hairball it replaces did.
+                stabilization: { iterations: 300, fit: true },
                 solver: 'barnesHut',
                 barnesHut: {
-                    gravitationalConstant: -7000,
-                    centralGravity: 0.2,
+                    // -7000/0.2 pulled every node toward one shared center
+                    // hard enough that repulsion couldn't keep well-connected
+                    // nodes from overlapping — that's the clutter in the
+                    // dense core. Stronger repulsion + much weaker central
+                    // pull lets connectivity (springs), not gravity, decide
+                    // where clusters land.
+                    gravitationalConstant: -18000,
+                    centralGravity: 0.05,
                     springLength: springLength,
                     springConstant: 0.04,
-                    damping: 0.09
+                    damping: 0.15,
+                    avoidOverlap: 0.5
                 }
             };
         }
@@ -688,15 +792,48 @@ document.addEventListener('DOMContentLoaded', () => {
         graphNetwork = new vis.Network(container, networkData, options);
         graphNetwork.on('click', (params) => {
             if (params.nodes && params.nodes.length > 0) {
-                showNodeDetail(params.nodes[0]);
+                const nodeId = params.nodes[0];
+                const src = params.event && params.event.srcEvent;
+                const isMulti = !!(src && (src.ctrlKey || src.metaKey));
+
+                if (isMulti && selectedNodeIds.has(nodeId)) {
+                    selectedNodeIds.delete(nodeId);
+                } else if (isMulti) {
+                    selectedNodeIds.add(nodeId);
+                } else {
+                    selectedNodeIds = new Set([nodeId]);
+                }
+
+                if (selectedNodeIds.size === 0) {
+                    clearNodeDetail();
+                    clearHighlight();
+                } else {
+                    showNodeDetail(nodeId);
+                    highlightNeighborhood(selectedNodeIds);
+                }
             } else {
                 clearNodeDetail();
+                clearHighlight();
             }
         });
 
         // Automatically center the entire graph once loaded
         graphNetwork.once('stabilizationIterationsDone', () => {
             graphNetwork.fit({ animation: { duration: 600, easingFunction: 'easeInOutQuad' } });
+            // Physics' only job here is computing the initial layout. Left
+            // running, it never actually finishes: isolated nodes (43 of
+            // them — no springs, only repulsion/gravity) have nothing to
+            // reach equilibrium against, so the simulation keeps computing
+            // forces every frame forever, competing with pan/zoom for the
+            // render loop — that's what made the view unresponsive and
+            // scroll-to-zoom feel dead. Freeze once laid out; the "Physics
+            // Simulation" toggle re-enables it on demand (e.g. to drag a
+            // node and watch its neighbors react).
+            graphNetwork.setOptions({ physics: { enabled: false } });
+            const physicsToggle = document.getElementById('graph-physics-toggle');
+            const physicsStatus = document.getElementById('physics-toggle-status');
+            if (physicsToggle) physicsToggle.checked = false;
+            if (physicsStatus) physicsStatus.textContent = 'Frozen';
         });
         setTimeout(() => {
             if (graphNetwork) graphNetwork.fit({ animation: true });
