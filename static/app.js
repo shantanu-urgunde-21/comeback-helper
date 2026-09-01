@@ -289,6 +289,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnRefreshGraph = document.getElementById('btn-refresh-graph');
     if (btnRefreshGraph) btnRefreshGraph.addEventListener('click', loadKnowledgeGraph);
 
+    const btnFitGraph = document.getElementById('btn-fit-graph');
+    if (btnFitGraph) {
+        btnFitGraph.addEventListener('click', () => {
+            if (graphNetwork) graphNetwork.fit({ animation: { duration: 800, easingFunction: 'easeInOutQuad' } });
+        });
+    }
+
     // Attach filter & runtime customization listeners
     document.querySelectorAll('.graph-type-filter').forEach(cb => {
         cb.addEventListener('change', () => { if (currentGraphData) renderGraphWithFilters(); });
@@ -417,7 +424,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const outgoing = new Map();
         nodes.forEach(n => outgoing.set(n.id, []));
         edges.forEach(e => {
-            if (outgoing.has(e.from)) outgoing.get(e.from).push(e.to);
+            const from = e.from || e.source;
+            const to = e.to || e.target;
+            if (outgoing.has(from)) outgoing.get(from).push(to);
         });
 
         const depths = new Map();
@@ -452,12 +461,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const ROLE_BORDER_COLORS = {
-        'Theorem':    '#f59e0b',
+        'Object':     '#3b82f6',
+        'Statement':  '#f59e0b',
         'Definition': '#10b981',
+        'Method':     '#8b5cf6',
         'Formula':    '#06b6d4',
         'Proof':      '#ec4899',
+        'Example':    '#14b8a6',
+        'Theorem':    '#f59e0b',
         'Lemma':      '#eab308',
-        'Note':       '#818cf8',
         'Concept':    '#94a3b8',
     };
 
@@ -549,13 +561,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const physicsEnabled = document.getElementById('graph-physics-toggle')?.checked ?? true;
 
         const filteredNodes = currentGraphData.nodes.filter(n => {
-            if (!activeTypes.has(n.type || 'Concept')) return false;
+            const kind = n.kind || n.type || n.entity_type || 'Object';
+            if (activeTypes.size > 0 && !activeTypes.has(kind)) return false;
             if (courseFilter && n.group !== courseFilter && n.group !== 'Concept') return false;
             return true;
         });
         const nodeIds = new Set(filteredNodes.map(n => n.id));
 
-        const filteredEdges = currentGraphData.edges.filter(e => nodeIds.has(e.from) && nodeIds.has(e.to));
+        const filteredEdges = currentGraphData.edges.filter(e => {
+            const from = e.from || e.source;
+            const to = e.to || e.target;
+            return nodeIds.has(from) && nodeIds.has(to);
+        });
 
         // Depths computed over the full graph (not just the filtered view)
         // so a node's color stays stable as filters toggle.
@@ -563,17 +580,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const nodesArray = filteredNodes.map(n => {
             const domain = (n.taxonomy && n.taxonomy.domain) ? n.taxonomy.domain : 'Differential Equations';
-            const role = n.type || n.entity_type || 'Concept';
+            const role = n.role ? `${n.kind || n.type || 'Statement'} / ${n.role}` : (n.kind || n.type || n.entity_type || 'Object');
             const depth = depths.get(n.id) || 0;
             const fillColor = depthToColor(depth, maxDepth);
-            const nodeSize = role === 'Note' ? Math.round(baseNodeSize * 1.3) : baseNodeSize;
+            const nodeSize = (n.kind === 'Statement' && n.role === 'Theorem') ? Math.round(baseNodeSize * 1.25) : baseNodeSize;
 
             return {
                 id: n.id,
                 label: n.label || n.name || n.id,
-                // No per-type border ring — it competed with the depth
-                // gradient fill for attention. Type is still available on
-                // hover (title) and in the click-through detail panel.
                 color: {
                     background: fillColor,
                     border: fillColor,
@@ -587,14 +601,17 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         });
 
-        const edgesArray = filteredEdges.map(e => ({
-            from: e.from,
-            to: e.to,
-            label: showEdgeLabels && e.label !== 'links_to' ? e.label : undefined,
-            color: { color: '#3b82f6', opacity: 0.45 },
-            arrows: 'to',
-            font: { color: '#9ca3af', size: 10, face: 'Inter', strokeWidth: 0 }
-        }));
+        const edgesArray = filteredEdges.map(e => {
+            const rel = e.label || e.relation || '';
+            return {
+                from: e.from || e.source,
+                to: e.to || e.target,
+                label: showEdgeLabels && rel !== 'links_to' ? rel : undefined,
+                color: { color: '#3b82f6', opacity: 0.55 },
+                arrows: rel === 'EQUIVALENT_TO' ? undefined : 'to',
+                font: { color: '#9ca3af', size: 10, face: 'Inter', strokeWidth: 0 }
+            };
+        });
 
         const networkData = {
             nodes: new vis.DataSet(nodesArray),
@@ -676,6 +693,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 clearNodeDetail();
             }
         });
+
+        // Automatically center the entire graph once loaded
+        graphNetwork.once('stabilizationIterationsDone', () => {
+            graphNetwork.fit({ animation: { duration: 600, easingFunction: 'easeInOutQuad' } });
+        });
+        setTimeout(() => {
+            if (graphNetwork) graphNetwork.fit({ animation: true });
+        }, 400);
     }
 
     // =====================================================================

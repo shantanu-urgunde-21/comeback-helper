@@ -237,6 +237,7 @@
                             <h1>Visual Knowledge Graph</h1>
                             <p>Interactive map of theorems, concepts, and note links in your Obsidian Vault.</p>
                         </div>
+                        <button id="btn-fit-graph" class="btn-secondary">Center View</button>
                         <button id="btn-refresh-graph" class="btn-secondary">Refresh Graph</button>
                     </div>
                 </header>
@@ -245,12 +246,16 @@
                 <div class="graph-filters" id="graph-filters">
                     <div class="filter-group">
                         <span class="filter-label">Filter by Type:</span>
-                        <label class="chip-check"><input type="checkbox" value="Note" checked class="graph-type-filter"><span class="chip">📝 Notes</span></label>
-                        <label class="chip-check"><input type="checkbox" value="Concept" checked class="graph-type-filter"><span class="chip">💡 Concepts</span></label>
-                        <label class="chip-check"><input type="checkbox" value="Theorem" checked class="graph-type-filter"><span class="chip">📐 Theorems</span></label>
+                        <label class="chip-check"><input type="checkbox" value="Object" checked class="graph-type-filter"><span class="chip">💡 Objects</span></label>
+                        <label class="chip-check"><input type="checkbox" value="Statement" checked class="graph-type-filter"><span class="chip">📐 Statements</span></label>
                         <label class="chip-check"><input type="checkbox" value="Definition" checked class="graph-type-filter"><span class="chip">📖 Definitions</span></label>
+                        <label class="chip-check"><input type="checkbox" value="Method" checked class="graph-type-filter"><span class="chip">⚙️ Methods</span></label>
                         <label class="chip-check"><input type="checkbox" value="Formula" checked class="graph-type-filter"><span class="chip">🔣 Formulas</span></label>
                         <label class="chip-check"><input type="checkbox" value="Proof" checked class="graph-type-filter"><span class="chip">✏️ Proofs</span></label>
+                        <label class="chip-check"><input type="checkbox" value="Example" checked class="graph-type-filter"><span class="chip">🧪 Examples</span></label>
+                        <!-- Legacy types for backward compatibility -->
+                        <label class="chip-check" style="display:none;"><input type="checkbox" value="Concept" checked class="graph-type-filter"></label>
+                        <label class="chip-check" style="display:none;"><input type="checkbox" value="Theorem" checked class="graph-type-filter"></label>
                     </div>
                     <div class="filter-group">
                         <span class="filter-label">Course:</span>

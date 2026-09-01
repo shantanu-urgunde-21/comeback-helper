@@ -1,6 +1,7 @@
 # Puts the services root on sys.path under the module names the containers
 # use. Must precede the service imports below. See src/__init__.py.
 import src  # noqa: F401
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -39,13 +40,13 @@ class TestGraphStore(unittest.TestCase):
         with graph_store.connect(self.db_path) as conn:
             graph_store.upsert_node_attrs(
                 conn, "CUST_a",
-                label="Alpha Concept", entity_type="Concept",
+                label="Alpha Concept", kind="Object",
                 taxonomy={"domain": "Test", "subdomain": "Sub", "topic": "CUST_a"},
                 description="An alpha thing.", provenance=[], aliases=[],
             )
             graph_store.upsert_node_attrs(
                 conn, "CUST_b",
-                label="Beta Concept", entity_type="Theorem",
+                label="Beta Concept", kind="Statement", role="Theorem",
                 taxonomy={"domain": "Test", "subdomain": "Sub", "topic": "CUST_b"},
                 description="A beta thing.", provenance=[], aliases=[],
             )
@@ -60,7 +61,7 @@ class TestGraphStore(unittest.TestCase):
         self.assertEqual(G.number_of_nodes(), 2)
         self.assertEqual(G.number_of_edges(), 1)
         self.assertEqual(G.nodes["CUST_a"]["label"], "Alpha Concept")
-        self.assertEqual(G.nodes["CUST_b"]["entity_type"], "Theorem")
+        self.assertEqual(G.nodes["CUST_b"]["kind"], "Statement")
         self.assertTrue(G.has_edge("CUST_b", "CUST_a"))
         self.assertEqual(G.edges["CUST_b", "CUST_a"]["relation"], "DEPENDS_ON")
 
@@ -110,6 +111,42 @@ class TestGraphStore(unittest.TestCase):
         with authority._connect(self.db_path) as conn:
             still_there = conn.execute("SELECT COUNT(*) FROM concepts WHERE id = 'CUST_a'").fetchone()[0]
         self.assertEqual(still_there, 1)
+
+    def test_round_trip_preserves_kind_and_role(self):
+        self._make_concept("CUST_t", "Schwarz")
+        with graph_store.connect(self.db_path) as conn:
+            graph_store.upsert_node_attrs(
+                conn, "CUST_t", label="Schwarz's Theorem",
+                kind="Statement", role="Theorem",
+                taxonomy={}, description="", provenance=[], aliases=[],
+            )
+        G = graph_store.load_graph(db_path=self.db_path)
+        self.assertEqual(G.nodes["CUST_t"]["kind"], "Statement")
+        self.assertEqual(G.nodes["CUST_t"]["role"], "Theorem")
+
+    def test_legacy_entity_type_row_loads_as_kind_and_role(self):
+        """A node written before the split must still load, mapped onto both axes."""
+        self._make_concept("CUST_o", "Old")
+        with graph_store.connect(self.db_path) as conn:
+            conn.execute(
+                "UPDATE concepts SET node_attrs_json = ? WHERE id = ?",
+                (json.dumps({"label": "Abel's Lemma", "entity_type": "Lemma"}), "CUST_o"),
+            )
+        G = graph_store.load_graph(db_path=self.db_path)
+        self.assertEqual(G.nodes["CUST_o"]["kind"], "Statement")
+        self.assertEqual(G.nodes["CUST_o"]["role"], "Lemma")
+
+    def test_export_writes_kind_under_type_key_and_role_alongside(self):
+        import networkx as nx
+        G = nx.DiGraph()
+        G.add_node("CUST_t", label="Schwarz's Theorem", kind="Statement", role="Theorem")
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "graph.json"
+            graph_store.export_graph_json(G, out)
+            data = json.loads(out.read_text(encoding="utf-8"))
+        node = data["nodes"][0]
+        self.assertEqual(node["type"], "Statement")   # back-compat key carries kind
+        self.assertEqual(node["role"], "Theorem")
 
 
 if __name__ == "__main__":

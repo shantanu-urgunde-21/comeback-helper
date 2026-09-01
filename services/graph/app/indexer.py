@@ -11,15 +11,18 @@ from .schema import (
     MathNodeExtraction,
     MathEdgeExtraction,
     MathEntityExtraction,
+    MathEntityKind,
     GraphNode,
     GraphEdge,
     ConceptTaxonomy,
     Provenance,
     normalize,
+    SYMMETRIC_RELATIONS,
 )
 from shared.llm.gemini import get_gemini_client, get_gemini_model_name, get_gemini_candidate_models
 from shared.llm.ollama import get_ollama_client
 from shared.logger import log
+from .dag import will_create_cycle, repair_graph_dag, resolve_2cycle
 
 
 # ---------------------------------------------------------------------------
@@ -42,18 +45,26 @@ _STRIP_WORDS = {"a", "an", "the", "of", "in", "on", "for", "to", "and", "or", "i
 
 
 def _normalize_relation(source: str, target: str, relation: str) -> tuple[str, str, str]:
-    """Canonicalizes inverse relation types onto one direction.
+    """Canonicalizes relation direction and retired names.
 
-    PREREQUISITE_FOR(A, B) and DEPENDS_ON(B, A) assert the same fact, but
-    the extractor could emit either one depending on the note's phrasing.
-    Left unnormalized, a note asserting both forms for the same pair (or
-    two notes each picking one) produces two directed edges pointing
-    opposite ways between the same nodes — an artificial cycle that breaks
-    any hierarchical/topological layout. DEPENDS_ON is the only form stored;
-    PREREQUISITE_FOR(A, B) is flipped to DEPENDS_ON(B, A).
+    PREREQUISITE_FOR(A, B) and DEPENDS_ON(B, A) assert the same fact; storing
+    both directions between one pair creates an artificial cycle that breaks
+    hierarchical layout. DEPENDS_ON is the only stored form.
+
+    USES_LEMMA is the retired name for USES_IN_PROOF — it was in practice
+    used for any auxiliary result, not only lemmas (docs/vocabulary-diagnosis.md
+    V3), so the rename is also a correction.
+
+    Symmetric relations (SYMMETRIC_RELATIONS) are stored with endpoints
+    ordered by id, so an LLM emitting both directions yields one edge, not a
+    2-cycle.
     """
     if relation == "PREREQUISITE_FOR":
         return target, source, "DEPENDS_ON"
+    if relation == "USES_LEMMA":
+        relation = "USES_IN_PROOF"
+    if relation in SYMMETRIC_RELATIONS and source > target:
+        return target, source, relation
     return source, target, relation
 
 
@@ -75,14 +86,34 @@ def _is_valid_entity(name: str) -> bool:
 # ---------------------------------------------------------------------------
 
 PASS1_NODE_PROMPT = """\
-You are an expert mathematical entity and taxonomy extractor.
-TASK: Extract formal mathematical entities (Theorems, Definitions, Concepts, Formulas, Proofs, Lemmas) and their 3-tier SKOS taxonomy from the text.
+You are an expert mathematical entity extractor.
+TASK: Extract formal mathematical entities from the text, classify each on TWO
+independent axes, and assign a 3-tier SKOS taxonomy.
+
+AXIS 1 — kind (REQUIRED, pick exactly one; this is what the thing IS):
+  Object     — a mathematical object, construct, or property (e.g. Wronskian, Integrating Factor, Linear Independence)
+  Statement  — a proposition asserted to hold (e.g. Schwarz's Theorem, Criterion for Exactness)
+  Definition — text that assigns meaning to a term
+  Method     — a procedure or solution technique (e.g. Variation of Parameters, Undetermined Coefficients)
+  Formula    — a specific equation or expression (e.g. Abel's Identity)
+  Proof      — an argument establishing a statement
+  Example    — a concrete instance or model (e.g. a bungee-jumping model)
+
+AXIS 2 — role (OPTIONAL, only when kind is Statement):
+  Axiom | Theorem | Lemma | Corollary | Proposition | Conjecture
+
+  CRITICAL: role is REPORTED, NOT INFERRED. Set it ONLY when the text itself
+  applies that label — a heading such as "Lemma 3.1", or a name such as
+  "Abel's Lemma" or "Picard's Theorem". If the text merely states a result
+  without labelling it, OMIT role entirely. Do NOT reason about whether
+  something "acts like" a lemma; relationships between results are captured
+  as edges, not as this field.
 
 STRICT RULES:
-1. DO NOT extract structural terms (e.g. 'Exercise 1', 'Problem', 'Solution', 'Hint', 'Example', 'Conclusion', 'Page 1', 'Lecture notes').
-2. EXTRACT ONLY formal mathematical concept names (e.g. 'Exact Differential Equation', 'Total Differential', 'Mixed Partials Theorem', 'Integrating Factor', 'Separable ODE').
-3. Capitalize formal math concept names properly.
-4. Each node MUST have a formal 1-2 sentence definition description.
+1. DO NOT extract structural terms (e.g. 'Exercise 1', 'Problem', 'Solution', 'Hint', 'Conclusion', 'Page 1', 'Lecture notes').
+2. Extract the formal mathematical entity name, properly capitalised.
+3. Every node MUST have a `kind`. Do not default to Object when another kind fits — a named result is a Statement, a solution technique is a Method.
+4. Each node MUST have a formal 1-2 sentence description.
 5. Assign domain taxonomy (domain, subdomain, topic).
 
 TEXT:
@@ -90,23 +121,45 @@ TEXT:
 """
 
 PASS2_EDGE_PROMPT = """\
-You are an expert mathematical relationship and prerequisite linker.
-TASK: Establish directional relationships between mathematical concepts using ONLY the concept IDs in the dictionary below.
+You are an expert mathematical relationship linker.
+TASK: Establish directional relationships between the entities below, using ONLY their IDs.
 
-CONCEPT DICTIONARY (concept_id → display name):
+ENTITY DICTIONARY (id -> name, kind, role):
 {concept_id_map}
 
-NEW CONCEPT IDS FROM THIS NOTE (focus edges on these):
+NEW ENTITY IDS FROM THIS NOTE (focus edges on these):
 {new_concept_ids}
 
-EXISTING KNOWLEDGE BASE CONCEPT IDS (available link targets):
+EXISTING KNOWLEDGE BASE IDS (available link targets):
 {existing_concept_ids}
 
+RELATION TYPES — pick the most specific one that applies. Do NOT fall back to
+DEPENDS_ON when a precise relation fits:
+
+  DEPENDS_ON(A, B)       A requires understanding B first. B is more foundational.
+                         Use only when no more specific relation below applies.
+  HAS_HYPOTHESIS(A, B)   Statement A holds only under condition B.
+                         e.g. Picard's Theorem HAS_HYPOTHESIS Lipschitz Condition
+  USES_DEFINITION(A, B)  A invokes definition B.
+  USES_IN_PROOF(A, B)    A's proof relies on result B.
+  PROVES(A, B)           A is an argument establishing statement B.
+                         A should be a Proof and B a Statement.
+  COROLLARY_OF(A, B)     A follows easily from B.
+  GENERALIZES(A, B)      A is a strictly more general form of B.
+  SPECIAL_CASE_OF(A, B)  A is B with additional constraints.
+  EQUIVALENT_TO(A, B)    A and B are logically equivalent. Emit ONCE, in either order.
+  CHARACTERIZES(A, B)    A is an if-and-only-if criterion for property B.
+                         e.g. Wronskian Criterion CHARACTERIZES Linear Dependence
+  INSTANCE_OF(A, B)      A is a concrete example or model of B.
+
 STRICT RULES:
-1. Use ONLY concept IDs from the CONCEPT DICTIONARY as edge source and target values. Never invent a new name or ID.
-2. Valid relation types: DEPENDS_ON, USES_DEFINITION, PROVES, COROLLARY_OF, USES_AXIOM, USES_LEMMA.
-3. DEPENDS_ON(A, B) means A requires B — B is the more foundational concept. Never emit an inverse "is a prerequisite for" edge.
-4. Include an evidence quote (the sentence from the text that supports the relationship) in the description field where possible.
+1. Use ONLY IDs from the ENTITY DICTIONARY as source and target. Never invent an ID.
+2. Respect the kinds: do not emit PROVES targeting a Definition; do not emit
+   USES_IN_PROOF targeting an Object that is not a result.
+3. Never emit an inverse "is a prerequisite for" edge — express it as DEPENDS_ON.
+4. Do NOT emit an edge in both directions between the same pair. If the
+   relationship is mutual, use EQUIVALENT_TO once.
+5. Include the supporting sentence from the text in the description field.
 
 TEXT:
 {text}
@@ -240,8 +293,9 @@ class MathGraphIndexer:
                 prompt = PASS1_NODE_PROMPT.format(text=text[:3000])
                 prompt += (
                     "\n\nRespond ONLY with valid JSON matching:\n"
-                    '{"nodes": [{"name": "...", "entity_type": "Theorem|Definition|Concept|Formula|Proof|Lemma", '
-                    '"description": "...", "taxonomy": {"domain": "...", "subdomain": "...", "topic": "..."}}]}'
+                    '{"nodes": [{"name": "Concept Name", "kind": "Object|Statement|Definition|Method|Formula|Proof|Example", '
+                    '"role": "Theorem|Lemma|Corollary|Axiom|Proposition|Conjecture or omit", '
+                    '"description": "formal definition", "taxonomy": {"domain": "...", "subdomain": "...", "topic": "..."}}]}'
                 )
                 resp = ollama.chat(prompt=prompt, model=model, response_format="json", timeout=60)
                 if resp:
@@ -262,24 +316,33 @@ class MathGraphIndexer:
     def _extract_edges_pass(
         self,
         text: str,
-        doc_concept_map: dict[str, str],      # name → canonical_id (this document)
-        existing_concept_map: dict[str, str],  # canonical_id → label (existing graph)
+        doc_concept_map: dict[str, str],       # surface name -> canonical_id (this document)
+        existing_concept_map: dict[str, str],   # canonical_id -> label (existing graph)
+        node_types: "dict[str, dict]",          # canonical_id -> {"kind":..., "role":...}
     ) -> list[GraphEdge]:
         """Executes Pass 2 (Relationship & Edge Linker) via Gemini or Ollama.
 
-        Receives pre-resolved concept maps so the LLM works with canonical IDs
-        rather than display names. The concept_id_map in the prompt is the
-        merged id→name view; new_concept_ids and existing_concept_ids separate
-        the two populations so the LLM knows which are new vs. already known.
+        `node_types` is what lets the LLM pick type-appropriate relations —
+        without it, Pass 2 was type-blind and emitted USES_LEMMA at theorems
+        and PROVES at definitions (docs/vocabulary-diagnosis.md V3).
         """
         if not doc_concept_map:
             return []
 
-        # Build the id→name view the prompt exposes to the LLM
+        # Build the id->name view the prompt exposes to the LLM
         id_to_name: dict[str, str] = {v: k for k, v in doc_concept_map.items()}
         id_to_name.update(existing_concept_map)
 
-        concept_id_map_json = json.dumps(id_to_name, ensure_ascii=False)
+        entity_dict = {
+            cid: {
+                "name": name,
+                "kind": node_types.get(cid, {}).get("kind", "Object"),
+                "role": node_types.get(cid, {}).get("role"),
+            }
+            for cid, name in id_to_name.items()
+        }
+
+        concept_id_map_json = json.dumps(entity_dict, ensure_ascii=False)
         new_concept_ids_json = json.dumps(list(doc_concept_map.values()))
         existing_concept_ids_json = json.dumps(list(existing_concept_map.keys()))
 
@@ -323,7 +386,7 @@ class MathGraphIndexer:
                 )
                 prompt += (
                     "\n\nRespond ONLY with valid JSON matching:\n"
-                    '{"edges": [{"source": "concept_id", "target": "concept_id", "relation": "DEPENDS_ON|USES_DEFINITION|PROVES|COROLLARY_OF|USES_AXIOM|USES_LEMMA", "description": "evidence quote"}]}'
+                    '{"edges": [{"source": "id", "target": "id", "relation": "DEPENDS_ON|HAS_HYPOTHESIS|USES_DEFINITION|USES_IN_PROOF|PROVES|COROLLARY_OF|GENERALIZES|SPECIAL_CASE_OF|EQUIVALENT_TO|CHARACTERIZES|INSTANCE_OF", "description": "evidence quote"}]}'
                 )
                 resp = ollama.chat(prompt=prompt, model=model, response_format="json", timeout=60)
                 if resp:
@@ -352,7 +415,7 @@ class MathGraphIndexer:
         edges: list[GraphEdge] = []
         node_names: set[str] = set()
 
-        def _add_node(name: str, etype: str, desc: str = ""):
+        def _add_node(name: str, kind: str, desc: str = ""):
             clean = name.strip().rstrip(":")
             if clean in node_names or not _is_valid_entity(clean):
                 return
@@ -361,13 +424,13 @@ class MathGraphIndexer:
                 GraphNode(
                     id=clean,
                     name=clean,
-                    entity_type=etype,
+                    kind=kind,
                     taxonomy=ConceptTaxonomy(
                         domain=course_domain,
                         subdomain="Course Notes",
                         topic=clean,
                     ),
-                    description=desc or f"{etype}: {clean}",
+                    description=desc or f"{kind}: {clean}",
                 )
             )
 
@@ -379,29 +442,50 @@ class MathGraphIndexer:
             r"\\end\{\1\}",
             re.DOTALL | re.IGNORECASE,
         )
+        # Maps LaTeX env names to MathEntityKind values
+        _ENV_KIND_MAP = {
+            "theorem": MathEntityKind.STATEMENT.value,
+            "lemma": MathEntityKind.STATEMENT.value,
+            "corollary": MathEntityKind.STATEMENT.value,
+            "proposition": MathEntityKind.STATEMENT.value,
+            "axiom": MathEntityKind.STATEMENT.value,
+            "definition": MathEntityKind.DEFINITION.value,
+            "proof": MathEntityKind.PROOF.value,
+        }
         for match in env_pattern.finditer(text):
-            env_type = match.group(1).title()
+            env_type_raw = match.group(1).lower()
             env_name = match.group(2)
             env_body = match.group(3).strip()[:200]
+            env_kind = _ENV_KIND_MAP.get(env_type_raw, MathEntityKind.OBJECT.value)
             if env_name and _is_valid_entity(env_name):
-                _add_node(env_name.strip(), env_type, env_body)
+                _add_node(env_name.strip(), env_kind, env_body)
 
         # 2. Typed Markdown headings: ## Theorem: Cauchy-Schwarz Inequality
         heading_pattern = re.compile(
             r"^#{1,3}\s+"
-            r"(?:(Theorem|Definition|Concept|Lemma|Proof|Formula|Proposition|Corollary|Axiom)"
+            r"(?:(Theorem|Definition|Concept|Lemma|Proof|Formula|Proposition|Corollary|Axiom|Method|Example)"
             r"\s*:\s*)"
             r"(.+)$",
             re.MULTILINE | re.IGNORECASE,
         )
+        _HEADING_KIND_MAP = {
+            "theorem": MathEntityKind.STATEMENT.value,
+            "lemma": MathEntityKind.STATEMENT.value,
+            "corollary": MathEntityKind.STATEMENT.value,
+            "proposition": MathEntityKind.STATEMENT.value,
+            "axiom": MathEntityKind.STATEMENT.value,
+            "definition": MathEntityKind.DEFINITION.value,
+            "proof": MathEntityKind.PROOF.value,
+            "formula": MathEntityKind.FORMULA.value,
+            "method": MathEntityKind.METHOD.value,
+            "example": MathEntityKind.EXAMPLE.value,
+            "concept": MathEntityKind.OBJECT.value,
+        }
         for match in heading_pattern.finditer(text):
-            etype = match.group(1).title()
+            htype = match.group(1).lower()
             name = match.group(2).strip().rstrip(":")
-            if etype == "Proposition":
-                etype = "Theorem"
-            if etype not in ["Theorem", "Definition", "Concept", "Proof", "Formula", "Lemma", "Corollary", "Axiom"]:
-                etype = "Concept"
-            _add_node(name, etype)
+            h_kind = _HEADING_KIND_MAP.get(htype, MathEntityKind.OBJECT.value)
+            _add_node(name, h_kind)
 
         # 3. Obsidian wikilinks [[Target Concept]]
         wikilinks = re.findall(r"\[\[(.*?)\]\]", text)
@@ -411,7 +495,7 @@ class MathGraphIndexer:
                 _is_valid_entity(link_clean)
                 and not link_clean.endswith((".png", ".jpg", ".pdf"))
             ):
-                _add_node(link_clean, "Concept", "Wikilink reference from vault note")
+                _add_node(link_clean, MathEntityKind.OBJECT.value, "Wikilink reference from vault note")
                 if nodes and nodes[0].name != link_clean:
                     edges.append(
                         GraphEdge(
@@ -550,7 +634,14 @@ class MathGraphIndexer:
         # Pass 2: Link relationships & edges between nodes
         doc_concept_map = {n.name: (n.id if n.id else n.name) for n in valid_nodes}
         existing_concept_map = self._get_candidate_context(text)
-        extracted_edges = self._extract_edges_pass(text, doc_concept_map, existing_concept_map)
+        node_types = {
+            (n.id if n.id else n.name): {
+                "kind": n.kind.value if hasattr(n.kind, "value") else str(n.kind),
+                "role": n.role.value if getattr(n, "role", None) is not None else None,
+            }
+            for n in valid_nodes
+        }
+        extracted_edges = self._extract_edges_pass(text, doc_concept_map, existing_concept_map, node_types)
 
         return MathEntityExtraction(nodes=valid_nodes, edges=extracted_edges)
 
@@ -645,7 +736,23 @@ class MathGraphIndexer:
         existing_concept_map = self._get_candidate_context(content)
 
         if use_llm:
-            raw_edges = self._extract_edges_pass(content, doc_concept_map, existing_concept_map)
+            # Build node_types from the resolved node attributes for type-aware relation selection
+            node_types: dict[str, dict] = {}
+            for _, resolved in chunk_node_lists:
+                for node, n_id in resolved:
+                    if n_id in self.graph:
+                        node_types[n_id] = {
+                            "kind": self.graph.nodes[n_id].get("kind", "Object"),
+                            "role": self.graph.nodes[n_id].get("role"),
+                        }
+            # Also include existing concepts' types
+            for cid in existing_concept_map:
+                if cid in self.graph and cid not in node_types:
+                    node_types[cid] = {
+                        "kind": self.graph.nodes[cid].get("kind", "Object"),
+                        "role": self.graph.nodes[cid].get("role"),
+                    }
+            raw_edges = self._extract_edges_pass(content, doc_concept_map, existing_concept_map, node_types)
         else:
             block = self._block_extraction(content, course)
             raw_edges = block.edges
@@ -664,11 +771,8 @@ class MathGraphIndexer:
             # Write nodes and chunk-level mentions
             for chunk_id, resolved_nodes in chunk_node_lists:
                 for node, n_id in resolved_nodes:
-                    etype = (
-                        node.entity_type.value
-                        if hasattr(node.entity_type, "value")
-                        else str(node.entity_type)
-                    )
+                    kind = node.kind.value if hasattr(node.kind, "value") else str(node.kind)
+                    role = node.role.value if getattr(node, "role", None) is not None else None
                     tax_dict = (
                         node.taxonomy.model_dump()
                         if hasattr(node.taxonomy, "model_dump")
@@ -680,7 +784,8 @@ class MathGraphIndexer:
                             n_id,
                             id=n_id,
                             label=node.name,
-                            entity_type=etype,
+                            kind=kind,
+                            role=role,
                             taxonomy=tax_dict,
                             description=node.description,
                             provenance=[prov_record],
@@ -697,7 +802,8 @@ class MathGraphIndexer:
                     graph_store.upsert_node_attrs(
                         conn, n_id,
                         label=node_data.get("label", n_id),
-                        entity_type=node_data.get("entity_type", "Concept"),
+                        kind=node_data.get("kind", "Object"),
+                        role=node_data.get("role"),
                         taxonomy=node_data.get("taxonomy", {}),
                         description=node_data.get("description", ""),
                         provenance=node_data.get("provenance", []),
@@ -727,16 +833,56 @@ class MathGraphIndexer:
 
                 rel = edge.relation.value if hasattr(edge.relation, "value") else str(edge.relation)
                 src, tgt, rel = _normalize_relation(src, tgt, rel)
-                self.graph.add_edge(src, tgt, relation=rel, label=rel)
-                graph_store.insert_edge(
-                    conn,
-                    source_id=src,
-                    target_id=tgt,
-                    relation=rel,
-                    chunk_id=document_id,
-                    quote=edge.description,
-                    origin="extracted",
-                )
+                if src == tgt:
+                    continue
+
+                if rel != "EQUIVALENT_TO" and self.graph.has_edge(tgt, src):
+                    # 2-cycle conflict: same rule the batch repair pass uses (dag.break_2cycles).
+                    existing_rel = self.graph.get_edge_data(tgt, src, {}).get("relation", "DEPENDS_ON")
+                    outcome = resolve_2cycle(rel, existing_rel)
+                    if outcome == "keep_forward":
+                        self.graph.remove_edge(tgt, src)
+                        graph_store.delete_edge(conn, tgt, src)
+                        self.graph.add_edge(src, tgt, relation=rel, label=rel)
+                        graph_store.insert_edge(
+                            conn,
+                            source_id=src,
+                            target_id=tgt,
+                            relation=rel,
+                            chunk_id=document_id,
+                            quote=edge.description,
+                            origin="extracted",
+                        )
+                        log.info(f"DAG: Replaced weaker reverse edge {tgt} -> {src} with {src} -[{rel}]-> {tgt}")
+                    elif outcome == "equivalent":
+                        # Mutual / equivalent concepts: convert to EQUIVALENT_TO
+                        self.graph.remove_edge(tgt, src)
+                        graph_store.delete_edge(conn, tgt, src)
+                        canon_u, canon_v = sorted([src, tgt])
+                        self.graph.add_edge(canon_u, canon_v, relation="EQUIVALENT_TO", label="EQUIVALENT_TO")
+                        graph_store.insert_edge(
+                            conn,
+                            source_id=canon_u,
+                            target_id=canon_v,
+                            relation="EQUIVALENT_TO",
+                            chunk_id=document_id,
+                            quote=edge.description,
+                            origin="extracted",
+                        )
+                        log.info(f"DAG: Converted mutual 2-cycle between {src} and {tgt} into EQUIVALENT_TO")
+                    else:
+                        log.info(f"DAG: Kept stronger existing edge {tgt} -[{existing_rel}]-> {src} over {src} -[{rel}]-> {tgt}")
+                else:
+                    self.graph.add_edge(src, tgt, relation=rel, label=rel)
+                    graph_store.insert_edge(
+                        conn,
+                        source_id=src,
+                        target_id=tgt,
+                        relation=rel,
+                        chunk_id=document_id,
+                        quote=edge.description,
+                        origin="extracted",
+                    )
 
     # ------------------------------------------------------------------
     # Full index build
@@ -757,6 +903,24 @@ class MathGraphIndexer:
             self.index_note(note, use_llm=use_llm)
             self.vault_manager.update_file_hash(note)
 
+        repair_stats = repair_graph_dag(self.graph)
+        log.info(f"Post-index DAG repair complete: {repair_stats}")
+        from . import graph_store
+        with graph_store.connect() as conn:
+            graph_store.sync_edges_from_graph(conn, self.graph)
+
         self.vault_manager.save_state()
         self.save_graph()
         return self.graph
+
+    def repair_dag(self) -> dict:
+        """Enforces DAG property on the in-memory graph and syncs SQLite store."""
+        from .dag import repair_graph_dag
+        from . import graph_store
+
+        stats = repair_graph_dag(self.graph)
+        with graph_store.connect() as conn:
+            graph_store.sync_edges_from_graph(conn, self.graph)
+        self.save_graph()
+        log.info(f"DAG repair complete: {stats}")
+        return stats

@@ -7,9 +7,9 @@ historical), [docs/vocabulary-diagnosis.md](docs/vocabulary-diagnosis.md) (what 
 *now*), [docs/flow.md](docs/flow.md) (how data moves), [docs/structure.md](docs/structure.md)
 (call chains), [services/README.md](services/README.md) (module layout).
 
-**Status:** Phases 0–7 are done — identity is deterministic, SQLite is the store of record,
-and the app runs as one process. Phase 8 (vocabulary) is planned and specified; Phase 9
-(DAG-ness) is not started.
+**Status:** Phases 0–9 are done — identity is deterministic, SQLite is the store of record,
+the app runs as one process, node typing is two-axis (kind + role) with an 11-relation
+vocabulary, and the concept graph is a strict DAG (0 cycles) with write-time acyclicity guards.
 
 ---
 
@@ -412,11 +412,13 @@ itself* and what an edge *means* — not how either is identified or stored.
 **Exit:** no single relation above ~50% and no single kind above ~55% after re-extraction,
 with the actual numbers recorded in the spec.
 
-### Phase 9 — DAG-ness — **NOT STARTED**
+### Phase 9 — DAG-ness — **DONE**
 
-29 cycles exist today. Phase 8 removes one known cause; this phase measures what remains,
-repairs the data, and decides whether acyclicity is enforced at write time. Hierarchical
-layout and any depth metric both depend on it.
+- ✓ Created `services/graph/app/dag.py` implementing 2-cycle breaking (specificity ranking, mutual `EQUIVALENT_TO` conversion) and feedback arc pruning.
+- ✓ Write-time cycle prevention added in `MathGraphIndexer.index_note` and post-index DAG repair pass in `build_or_update_index`.
+- ✓ CLI verb `graph-repair-dag` and DAG health reporting in `graph_health.py` and `graph-stats`.
+- ✓ Rebuilt graph repaired: 36 initial cycles reduced to **0 cycles (is_dag=True)**.
+- ✓ Unit test suite in `tests/test_dag.py` covering 2-cycle resolution, feedback edge pruning, and write-time prevention.
 
 ---
 

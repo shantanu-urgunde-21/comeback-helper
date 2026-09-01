@@ -131,23 +131,41 @@ These fail silently rather than loudly, so respect them even when a change looks
 
 - **`PREREQUISITE_FOR(A,B)` is stored as `DEPENDS_ON(B,A)`.** Never emit the inverse form —
   two directions between one pair create fake cycles that break hierarchical layout.
+- **`EQUIVALENT_TO` is symmetric.** Emit it once, in either direction — the normaliser
+  picks the canonical direction (lexicographically smaller source id first). Emitting both
+  directions manufactures a 2-cycle identical to the old `PREREQUISITE_FOR` bug.
 - **Notes are not graph nodes.** Which note a concept came from lives in that concept's
   `provenance` list. The `CONTAINS` note→concept edge was retired; don't reintroduce it.
-- **`graph.json` writes `entity_type` as `type`.** Anything reading the file directly must
-  expect `type`.
+- **`graph.json` writes the node's `kind` under the key `type`.** The key name is kept for
+  back-compat with `scripts/graph_health.py` and the front-end; don't change it. There is
+  also a new `role` field alongside (may be `null`).
+- **`graph-stats --json` emits `kinds`, not `entity_types`.** Any caller that was keying
+  on `entity_types` in the JSON output must update to `kinds`.
 - **The graph lives in RAM in the running server.** If the server is up, CLI writes and
   server state can diverge until it restarts. Prefer one or the other in a single session.
 - **`scripts/` is gitignored.** Anything written there won't be committed.
 
 ## Known state
 
-As of `plan.md` Phases 0-2, node identity is resolved deterministically (a Wikidata QID or a
-`CUST_<hash>` id) instead of an LLM-generated display name compared by embedding similarity
-— both for newly indexed concepts and for the live graph, which was migrated onto this
-scheme (`graph-migrate-identity`): 119 nodes → 75 (17 junk dropped, 27 duplicate spellings
-merged). `graph_health.py` reports 0 duplicate groups against the current file. If you see
-this reported as a duplicate-nodes problem in older context, it's stale — re-run
-`graph-stats`/`graph_health.py` rather than trusting a prior summary.
+As of `plan.md` Phase 8 (Vocabulary Redesign), node typing is split onto two axes:
+
+- **`kind`** — intrinsic mathematical identity (Object, Statement, Definition, Method,
+  Formula, Proof, Example). Required; no default.
+- **`role`** — the label the source document explicitly applies to a Statement node
+  (Axiom, Theorem, Lemma, Corollary, Proposition, Conjecture). Reported, never inferred;
+  `null` when the text doesn't label it.
+
+Old single-axis `entity_type` values are automatically mapped on load via `LEGACY_TYPE_MAP`
+(`schema.py`) and on read from SQLite (`graph_store.load_graph`), so un-re-extracted graphs
+load without errors. The relation vocabulary was also extended to 11 types: `DEPENDS_ON`,
+`HAS_HYPOTHESIS`, `USES_DEFINITION`, `USES_IN_PROOF`, `PROVES`, `COROLLARY_OF`,
+`GENERALIZES`, `SPECIAL_CASE_OF`, `EQUIVALENT_TO`, `CHARACTERIZES`, `INSTANCE_OF`;
+`USES_AXIOM` and `USES_LEMMA` are retired (the latter is canonicalized to `USES_IN_PROOF`
+on load/normalisation).
+
+As of `plan.md` Phases 0–2, node identity is resolved deterministically (a Wikidata QID or
+a `CUST_<hash>` id): 119 nodes → 75 (17 junk dropped, 27 duplicate spellings merged).
+`graph_health.py` reports 0 duplicate groups.
 
 Node ids are now opaque (a QID or `CUST_` hash); the human-readable name lives in each
 node's separate `label` field. Three more CLI verbs exist for the identity layer,
@@ -157,14 +175,13 @@ independent of `graph.json`: `authority-seed-msc`, `authority-resolve --label ".
 As of `plan.md` Phase 6, the embedding-similarity repair path (`dedupe_graph()`,
 `ENTITY_MERGE_THRESHOLD`, the `graph-dedupe` verb) and the load-time snake_case/Title-Case
 self-heal are deleted, not just unused — they're gone from the codebase entirely, so don't
-suggest them even as a fallback.
+sugggest them even as a fallback.
 
 As of `plan.md` Phase 3, `.storage/concepts.db` (SQLite) is the store of record for the
 whole graph, not just identity — new `mentions`/`edges` tables joined `concepts`/`aliases`.
 `graph.json` is now only an export/cache; if you're ever tempted to read it directly, don't —
-that's exactly what the Contract section above already forbids, and it's now doubly true
-since the file isn't even the source anymore. The verb surface is unaffected — `graph-stats`,
-`query`, etc. all still work the same way.
+that's exactly what the Contract section above already forbids. The verb surface is
+unaffected — `graph-stats`, `query`, etc. all still work the same way.
 
 The LanceDB vector table is currently empty and its data files are missing, so chunk
 retrieval returns nothing and queries run graph-only. Recovery is to delete
@@ -178,3 +195,5 @@ retrieval returns nothing and queries run graph-only. Recovery is to delete
 | `docs/flow.md` | Data flow, stage-by-stage inputs and outputs |
 | `docs/structure.md` | Call chains, module reference, dead code |
 | `docs/diagnosis.md` | Measured graph defects and the planned fixes |
+| `docs/vocabulary-diagnosis.md` | V1–V5 defects; Phase 8 vocabulary redesign rationale |
+| `docs/superpowers/plans/2026-08-24-vocabulary-redesign.md` | Phase 8 task-by-task implementation plan |

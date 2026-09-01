@@ -3,17 +3,80 @@
 import src  # noqa: F401
 import unittest
 from pathlib import Path
-from graph.app.schema import MathEntityExtraction, GraphNode, GraphEdge, MathEntityType, MathRelationType
-from graph.app.indexer import MathGraphIndexer
+from graph.app.schema import (
+    MathEntityExtraction, GraphNode, GraphEdge,
+    MathEntityType, MathEntityKind, StatementRole, MathRelationType,
+)
+from graph.app.indexer import MathGraphIndexer, _normalize_relation
+
+
+class TestTwoAxisTyping(unittest.TestCase):
+    def test_kind_is_required(self):
+        """Omitting kind must raise, not silently default to a residual bucket."""
+        from pydantic import ValidationError
+        with self.assertRaises(ValidationError):
+            GraphNode(name="Wronskian")
+
+    def test_role_defaults_to_none(self):
+        n = GraphNode(name="Wronskian", kind=MathEntityKind.OBJECT)
+        self.assertIsNone(n.role)
+
+    def test_legacy_theorem_splits_into_kind_and_role(self):
+        n = GraphNode(name="Schwarz's Theorem", entity_type="Theorem")
+        self.assertEqual(n.kind, MathEntityKind.STATEMENT)
+        self.assertEqual(n.role, StatementRole.THEOREM)
+
+    def test_legacy_concept_becomes_object_with_no_role(self):
+        n = GraphNode(name="Integrating Factor", entity_type="Concept")
+        self.assertEqual(n.kind, MathEntityKind.OBJECT)
+        self.assertIsNone(n.role)
+
+    def test_legacy_lemma_splits_into_statement_and_lemma_role(self):
+        n = GraphNode(name="Abel's Lemma", entity_type="Lemma")
+        self.assertEqual(n.kind, MathEntityKind.STATEMENT)
+        self.assertEqual(n.role, StatementRole.LEMMA)
+
+    def test_explicit_kind_wins_over_legacy_entity_type(self):
+        n = GraphNode(name="X", entity_type="Concept", kind=MathEntityKind.METHOD)
+        self.assertEqual(n.kind, MathEntityKind.METHOD)
+
+
+class TestRelationVocabulary(unittest.TestCase):
+    def setUp(self):
+        self.indexer = MathGraphIndexer()
+
+    def test_legacy_uses_lemma_maps_to_uses_in_proof(self):
+        s, t, r = _normalize_relation("A", "B", "USES_LEMMA")
+        self.assertEqual((s, t, r), ("A", "B", "USES_IN_PROOF"))
+
+    def test_prerequisite_for_still_flips_to_depends_on(self):
+        s, t, r = _normalize_relation("A", "B", "PREREQUISITE_FOR")
+        self.assertEqual((s, t, r), ("B", "A", "DEPENDS_ON"))
+
+    def test_symmetric_relation_is_stored_in_one_direction(self):
+        """EQUIVALENT_TO(B,A) and EQUIVALENT_TO(A,B) must normalize identically,
+        otherwise the pair manufactures a 2-cycle (vocabulary-diagnosis V5)."""
+        forward = _normalize_relation("A", "B", "EQUIVALENT_TO")
+        reverse = _normalize_relation("B", "A", "EQUIVALENT_TO")
+        self.assertEqual(forward, reverse)
+
+    def test_new_relations_exist_and_uses_axiom_is_gone(self):
+        names = {r.value for r in MathRelationType}
+        for expected in ("HAS_HYPOTHESIS", "USES_IN_PROOF", "GENERALIZES",
+                         "SPECIAL_CASE_OF", "EQUIVALENT_TO", "CHARACTERIZES", "INSTANCE_OF"):
+            self.assertIn(expected, names)
+        self.assertNotIn("USES_AXIOM", names)
+
 
 class TestGraphIndexer(unittest.TestCase):
     def test_schema_models(self):
-        node1 = GraphNode(name="Eigenvalue", entity_type=MathEntityType.CONCEPT, description="Scalar lambda")
-        node2 = GraphNode(name="Spectral Theorem", entity_type=MathEntityType.THEOREM, description="Symmetric matrix breakdown")
+        node1 = GraphNode(name="Eigenvalue", kind=MathEntityKind.OBJECT, description="Scalar lambda")
+        node2 = GraphNode(name="Spectral Theorem", kind=MathEntityKind.STATEMENT,
+                          role=StatementRole.THEOREM, description="Symmetric matrix breakdown")
         edge = GraphEdge(source="Spectral Theorem", target="Eigenvalue", relation=MathRelationType.DEPENDS_ON)
 
         extraction = MathEntityExtraction(nodes=[node1, node2], edges=[edge])
-        
+
         self.assertEqual(len(extraction.nodes), 2)
         self.assertEqual(len(extraction.edges), 1)
         self.assertEqual(extraction.nodes[0].name, "Eigenvalue")
@@ -21,20 +84,22 @@ class TestGraphIndexer(unittest.TestCase):
 
     def test_indexer_graph_structure(self):
         indexer = MathGraphIndexer()
-        node1 = GraphNode(name="Vector Space", entity_type=MathEntityType.DEFINITION, description="Set with vector addition")
-        node2 = GraphNode(name="Linear Independence", entity_type=MathEntityType.CONCEPT, description="Vectors without linear combination")
+        node1 = GraphNode(name="Vector Space", kind=MathEntityKind.DEFINITION, description="Set with vector addition")
+        node2 = GraphNode(name="Linear Independence", kind=MathEntityKind.OBJECT, description="Vectors without linear combination")
         edge = GraphEdge(source="Linear Independence", target="Vector Space", relation=MathRelationType.DEPENDS_ON)
 
         extraction = MathEntityExtraction(nodes=[node1, node2], edges=[edge])
-        
+
         for n in extraction.nodes:
-            indexer.graph.add_node(n.name, entity_type=n.entity_type.value, description=n.description)
+            indexer.graph.add_node(n.name, kind=n.kind.value, role=(n.role.value if n.role else None),
+                                   description=n.description)
         for e in extraction.edges:
             indexer.graph.add_edge(e.source, e.target, relation=e.relation.value)
 
         self.assertIn("Vector Space", indexer.graph.nodes)
         self.assertIn("Linear Independence", indexer.graph.nodes)
         self.assertTrue(indexer.graph.has_edge("Linear Independence", "Vector Space"))
+
 
 class TestPhase4(unittest.TestCase):
     def setUp(self):
@@ -132,6 +197,23 @@ class TestPhase4(unittest.TestCase):
             self.assertGreater(len(rows), 0, "Expected at least one chunk-level mention")
         finally:
             os.unlink(tmp_path)
+
+    def test_index_note_writes_kind_attribute(self):
+        """Block-extracted nodes carry kind, not entity_type."""
+        import tempfile, os
+        note = "## Wronskian\nThe Wronskian is a determinant used to test linear independence.\n"
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".md", dir=self.indexer.vault_path,
+                                         delete=False, encoding="utf-8") as f:
+            f.write(note)
+            tmp_path = f.name
+        try:
+            self.indexer.index_note(Path(tmp_path), use_llm=False)
+            attrs = [d for _, d in self.indexer.graph.nodes(data=True)]
+            self.assertTrue(any("kind" in a for a in attrs), "expected at least one node with a kind attr")
+            self.assertFalse(any("entity_type" in a for a in attrs), "entity_type must be gone from the write path")
+        finally:
+            os.unlink(tmp_path)
+
 
 if __name__ == "__main__":
     unittest.main()

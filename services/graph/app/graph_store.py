@@ -19,7 +19,7 @@ import json
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 import networkx as nx
 
@@ -108,14 +108,56 @@ def insert_edge(
     )
 
 
-def upsert_node_attrs(conn: sqlite3.Connection, concept_id: str, **attrs: Any) -> None:
+def delete_edge(conn: sqlite3.Connection, source_id: str, target_id: str) -> None:
+    """Removes any directed edge between source_id and target_id."""
+    conn.execute(
+        "DELETE FROM edges WHERE source_id = ? AND target_id = ?",
+        (source_id, target_id),
+    )
+
+
+def sync_edges_from_graph(conn: sqlite3.Connection, G: nx.DiGraph) -> None:
+    """Syncs SQLite edges table to match the in-memory graph G after DAG pruning."""
+    existing_edges = set(conn.execute("SELECT DISTINCT source_id, target_id FROM edges").fetchall())
+    graph_edges = set(G.edges())
+
+    # Edges in SQLite that were pruned from G
+    stale_edges = existing_edges - graph_edges
+    for src, tgt in stale_edges:
+        delete_edge(conn, src, tgt)
+
+
+def upsert_node_attrs(
+    conn: sqlite3.Connection,
+    concept_id: str,
+    *,
+    label: str,
+    kind: str = "Object",
+    role: "str | None" = None,
+    taxonomy: "dict | None" = None,
+    description: str = "",
+    provenance: "list | None" = None,
+    aliases: "list | None" = None,
+) -> None:
     """UPDATE-only: the `concepts` row must already exist — every node id
     this is called with has already gone through `authority.resolve_concept`,
     which always inserts the row first.
+
+    `kind` carries the intrinsic MathEntityKind value; `role` carries the
+    optional StatementRole (None for most nodes). See docs/vocabulary-diagnosis.md V2.
     """
+    attrs = {
+        "label": label,
+        "kind": kind,
+        "role": role,
+        "taxonomy": taxonomy or {},
+        "description": description,
+        "provenance": provenance or [],
+        "aliases": aliases or [],
+    }
     conn.execute(
         "UPDATE concepts SET node_attrs_json = ? WHERE id = ?",
-        (json.dumps(attrs), concept_id),
+        (json.dumps(attrs, ensure_ascii=False), concept_id),
     )
 
 
@@ -164,6 +206,20 @@ def load_graph(db_path: Optional[Path] = None) -> nx.DiGraph:
                 # different, unrelated value). Falls back to the concepts
                 # column only for a node whose attrs never recorded a label.
                 label = attrs.pop("label", concepts_label)
+                # Nodes written before the kind/role split carry entity_type.
+                # Map them onto both axes so an un-re-extracted graph loads.
+                if "entity_type" in attrs:
+                    if "kind" not in attrs:
+                        from .schema import LEGACY_TYPE_MAP, MathEntityKind
+                        kind, role = LEGACY_TYPE_MAP.get(
+                            str(attrs.get("entity_type")), (MathEntityKind.OBJECT, None)
+                        )
+                        attrs["kind"] = kind.value
+                        attrs["role"] = role.value if role else None
+                    # Always remove the retired key so it never appears on graph node attrs.
+                    attrs.pop("entity_type")
+                attrs.setdefault("kind", "Object")
+                attrs.setdefault("role", None)
                 G.add_node(cid, id=cid, label=label, **attrs)
             for src, tgt, relation in conn.execute(
                 "SELECT DISTINCT source_id, target_id, relation FROM edges"
@@ -190,7 +246,12 @@ def export_graph_json(graph: nx.DiGraph, path: Path) -> None:
             {
                 "id": n,
                 "label": graph.nodes[n].get("label", n),
-                "type": graph.nodes[n].get("entity_type", "Concept"),
+                # `type` carries the KIND, not the retired entity_type. The key
+                # name is kept because scripts/graph_health.py and
+                # src/server.py's /api/graph parse graph.json directly and
+                # expect that key. See CLAUDE.md invariant.
+                "type": graph.nodes[n].get("kind", "Object"),
+                "role": graph.nodes[n].get("role"),
                 "description": graph.nodes[n].get("description", ""),
                 "taxonomy": graph.nodes[n].get(
                     "taxonomy",
