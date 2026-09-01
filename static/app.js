@@ -3,14 +3,34 @@ document.addEventListener('DOMContentLoaded', () => {
     checkOllamaHealth();
     loadCourseDropdowns();
 
-    // --- Navigation Tabs ---
+    // --- Navigation Tabs & Mobile Drawer ---
     const navItems = document.querySelectorAll('.nav-item');
     const tabPages = document.querySelectorAll('.tab-page');
+    const mobileNavToggle = document.getElementById('btn-mobile-nav-toggle');
+    const sidebarEl = document.querySelector('.sidebar');
+    const sidebarBackdrop = document.getElementById('sidebar-backdrop');
+
+    function closeMobileSidebar() {
+        if (sidebarEl) sidebarEl.classList.remove('open');
+        if (sidebarBackdrop) sidebarBackdrop.classList.remove('active');
+    }
+
+    if (mobileNavToggle) {
+        mobileNavToggle.addEventListener('click', () => {
+            if (sidebarEl) sidebarEl.classList.toggle('open');
+            if (sidebarBackdrop) sidebarBackdrop.classList.toggle('active');
+        });
+    }
+
+    if (sidebarBackdrop) {
+        sidebarBackdrop.addEventListener('click', closeMobileSidebar);
+    }
 
     navItems.forEach(item => {
         item.addEventListener('click', () => {
             const targetTab = item.getAttribute('data-tab');
 
+            closeMobileSidebar();
             navItems.forEach(nav => nav.classList.remove('active'));
             tabPages.forEach(page => page.classList.remove('active'));
 
@@ -286,6 +306,40 @@ document.addEventListener('DOMContentLoaded', () => {
     // =====================================================================
     // Knowledge Graph Visualization (with filters)
     // =====================================================================
+    // Multi-Select Mode (Touch / Mobile & Desktop)
+    let isMultiSelectMode = false;
+    const btnMultiSelectToggle = document.getElementById('btn-multiselect-toggle');
+    const btnClearSelection = document.getElementById('btn-clear-selection');
+
+    if (btnMultiSelectToggle) {
+        btnMultiSelectToggle.addEventListener('click', () => {
+            isMultiSelectMode = !isMultiSelectMode;
+            btnMultiSelectToggle.classList.toggle('btn-multiselect-active', isMultiSelectMode);
+            const icon = btnMultiSelectToggle.querySelector('.multiselect-status-icon');
+            if (icon) icon.textContent = isMultiSelectMode ? '☑' : '☐';
+        });
+    }
+
+    if (btnClearSelection) {
+        btnClearSelection.addEventListener('click', () => {
+            clearHighlight();
+            clearNodeDetail();
+        });
+    }
+
+    function updateSelectionUI() {
+        const clearBtn = document.getElementById('btn-clear-selection');
+        const countSpan = document.getElementById('selected-count');
+        if (countSpan) countSpan.textContent = selectedNodeIds.size.toString();
+        if (clearBtn) {
+            if (selectedNodeIds.size > 0) {
+                clearBtn.classList.remove('hidden');
+            } else {
+                clearBtn.classList.add('hidden');
+            }
+        }
+    }
+
     const btnRefreshGraph = document.getElementById('btn-refresh-graph');
     if (btnRefreshGraph) btnRefreshGraph.addEventListener('click', loadKnowledgeGraph);
 
@@ -557,6 +611,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function clearHighlight() {
         selectedNodeIds.clear();
+        updateSelectionUI();
         if (!graphNodesDataSet || !graphEdgesDataSet) return;
         graphNodesDataSet.update(graphNodesDataSet.get().map(n => ({ id: n.id, opacity: 1, font: NODE_BASE_FONT })));
         graphEdgesDataSet.update(graphEdgesDataSet.get().map(e => ({
@@ -632,7 +687,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const aliases = Array.isArray(n.aliases) ? n.aliases : [];
         const provenance = Array.isArray(n.provenance) ? n.provenance : [];
 
-        let html = `<h3>${escapeHtml(n.label || n.id)}</h3>`;
+        let html = `<div class="graph-detail-header-row">
+            <h3>${escapeHtml(n.label || n.id)}</h3>
+            <button class="graph-detail-close-btn" id="btn-close-node-detail" title="Close details">&times;</button>
+        </div>`;
         html += `<span class="graph-detail-type" style="background:${roleColor}22; color:${roleColor};">${escapeHtml(role)}</span>`;
 
         if (n.description) {
@@ -687,6 +745,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const graphDetailPanelEl = document.getElementById('graph-detail-panel');
     if (graphDetailPanelEl) {
         graphDetailPanelEl.addEventListener('click', (e) => {
+            if (e.target.closest('#btn-close-node-detail')) {
+                clearNodeDetail();
+                return;
+            }
             const item = e.target.closest('.note-item-clickable');
             if (item) openNoteViewer(item.dataset.path, item.dataset.title);
         });
@@ -864,7 +926,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (params.nodes && params.nodes.length > 0) {
                 const nodeId = params.nodes[0];
                 const src = params.event && params.event.srcEvent;
-                const isMulti = !!(src && (src.ctrlKey || src.metaKey));
+                const isMulti = isMultiSelectMode || !!(src && (src.ctrlKey || src.metaKey));
 
                 if (isMulti && selectedNodeIds.has(nodeId)) {
                     selectedNodeIds.delete(nodeId);
@@ -873,6 +935,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     selectedNodeIds = new Set([nodeId]);
                 }
+
+                updateSelectionUI();
 
                 if (selectedNodeIds.size === 0) {
                     clearNodeDetail();
