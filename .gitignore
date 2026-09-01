@@ -14,7 +14,12 @@ __pycache__/
 .Python
 
 # Storage & Cache
-.storage/
+.storage/*
+!.storage/graph.json
+!.storage/concepts.db
+!.storage/lancedb/
+!.storage/vault_state.json
+!.storage/backups/
 temp_uploads/
 .cache/
 data/

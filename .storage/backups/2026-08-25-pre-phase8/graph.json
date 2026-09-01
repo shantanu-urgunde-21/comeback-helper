@@ -1,0 +1,4072 @@
+{
+  "nodes": [
+    {
+      "id": "CUST_637b82f0ecf2",
+      "label": "LHODE",
+      "type": "Concept",
+      "description": "An ordinary differential equation where the dependent variable and its derivatives appear to the first degree and are multiplied only by functions of the independent variable, with zero right-hand side.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "Ordinary Differential Equations",
+        "topic": "Linear Differential Equations"
+      },
+      "provenance": [
+        {
+          "doc_id": "MA301 Lecture 4",
+          "doc_title": "MA301 Lecture 4.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 4.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 4.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 4  <!-- Page 1 -->  ## Lecture 4  1) A second order "
+        },
+        {
+          "doc_id": "MA301 Lecture 4",
+          "doc_title": "MA301 Lecture 4.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 4.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 4.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 4  <!-- Page 1 -->  ## Lecture 4  1) A second order "
+        },
+        {
+          "doc_id": "MA301 Lecture 4",
+          "doc_title": "MA301 Lecture 4.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 4.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 4.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 4  <!-- Page 1 -->  ## Lecture 4  1) A second order "
+        }
+      ],
+      "aliases": [
+        "LHODE",
+        "Linear Homogeneous Ordinary Differential Equation",
+        "linear-homogeneous-ordinary-differential-equation",
+        "Homogeneous Linear Differential Equation",
+        "Homogeneous Ordinary Differential Equation",
+        "linear_homogeneous_ordinary_differential_equation",
+        "lhode",
+        "Linear Homogeneous ODE"
+      ]
+    },
+    {
+      "id": "Q124743",
+      "label": "Wronskian",
+      "type": "Concept",
+      "description": "The Wronskian of a set of differentiable functions is a determinant used to determine whether the functions are linearly independent on an interval.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "Systems of Ordinary Differential Equations",
+        "topic": "Wronskian"
+      },
+      "provenance": [
+        {
+          "doc_id": "Lecture notes 16 - 18",
+          "doc_title": "Lecture notes 16 - 18.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 16 - 18.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 16 - 18.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 16 - 18  <!-- Page 1 --> $$\\text{Lecture} - 16"
+        },
+        {
+          "doc_id": "MA301 Lecture 3",
+          "doc_title": "MA301 Lecture 3.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 3.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 3.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 3  <!-- Page 1 -->  ### Lecture-3  **Remark:** A set"
+        },
+        {
+          "doc_id": "MA301 Lecture 4",
+          "doc_title": "MA301 Lecture 4.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 4.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 4.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 4  <!-- Page 1 -->  ## Lecture 4  1) A second order "
+        },
+        {
+          "doc_id": "MA301 Lecture 7",
+          "doc_title": "MA301 Lecture 7.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 7.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 7.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 7  <!-- Page 1 --> ## Theorem 1.6 : Lecture 7  **Hyp"
+        },
+        {
+          "doc_id": "Lecture notes 16 - 18",
+          "doc_title": "Lecture notes 16 - 18.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 16 - 18.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 16 - 18.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 16 - 18  <!-- Page 1 --> $$\\text{Lecture} - 16"
+        },
+        {
+          "doc_id": "MA301 Lecture 4",
+          "doc_title": "MA301 Lecture 4.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 4.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 4.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 4  <!-- Page 1 -->  ## Lecture 4  1) A second order "
+        },
+        {
+          "doc_id": "Lecture notes 16 - 18",
+          "doc_title": "Lecture notes 16 - 18.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 16 - 18.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 16 - 18.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 16 - 18  <!-- Page 1 --> $$\\text{Lecture} - 16"
+        },
+        {
+          "doc_id": "MA301 Lecture 3",
+          "doc_title": "MA301 Lecture 3.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 3.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 3.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 3  <!-- Page 1 -->  ### Lecture-3  **Remark:** A set"
+        },
+        {
+          "doc_id": "MA301 Lecture 4",
+          "doc_title": "MA301 Lecture 4.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 4.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 4.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 4  <!-- Page 1 -->  ## Lecture 4  1) A second order "
+        },
+        {
+          "doc_id": "MA301 Lecture 7",
+          "doc_title": "MA301 Lecture 7.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 7.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 7.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 7  <!-- Page 1 --> ## Theorem 1.6 : Lecture 7  **Hyp"
+        },
+        {
+          "doc_id": "Lecture notes 16 - 18",
+          "doc_title": "Lecture notes 16 - 18.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 16 - 18.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 16 - 18.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 16 - 18  <!-- Page 1 --> $$\\text{Lecture} - 16"
+        },
+        {
+          "doc_id": "MA301 Lecture 3",
+          "doc_title": "MA301 Lecture 3.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 3.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 3.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 3  <!-- Page 1 -->  ### Lecture-3  **Remark:** A set"
+        },
+        {
+          "doc_id": "MA301 Lecture 4",
+          "doc_title": "MA301 Lecture 4.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 4.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 4.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 4  <!-- Page 1 -->  ## Lecture 4  1) A second order "
+        },
+        {
+          "doc_id": "MA301 Lecture 7",
+          "doc_title": "MA301 Lecture 7.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 7.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 7.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 7  <!-- Page 1 --> ## Theorem 1.6 : Lecture 7  **Hyp"
+        }
+      ],
+      "aliases": [
+        "W(y1, y2)",
+        "Wronskian",
+        "wronskian_definition",
+        "wronskian"
+      ]
+    },
+    {
+      "id": "Q33104580",
+      "label": "Characteristic Equation",
+      "type": "Concept",
+      "description": "An algebraic equation associated with a linear differential equation with constant coefficients, derived by substituting an exponential ansatz e^(mx).",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "Ordinary Differential Equations",
+        "topic": "Constant Coefficient ODEs"
+      },
+      "provenance": [
+        {
+          "doc_id": "MA301 Lecture 4",
+          "doc_title": "MA301 Lecture 4.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 4.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 4.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 4  <!-- Page 1 -->  ## Lecture 4  1) A second order "
+        },
+        {
+          "doc_id": "MA301 Lecture 4",
+          "doc_title": "MA301 Lecture 4.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 4.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 4.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 4  <!-- Page 1 -->  ## Lecture 4  1) A second order "
+        }
+      ],
+      "aliases": [
+        "characteristic_equation",
+        "characteristic-equation",
+        "auxiliary equation",
+        "Characteristic Equation"
+      ]
+    },
+    {
+      "id": "CUST_aafc5c5549b3",
+      "label": "Variation of Parameters",
+      "type": "Concept",
+      "description": "A general method for finding a particular solution of a non-homogeneous linear ordinary differential equation by replacing the constants in the homogeneous solution with unknown functions.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "Ordinary Differential Equations",
+        "topic": "Non-homogeneous ODEs"
+      },
+      "provenance": [
+        {
+          "doc_id": "MA301 Lecture 4",
+          "doc_title": "MA301 Lecture 4.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 4.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 4.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 4  <!-- Page 1 -->  ## Lecture 4  1) A second order "
+        },
+        {
+          "doc_id": "MA301 Lecture 4",
+          "doc_title": "MA301 Lecture 4.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 4.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 4.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 4  <!-- Page 1 -->  ## Lecture 4  1) A second order "
+        },
+        {
+          "doc_id": "MA301 Lecture 4",
+          "doc_title": "MA301 Lecture 4.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 4.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 4.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 4  <!-- Page 1 -->  ## Lecture 4  1) A second order "
+        }
+      ],
+      "aliases": [
+        "variation of parameters",
+        "Method of Variation of Parameters",
+        "variation_of_parameters",
+        "Variation of Parameters",
+        "method-of-variation-of-parameters",
+        "method_of_variation_of_parameters"
+      ]
+    },
+    {
+      "id": "Q91259634",
+      "label": "Lipschitz Condition",
+      "type": "Concept",
+      "description": "A function satisfies the Lipschitz condition on an interval if the absolute difference between its values at any two points is bounded by a constant multiple of the distance between the points.",
+      "taxonomy": {
+        "domain": "Calculus",
+        "subdomain": "Real Analysis",
+        "topic": "Continuity"
+      },
+      "provenance": [
+        {
+          "doc_id": "Lecture notes 10 to 15",
+          "doc_title": "Lecture notes 10 to 15.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 10 to 15.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 10 to 15.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 10 to 15  <!-- Page 1 -->  ## Lecture - 10  *"
+        },
+        {
+          "doc_id": "Lecture notes 7 to 9 (1)",
+          "doc_title": "Lecture notes 7 to 9 (1).md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 7 to 9 (1).md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 7 to 9 (1).pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 7 to 9 (1)  <!-- Page 1 -->  $$25/03/2025 \\"
+        },
+        {
+          "doc_id": "Lecture notes 7 to 9",
+          "doc_title": "Lecture notes 7 to 9.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 7 to 9.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 7 to 9.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 7 to 9  <!-- Page 1 --> 25/03/2025 Lecture - 7 "
+        },
+        {
+          "doc_id": "Lecture notes 10 to 15",
+          "doc_title": "Lecture notes 10 to 15.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 10 to 15.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 10 to 15.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 10 to 15  <!-- Page 1 -->  ## Lecture - 10  *"
+        },
+        {
+          "doc_id": "Lecture notes 7 to 9",
+          "doc_title": "Lecture notes 7 to 9.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 7 to 9.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 7 to 9.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 7 to 9  <!-- Page 1 --> 25/03/2025 Lecture - 7 "
+        },
+        {
+          "doc_id": "Lecture notes 7 to 9 (1)",
+          "doc_title": "Lecture notes 7 to 9 (1).md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 7 to 9 (1).md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 7 to 9 (1).pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 7 to 9 (1)  <!-- Page 1 -->  $$25/03/2025 \\"
+        },
+        {
+          "doc_id": "Lecture notes 7 to 9",
+          "doc_title": "Lecture notes 7 to 9.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 7 to 9.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 7 to 9.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 7 to 9  <!-- Page 1 --> 25/03/2025 Lecture - 7 "
+        },
+        {
+          "doc_id": "Lecture notes 10 to 15",
+          "doc_title": "Lecture notes 10 to 15.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 10 to 15.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 10 to 15.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 10 to 15  <!-- Page 1 -->  ## Lecture - 10  *"
+        },
+        {
+          "doc_id": "Lecture notes 7 to 9",
+          "doc_title": "Lecture notes 7 to 9.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 7 to 9.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 7 to 9.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 7 to 9  <!-- Page 1 --> 25/03/2025 Lecture - 7 "
+        },
+        {
+          "doc_id": "Lecture notes 10 to 15",
+          "doc_title": "Lecture notes 10 to 15.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 10 to 15.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 10 to 15.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 10 to 15  <!-- Page 1 -->  ## Lecture - 10  *"
+        },
+        {
+          "doc_id": "Lecture notes 7 to 9 (1)",
+          "doc_title": "Lecture notes 7 to 9 (1).md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 7 to 9 (1).md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 7 to 9 (1).pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 7 to 9 (1)  <!-- Page 1 -->  $$25/03/2025 \\"
+        }
+      ],
+      "aliases": [
+        "Lipschitz continuity",
+        "Lipschitz Condition",
+        "lipschitz_condition",
+        "lipshitz_condition",
+        "Lipschitz Continuity",
+        "lipschitz-condition",
+        "Lipschitz Continuous Function"
+      ]
+    },
+    {
+      "id": "CUST_41046cbb5141",
+      "label": "Peano's Theorem",
+      "type": "Concept",
+      "description": "States that for a continuous function on a rectangle, an initial value problem for a first-order ordinary differential equation has at least one solution in a neighborhood of the initial point.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "First-Order Ordinary Differential Equations",
+        "topic": "Existence and Uniqueness Theory"
+      },
+      "provenance": [
+        {
+          "doc_id": "Lecture notes 10 to 15",
+          "doc_title": "Lecture notes 10 to 15.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 10 to 15.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 10 to 15.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 10 to 15  <!-- Page 1 -->  ## Lecture - 10  *"
+        },
+        {
+          "doc_id": "Lecture notes 10 to 15",
+          "doc_title": "Lecture notes 10 to 15.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 10 to 15.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 10 to 15.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 10 to 15  <!-- Page 1 -->  ## Lecture - 10  *"
+        },
+        {
+          "doc_id": "Lecture notes 10 to 15",
+          "doc_title": "Lecture notes 10 to 15.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 10 to 15.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 10 to 15.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 10 to 15  <!-- Page 1 -->  ## Lecture - 10  *"
+        }
+      ],
+      "aliases": [
+        "Peano's Theorem",
+        "peanos_existence_theorem"
+      ]
+    },
+    {
+      "id": "CUST_ad92dc337cca",
+      "label": "Picard's Theorem",
+      "type": "Theorem",
+      "description": "A fundamental theorem guaranteeing the existence and uniqueness of a solution to an ordinary differential equation given a continuous function and an initial condition.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "Ordinary Differential Equations",
+        "topic": "Existence and Uniqueness"
+      },
+      "provenance": [
+        {
+          "doc_id": "MA301 Lecture 2",
+          "doc_title": "MA301 Lecture 2.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 2.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 2.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 2  <!-- Page 1 --> Lecture 2 Homogeneous Linear Equa"
+        },
+        {
+          "doc_id": "Lecture notes 10 to 15",
+          "doc_title": "Lecture notes 10 to 15.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 10 to 15.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 10 to 15.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 10 to 15  <!-- Page 1 -->  ## Lecture - 10  *"
+        }
+      ],
+      "aliases": [
+        "Picard-Lindelof Theorem",
+        "picards_theorem",
+        "Picard's Theorem",
+        "picard-lindelof-theorem",
+        "Picard Uniqueness Theorem",
+        "Cauchy-Lipschitz Theorem",
+        "Picard-Lindel\u00f6f Theorem"
+      ]
+    },
+    {
+      "id": "CUST_8a19006ae207",
+      "label": "Sturm-Liouville Equation",
+      "type": "Concept",
+      "description": "A standard second-order linear ordinary differential equation of the form y'' + mu^2 y = 0 appearing in physics and engineering applications.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "Second-Order Ordinary Differential Equations",
+        "topic": "Classical Differential Equations"
+      },
+      "provenance": [
+        {
+          "doc_id": "Lecture notes 10 to 15",
+          "doc_title": "Lecture notes 10 to 15.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 10 to 15.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 10 to 15.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 10 to 15  <!-- Page 1 -->  ## Lecture - 10  *"
+        },
+        {
+          "doc_id": "Lecture notes 10 to 15",
+          "doc_title": "Lecture notes 10 to 15.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 10 to 15.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 10 to 15.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 10 to 15  <!-- Page 1 -->  ## Lecture - 10  *"
+        },
+        {
+          "doc_id": "Lecture notes 10 to 15",
+          "doc_title": "Lecture notes 10 to 15.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 10 to 15.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 10 to 15.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 10 to 15  <!-- Page 1 -->  ## Lecture - 10  *"
+        }
+      ],
+      "aliases": [
+        "Sturm-Liouville Equation",
+        "sturm_liouville_equation"
+      ]
+    },
+    {
+      "id": "CUST_ae69c63f8557",
+      "label": "Legendre Equation",
+      "type": "Concept",
+      "description": "A second-order linear ordinary differential equation given by (1 - x^2) y'' - 2 x y' + n(n+1) y = 0.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "Ordinary Differential Equations",
+        "topic": "Classical Equations"
+      },
+      "provenance": [
+        {
+          "doc_id": "Lecture notes 10 to 15",
+          "doc_title": "Lecture notes 10 to 15.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 10 to 15.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 10 to 15.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 10 to 15  <!-- Page 1 -->  ## Lecture - 10  *"
+        },
+        {
+          "doc_id": "Lecture notes 10 to 15",
+          "doc_title": "Lecture notes 10 to 15.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 10 to 15.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 10 to 15.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 10 to 15  <!-- Page 1 -->  ## Lecture - 10  *"
+        },
+        {
+          "doc_id": "MA301 Lecture 2",
+          "doc_title": "MA301 Lecture 2.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 2.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 2.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 2  <!-- Page 1 --> Lecture 2 Homogeneous Linear Equa"
+        },
+        {
+          "doc_id": "MA301 Lecture 2",
+          "doc_title": "MA301 Lecture 2.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 2.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 2.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 2  <!-- Page 1 --> Lecture 2 Homogeneous Linear Equa"
+        },
+        {
+          "doc_id": "MA301 Lecture 2",
+          "doc_title": "MA301 Lecture 2.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 2.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 2.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 2  <!-- Page 1 --> Lecture 2 Homogeneous Linear Equa"
+        }
+      ],
+      "aliases": [
+        "Legendre Equation",
+        "legendre_equation",
+        "legendre-equation",
+        "(1-x^2)y'' - 2x y' + n(n+1)y = 0"
+      ]
+    },
+    {
+      "id": "CUST_ebeb1a672978",
+      "label": "Bessel Equation",
+      "type": "Concept",
+      "description": "A second-order linear ordinary differential equation given by x^2 y'' + x y' + (x^2 - nu^2) y = 0 with domain interval (0, infinity).",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "Ordinary Differential Equations",
+        "topic": "Classical Equations"
+      },
+      "provenance": [
+        {
+          "doc_id": "Lecture notes 10 to 15",
+          "doc_title": "Lecture notes 10 to 15.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 10 to 15.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 10 to 15.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 10 to 15  <!-- Page 1 -->  ## Lecture - 10  *"
+        },
+        {
+          "doc_id": "Lecture notes 10 to 15",
+          "doc_title": "Lecture notes 10 to 15.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 10 to 15.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 10 to 15.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 10 to 15  <!-- Page 1 -->  ## Lecture - 10  *"
+        },
+        {
+          "doc_id": "MA301 Lecture 2",
+          "doc_title": "MA301 Lecture 2.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 2.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 2.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 2  <!-- Page 1 --> Lecture 2 Homogeneous Linear Equa"
+        },
+        {
+          "doc_id": "MA301 Lecture 2",
+          "doc_title": "MA301 Lecture 2.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 2.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 2.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 2  <!-- Page 1 --> Lecture 2 Homogeneous Linear Equa"
+        },
+        {
+          "doc_id": "MA301 Lecture 2",
+          "doc_title": "MA301 Lecture 2.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 2.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 2.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 2  <!-- Page 1 --> Lecture 2 Homogeneous Linear Equa"
+        }
+      ],
+      "aliases": [
+        "Bessel Equation",
+        "bessel_equation",
+        "bessel-equation",
+        "x^2 y'' + xy' + (x^2 - v^2)y = 0"
+      ]
+    },
+    {
+      "id": "Q27670",
+      "label": "Linear Independence",
+      "type": "Concept",
+      "description": "A set of functions is linearly independent on an interval if a linear combination of them equals the zero function identically only when all scalar coefficients are zero.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "Systems of Ordinary Differential Equations",
+        "topic": "Linear Independence"
+      },
+      "provenance": [
+        {
+          "doc_id": "Lecture notes 10 to 15",
+          "doc_title": "Lecture notes 10 to 15.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 10 to 15.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 10 to 15.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 10 to 15  <!-- Page 1 -->  ## Lecture - 10  *"
+        },
+        {
+          "doc_id": "Lecture notes 10 to 15",
+          "doc_title": "Lecture notes 10 to 15.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 10 to 15.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 10 to 15.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 10 to 15  <!-- Page 1 -->  ## Lecture - 10  *"
+        },
+        {
+          "doc_id": "Lecture notes 10 to 15",
+          "doc_title": "Lecture notes 10 to 15.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 10 to 15.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 10 to 15.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 10 to 15  <!-- Page 1 -->  ## Lecture - 10  *"
+        },
+        {
+          "doc_id": "MA301 Lecture 7",
+          "doc_title": "MA301 Lecture 7.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 7.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 7.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 7  <!-- Page 1 --> ## Theorem 1.6 : Lecture 7  **Hyp"
+        },
+        {
+          "doc_id": "Lecture notes 10 to 15",
+          "doc_title": "Lecture notes 10 to 15.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 10 to 15.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 10 to 15.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 10 to 15  <!-- Page 1 -->  ## Lecture - 10  *"
+        },
+        {
+          "doc_id": "MA301 Lecture 7",
+          "doc_title": "MA301 Lecture 7.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 7.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 7.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 7  <!-- Page 1 --> ## Theorem 1.6 : Lecture 7  **Hyp"
+        }
+      ],
+      "aliases": [
+        "Linearly independent functions",
+        "Linear Independence",
+        "linear_independence",
+        "linear_independence_of_functions",
+        "Linearly Independent Functions",
+        "linear-independence-of-functions",
+        "Linear Dependence of Functions",
+        "Linear Independence of Functions"
+      ]
+    },
+    {
+      "id": "Q111783780",
+      "label": "Linear Dependence",
+      "type": "Concept",
+      "description": "A set of functions is linearly dependent on an interval if there exists a non-trivial linear combination of them that evaluates to the zero function for all points in the interval.",
+      "taxonomy": {
+        "domain": "Linear Algebra",
+        "subdomain": "Vector Spaces",
+        "topic": "Basis and Dimension"
+      },
+      "provenance": [
+        {
+          "doc_id": "Lecture notes 10 to 15",
+          "doc_title": "Lecture notes 10 to 15.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 10 to 15.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 10 to 15.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 10 to 15  <!-- Page 1 -->  ## Lecture - 10  *"
+        },
+        {
+          "doc_id": "Lecture notes 10 to 15",
+          "doc_title": "Lecture notes 10 to 15.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 10 to 15.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 10 to 15.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 10 to 15  <!-- Page 1 -->  ## Lecture - 10  *"
+        },
+        {
+          "doc_id": "MA301 Lecture 7",
+          "doc_title": "MA301 Lecture 7.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 7.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 7.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 7  <!-- Page 1 --> ## Theorem 1.6 : Lecture 7  **Hyp"
+        },
+        {
+          "doc_id": "Lecture notes 10 to 15",
+          "doc_title": "Lecture notes 10 to 15.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 10 to 15.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 10 to 15.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 10 to 15  <!-- Page 1 -->  ## Lecture - 10  *"
+        }
+      ],
+      "aliases": [
+        "Linearly dependent functions",
+        "Linear Dependence",
+        "linear_dependence",
+        "linear_dependence_of_functions",
+        "Linearly Dependent Functions",
+        "Linear Dependence of Functions"
+      ]
+    },
+    {
+      "id": "CUST_db60303826e1",
+      "label": "Picard's Uniqueness Theorem",
+      "type": "Concept",
+      "description": "",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "First-Order Ordinary Differential Equations",
+        "topic": "Existence and Uniqueness Theory"
+      },
+      "provenance": [
+        {
+          "doc_id": "Lecture notes 10 to 15",
+          "doc_title": "Lecture notes 10 to 15.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 10 to 15.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 10 to 15.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 10 to 15  <!-- Page 1 -->  ## Lecture - 10  *"
+        },
+        {
+          "doc_id": "Lecture notes 10 to 15",
+          "doc_title": "Lecture notes 10 to 15.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 10 to 15.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 10 to 15.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 10 to 15  <!-- Page 1 -->  ## Lecture - 10  *"
+        }
+      ],
+      "aliases": [
+        "picard_uniqueness_theorem",
+        "picards_uniqueness_theorem"
+      ]
+    },
+    {
+      "id": "CUST_74cc7d853573",
+      "label": "Abel's Lemma",
+      "type": "Concept",
+      "description": "A formula relating the derivative of the Wronskian of two solutions of a homogeneous second-order linear differential equation to the coefficient of the first-derivative term.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "Second-Order Linear ODEs",
+        "topic": "Properties of Wronskian"
+      },
+      "provenance": [
+        {
+          "doc_id": "Lecture notes 16 - 18",
+          "doc_title": "Lecture notes 16 - 18.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 16 - 18.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 16 - 18.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 16 - 18  <!-- Page 1 --> $$\\text{Lecture} - 16"
+        },
+        {
+          "doc_id": "MA301 Lecture 3",
+          "doc_title": "MA301 Lecture 3.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 3.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 3.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 3  <!-- Page 1 -->  ### Lecture-3  **Remark:** A set"
+        },
+        {
+          "doc_id": "Lecture notes 16 - 18",
+          "doc_title": "Lecture notes 16 - 18.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 16 - 18.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 16 - 18.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 16 - 18  <!-- Page 1 --> $$\\text{Lecture} - 16"
+        },
+        {
+          "doc_id": "MA301 Lecture 3",
+          "doc_title": "MA301 Lecture 3.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 3.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 3.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 3  <!-- Page 1 -->  ### Lecture-3  **Remark:** A set"
+        },
+        {
+          "doc_id": "Lecture notes 16 - 18",
+          "doc_title": "Lecture notes 16 - 18.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 16 - 18.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 16 - 18.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 16 - 18  <!-- Page 1 --> $$\\text{Lecture} - 16"
+        },
+        {
+          "doc_id": "MA301 Lecture 3",
+          "doc_title": "MA301 Lecture 3.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 3.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 3.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 3  <!-- Page 1 -->  ### Lecture-3  **Remark:** A set"
+        },
+        {
+          "doc_id": "Lecture notes 16 - 18",
+          "doc_title": "Lecture notes 16 - 18.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 16 - 18.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 16 - 18.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 16 - 18  <!-- Page 1 --> $$\\text{Lecture} - 16"
+        },
+        {
+          "doc_id": "MA301 Lecture 3",
+          "doc_title": "MA301 Lecture 3.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 3.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 3.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 3  <!-- Page 1 -->  ### Lecture-3  **Remark:** A set"
+        }
+      ],
+      "aliases": [
+        "Abel's Formula",
+        "Abel's Lemma",
+        "abels_lemma"
+      ]
+    },
+    {
+      "id": "Q3589398",
+      "label": "Bernoulli ODE",
+      "type": "Concept",
+      "description": "A first-order ordinary differential equation of the form y' + p(x)y = r(x)y^alpha, which can be reduced to a linear equation via substitution.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "First-Order Ordinary Differential Equations",
+        "topic": "Non-linear ODEs"
+      },
+      "provenance": [
+        {
+          "doc_id": "Lecture notes 16 - 18",
+          "doc_title": "Lecture notes 16 - 18.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 16 - 18.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 16 - 18.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 16 - 18  <!-- Page 1 --> $$\\text{Lecture} - 16"
+        },
+        {
+          "doc_id": "Lecture notes 16 - 18",
+          "doc_title": "Lecture notes 16 - 18.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 16 - 18.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 16 - 18.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 16 - 18  <!-- Page 1 --> $$\\text{Lecture} - 16"
+        },
+        {
+          "doc_id": "Lecture notes 16 - 18",
+          "doc_title": "Lecture notes 16 - 18.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 16 - 18.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 16 - 18.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 16 - 18  <!-- Page 1 --> $$\\text{Lecture} - 16"
+        },
+        {
+          "doc_id": "Lecture notes 16 - 18",
+          "doc_title": "Lecture notes 16 - 18.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 16 - 18.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 16 - 18.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 16 - 18  <!-- Page 1 --> $$\\text{Lecture} - 16"
+        },
+        {
+          "doc_id": "Lecture notes 16 - 18",
+          "doc_title": "Lecture notes 16 - 18.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 16 - 18.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 16 - 18.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 16 - 18  <!-- Page 1 --> $$\\text{Lecture} - 16"
+        }
+      ],
+      "aliases": [
+        "Bernoulli ODE",
+        "Bernoulli Equation",
+        "bernoulli_equation"
+      ]
+    },
+    {
+      "id": "Q116450161",
+      "label": "First Fundamental Theorem of Calculus",
+      "type": "Concept",
+      "description": "States that if f is a continuous real-valued function defined on a closed interval [a, b], and F(x) is defined as the definite integral of f from a to x, then F is continuous on [a, b], differentiable on (a, b), and its derivative is F'(x) = f(x).",
+      "taxonomy": {
+        "domain": "Calculus",
+        "subdomain": "Integral Calculus",
+        "topic": "Fundamental Theorem of Calculus"
+      },
+      "provenance": [
+        {
+          "doc_id": "Lecture notes 4-6",
+          "doc_title": "Lecture notes 4-6.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 4-6.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 4-6.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 4-6  <!-- Page 1 --> $\\begin{aligned}& \\text { Lec"
+        },
+        {
+          "doc_id": "Lecture_notes_page1",
+          "doc_title": "Lecture_notes_page1.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture_notes_page1.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture_notes_page1.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture_notes_page1  <!-- Page 1 --> $\\text { Lecture - 4 }$  "
+        },
+        {
+          "doc_id": "Lecture notes 4-6",
+          "doc_title": "Lecture notes 4-6.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 4-6.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 4-6.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 4-6  <!-- Page 1 --> $\\begin{aligned}& \\text { Lec"
+        },
+        {
+          "doc_id": "Lecture notes 4-6",
+          "doc_title": "Lecture notes 4-6.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 4-6.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 4-6.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 4-6  <!-- Page 1 --> $\\begin{aligned}& \\text { Lec"
+        }
+      ],
+      "aliases": [
+        "FTC 1",
+        "First Fundamental Theorem of Integral Calculus",
+        "First Fundamental Theorem of Calculus",
+        "first-fundamental-theorem-of-calculus",
+        "first_fundamental_theorem_of_calculus",
+        "First fundamental theorem of calculus"
+      ]
+    },
+    {
+      "id": "CUST_16fe332f79af",
+      "label": "Separable ODE",
+      "type": "Concept",
+      "description": "A first-order ordinary differential equation that can be written in the form M(x) + N(y) dy/dx = 0 or dy/dx = h(x)g(y), allowing the variables to be separated and integrated directly.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "First-Order ODEs",
+        "topic": "Separable Equations"
+      },
+      "provenance": [
+        {
+          "doc_id": "Lecture notes 4-6",
+          "doc_title": "Lecture notes 4-6.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 4-6.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 4-6.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 4-6  <!-- Page 1 --> $\\begin{aligned}& \\text { Lec"
+        },
+        {
+          "doc_id": "Lecture_notes_page1",
+          "doc_title": "Lecture_notes_page1.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture_notes_page1.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture_notes_page1.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture_notes_page1  <!-- Page 1 --> $\\text { Lecture - 4 }$  "
+        },
+        {
+          "doc_id": "Lecture notes 4-6",
+          "doc_title": "Lecture notes 4-6.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 4-6.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 4-6.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 4-6  <!-- Page 1 --> $\\begin{aligned}& \\text { Lec"
+        },
+        {
+          "doc_id": "Lecture notes 4-6",
+          "doc_title": "Lecture notes 4-6.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 4-6.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 4-6.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 4-6  <!-- Page 1 --> $\\begin{aligned}& \\text { Lec"
+        },
+        {
+          "doc_id": "Lecture_notes_page1",
+          "doc_title": "Lecture_notes_page1.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture_notes_page1.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture_notes_page1.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture_notes_page1  <!-- Page 1 --> $\\text { Lecture - 4 }$  "
+        }
+      ],
+      "aliases": [
+        "Separable ODE",
+        "Separable Differential Equation",
+        "Separation of Variables",
+        "separable-ode",
+        "Separable ordinary differential equation",
+        "Separable Ordinary Differential Equation"
+      ]
+    },
+    {
+      "id": "CUST_d5707136683b",
+      "label": "Explicit Solution",
+      "type": "Concept",
+      "description": "A solution to a differential equation where the dependent variable is expressed solely and explicitly in terms of the independent variable and constants, of the form y = phi(x).",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "General Concepts",
+        "topic": "Solutions and Integrals"
+      },
+      "provenance": [
+        {
+          "doc_id": "Lecture notes 4-6",
+          "doc_title": "Lecture notes 4-6.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 4-6.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 4-6.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 4-6  <!-- Page 1 --> $\\begin{aligned}& \\text { Lec"
+        },
+        {
+          "doc_id": "Lecture notes 4-6",
+          "doc_title": "Lecture notes 4-6.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 4-6.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 4-6.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 4-6  <!-- Page 1 --> $\\begin{aligned}& \\text { Lec"
+        }
+      ],
+      "aliases": [
+        "Explicit Solution",
+        "Explicit solution of the n-th order ODE",
+        "explicit-solution",
+        "Explicit Solution of an ODE",
+        "explicit_solution_ode",
+        "explicit_solution"
+      ]
+    },
+    {
+      "id": "CUST_8e700dc97a6a",
+      "label": "Implicit Solution",
+      "type": "Concept",
+      "description": "A relation g(x, y) = 0 that implicitly defines at least one function phi(x) on an interval such that phi(x) is an explicit solution to the differential equation.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "General Concepts",
+        "topic": "Solutions and Integrals"
+      },
+      "provenance": [
+        {
+          "doc_id": "Lecture notes 4-6",
+          "doc_title": "Lecture notes 4-6.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 4-6.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 4-6.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 4-6  <!-- Page 1 --> $\\begin{aligned}& \\text { Lec"
+        },
+        {
+          "doc_id": "Lecture notes 4-6",
+          "doc_title": "Lecture notes 4-6.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 4-6.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 4-6.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 4-6  <!-- Page 1 --> $\\begin{aligned}& \\text { Lec"
+        }
+      ],
+      "aliases": [
+        "Implicit Solution",
+        "implicit-solution",
+        "Implicit solution relation",
+        "Implicit solution of a DE",
+        "Implicit Solution of an ODE",
+        "implicit_solution"
+      ]
+    },
+    {
+      "id": "CUST_af61613bda81",
+      "label": "Formal Solution",
+      "type": "Concept",
+      "description": "A relation g(x, y) = 0 that yields the given differential equation upon formal differentiation with respect to x, regardless of whether it defines a valid real explicit solution function.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "General Concepts",
+        "topic": "Solutions and Integrals"
+      },
+      "provenance": [
+        {
+          "doc_id": "Lecture notes 4-6",
+          "doc_title": "Lecture notes 4-6.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 4-6.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 4-6.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 4-6  <!-- Page 1 --> $\\begin{aligned}& \\text { Lec"
+        },
+        {
+          "doc_id": "Lecture notes 4-6",
+          "doc_title": "Lecture notes 4-6.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 4-6.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 4-6.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 4-6  <!-- Page 1 --> $\\begin{aligned}& \\text { Lec"
+        }
+      ],
+      "aliases": [
+        "Formal Solution",
+        "formal-solution",
+        "formal_solution"
+      ]
+    },
+    {
+      "id": "Q1132952",
+      "label": "Homogeneous Function",
+      "type": "Definition",
+      "description": "A function f(x1, x2, ..., xn) satisfying f(t x1, t x2, ..., t xn) = t^d f(x1, ..., xn) for some integer d and scalar t.",
+      "taxonomy": {
+        "domain": "Multivariable Calculus",
+        "subdomain": "Functions of Several Variables",
+        "topic": "Homogeneous Functions"
+      },
+      "provenance": [
+        {
+          "doc_id": "Lecture notes 4-6",
+          "doc_title": "Lecture notes 4-6.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 4-6.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 4-6.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 4-6  <!-- Page 1 --> $\\begin{aligned}& \\text { Lec"
+        },
+        {
+          "doc_id": "Lecture notes 4-6",
+          "doc_title": "Lecture notes 4-6.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 4-6.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 4-6.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 4-6  <!-- Page 1 --> $\\begin{aligned}& \\text { Lec"
+        },
+        {
+          "doc_id": "Lecture notes 4-6",
+          "doc_title": "Lecture notes 4-6.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 4-6.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 4-6.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 4-6  <!-- Page 1 --> $\\begin{aligned}& \\text { Lec"
+        }
+      ],
+      "aliases": [
+        "Homogeneous function of degree d",
+        "Homogeneous Function",
+        "homogeneous_function",
+        "Homogeneous Function of Degree d"
+      ]
+    },
+    {
+      "id": "Q15303791",
+      "label": "Total Differential",
+      "type": "Concept",
+      "description": "Let F be a function with continuous first-order partial derivatives in a domain D; its total differential dF is given by the linear combination of its partial derivatives with respect to each coordinate increment.",
+      "taxonomy": {
+        "domain": "Calculus",
+        "subdomain": "Multivariable Calculus",
+        "topic": "Differentials"
+      },
+      "provenance": [
+        {
+          "doc_id": "Lecture notes 7 to 9 (1)",
+          "doc_title": "Lecture notes 7 to 9 (1).md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 7 to 9 (1).md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 7 to 9 (1).pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 7 to 9 (1)  <!-- Page 1 -->  $$25/03/2025 \\"
+        },
+        {
+          "doc_id": "Lecture notes 7 to 9",
+          "doc_title": "Lecture notes 7 to 9.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 7 to 9.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 7 to 9.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 7 to 9  <!-- Page 1 --> 25/03/2025 Lecture - 7 "
+        },
+        {
+          "doc_id": "Lecture notes 7 to 9 (1)",
+          "doc_title": "Lecture notes 7 to 9 (1).md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 7 to 9 (1).md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 7 to 9 (1).pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 7 to 9 (1)  <!-- Page 1 -->  $$25/03/2025 \\"
+        },
+        {
+          "doc_id": "Lecture notes 7 to 9",
+          "doc_title": "Lecture notes 7 to 9.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 7 to 9.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 7 to 9.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 7 to 9  <!-- Page 1 --> 25/03/2025 Lecture - 7 "
+        },
+        {
+          "doc_id": "Lecture notes 7 to 9 (1)",
+          "doc_title": "Lecture notes 7 to 9 (1).md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 7 to 9 (1).md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 7 to 9 (1).pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 7 to 9 (1)  <!-- Page 1 -->  $$25/03/2025 \\"
+        },
+        {
+          "doc_id": "Lecture notes 7 to 9",
+          "doc_title": "Lecture notes 7 to 9.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 7 to 9.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 7 to 9.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 7 to 9  <!-- Page 1 --> 25/03/2025 Lecture - 7 "
+        }
+      ],
+      "aliases": [
+        "dF",
+        "Total Differential",
+        "total_differential"
+      ]
+    },
+    {
+      "id": "Q1366795",
+      "label": "Exact ODE",
+      "type": "Concept",
+      "description": "A first-order ordinary differential equation of the form M(x,y)dx + N(x,y)dy = 0 is exact if there exists a potential function F(x,y) such that its partial derivatives equal M and N respectively.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "First-Order ODEs",
+        "topic": "Exact Equations"
+      },
+      "provenance": [
+        {
+          "doc_id": "Lecture notes 7 to 9 (1)",
+          "doc_title": "Lecture notes 7 to 9 (1).md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 7 to 9 (1).md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 7 to 9 (1).pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 7 to 9 (1)  <!-- Page 1 -->  $$25/03/2025 \\"
+        },
+        {
+          "doc_id": "Lecture notes 7 to 9",
+          "doc_title": "Lecture notes 7 to 9.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 7 to 9.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 7 to 9.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 7 to 9  <!-- Page 1 --> 25/03/2025 Lecture - 7 "
+        },
+        {
+          "doc_id": "Lecture notes 7 to 9 (1)",
+          "doc_title": "Lecture notes 7 to 9 (1).md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 7 to 9 (1).md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 7 to 9 (1).pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 7 to 9 (1)  <!-- Page 1 -->  $$25/03/2025 \\"
+        },
+        {
+          "doc_id": "Lecture notes 7 to 9",
+          "doc_title": "Lecture notes 7 to 9.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 7 to 9.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 7 to 9.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 7 to 9  <!-- Page 1 --> 25/03/2025 Lecture - 7 "
+        },
+        {
+          "doc_id": "Lecture notes 7 to 9 (1)",
+          "doc_title": "Lecture notes 7 to 9 (1).md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 7 to 9 (1).md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 7 to 9 (1).pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 7 to 9 (1)  <!-- Page 1 -->  $$25/03/2025 \\"
+        },
+        {
+          "doc_id": "Lecture notes 7 to 9",
+          "doc_title": "Lecture notes 7 to 9.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 7 to 9.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 7 to 9.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 7 to 9  <!-- Page 1 --> 25/03/2025 Lecture - 7 "
+        },
+        {
+          "doc_id": "Lecture notes 7 to 9",
+          "doc_title": "Lecture notes 7 to 9.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 7 to 9.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 7 to 9.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 7 to 9  <!-- Page 1 --> 25/03/2025 Lecture - 7 "
+        },
+        {
+          "doc_id": "Lecture notes 7 to 9 (1)",
+          "doc_title": "Lecture notes 7 to 9 (1).md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 7 to 9 (1).md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 7 to 9 (1).pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 7 to 9 (1)  <!-- Page 1 -->  $$25/03/2025 \\"
+        },
+        {
+          "doc_id": "Lecture notes 7 to 9",
+          "doc_title": "Lecture notes 7 to 9.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 7 to 9.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 7 to 9.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 7 to 9  <!-- Page 1 --> 25/03/2025 Lecture - 7 "
+        }
+      ],
+      "aliases": [
+        "Exact ODE",
+        "Exact Differential Equation",
+        "exact_differential_equation"
+      ]
+    },
+    {
+      "id": "CUST_835d433957fc",
+      "label": "Criterion for Exactness",
+      "type": "Concept",
+      "description": "Let M and N have continuous first-order partial derivatives in a bounded domain D. Then the differential equation M dx + N dy = 0 is exact if and only if M_y equals N_x throughout D.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "First-Order ODEs",
+        "topic": "Exact Equations"
+      },
+      "provenance": [
+        {
+          "doc_id": "Lecture notes 7 to 9 (1)",
+          "doc_title": "Lecture notes 7 to 9 (1).md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 7 to 9 (1).md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 7 to 9 (1).pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 7 to 9 (1)  <!-- Page 1 -->  $$25/03/2025 \\"
+        }
+      ],
+      "aliases": [
+        "Criterion for Exactness",
+        "Exactness Criterion Theorem",
+        "exactness_criterion_theorem"
+      ]
+    },
+    {
+      "id": "CUST_2b2a63f6fece",
+      "label": "Schwarz's Theorem",
+      "type": "Concept",
+      "description": "If a function has mixed second-order partial derivatives that exist and are continuous at a point, then the order of partial differentiation does not affect the resulting value.",
+      "taxonomy": {
+        "domain": "Calculus",
+        "subdomain": "Multivariable Calculus",
+        "topic": "Partial Derivatives"
+      },
+      "provenance": [
+        {
+          "doc_id": "Lecture notes 7 to 9 (1)",
+          "doc_title": "Lecture notes 7 to 9 (1).md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 7 to 9 (1).md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 7 to 9 (1).pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 7 to 9 (1)  <!-- Page 1 -->  $$25/03/2025 \\"
+        },
+        {
+          "doc_id": "Lecture notes 7 to 9 (1)",
+          "doc_title": "Lecture notes 7 to 9 (1).md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 7 to 9 (1).md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 7 to 9 (1).pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 7 to 9 (1)  <!-- Page 1 -->  $$25/03/2025 \\"
+        },
+        {
+          "doc_id": "Lecture notes 7 to 9 (1)",
+          "doc_title": "Lecture notes 7 to 9 (1).md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 7 to 9 (1).md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 7 to 9 (1).pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 7 to 9 (1)  <!-- Page 1 -->  $$25/03/2025 \\"
+        }
+      ],
+      "aliases": [
+        "Clairaut's Theorem",
+        "Schwarz's Theorem",
+        "Mixed Partials Theorem",
+        "mixed_partials_theorem"
+      ]
+    },
+    {
+      "id": "Q2734005",
+      "label": "Integrating Factor",
+      "type": "Concept",
+      "description": "A function multiplying a non-exact differential equation to transform it into an exact differential equation whose solutions can then be readily found.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "First-Order ODEs",
+        "topic": "Integrating Factors"
+      },
+      "provenance": [
+        {
+          "doc_id": "Lecture notes 7 to 9 (1)",
+          "doc_title": "Lecture notes 7 to 9 (1).md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 7 to 9 (1).md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 7 to 9 (1).pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 7 to 9 (1)  <!-- Page 1 -->  $$25/03/2025 \\"
+        },
+        {
+          "doc_id": "Lecture notes 7 to 9",
+          "doc_title": "Lecture notes 7 to 9.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 7 to 9.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 7 to 9.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 7 to 9  <!-- Page 1 --> 25/03/2025 Lecture - 7 "
+        },
+        {
+          "doc_id": "Lecture notes 7 to 9 (1)",
+          "doc_title": "Lecture notes 7 to 9 (1).md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 7 to 9 (1).md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 7 to 9 (1).pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 7 to 9 (1)  <!-- Page 1 -->  $$25/03/2025 \\"
+        },
+        {
+          "doc_id": "Lecture notes 7 to 9",
+          "doc_title": "Lecture notes 7 to 9.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 7 to 9.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 7 to 9.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 7 to 9  <!-- Page 1 --> 25/03/2025 Lecture - 7 "
+        },
+        {
+          "doc_id": "Lecture notes 7 to 9 (1)",
+          "doc_title": "Lecture notes 7 to 9 (1).md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 7 to 9 (1).md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 7 to 9 (1).pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 7 to 9 (1)  <!-- Page 1 -->  $$25/03/2025 \\"
+        },
+        {
+          "doc_id": "Lecture notes 7 to 9",
+          "doc_title": "Lecture notes 7 to 9.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 7 to 9.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 7 to 9.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 7 to 9  <!-- Page 1 --> 25/03/2025 Lecture - 7 "
+        },
+        {
+          "doc_id": "Lecture notes 7 to 9",
+          "doc_title": "Lecture notes 7 to 9.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 7 to 9.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 7 to 9.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 7 to 9  <!-- Page 1 --> 25/03/2025 Lecture - 7 "
+        },
+        {
+          "doc_id": "Lecture notes 7 to 9 (1)",
+          "doc_title": "Lecture notes 7 to 9 (1).md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 7 to 9 (1).md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 7 to 9 (1).pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 7 to 9 (1)  <!-- Page 1 -->  $$25/03/2025 \\"
+        },
+        {
+          "doc_id": "Lecture notes 7 to 9",
+          "doc_title": "Lecture notes 7 to 9.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 7 to 9.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 7 to 9.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 7 to 9  <!-- Page 1 --> 25/03/2025 Lecture - 7 "
+        }
+      ],
+      "aliases": [
+        "mu(x,y)",
+        "Integrating Factor",
+        "integrating_factor"
+      ]
+    },
+    {
+      "id": "CUST_4ca362e50c52",
+      "label": "Well-posed IVP",
+      "type": "Concept",
+      "description": "An initial value problem is considered well-posed if it possesses a solution, the solution is unique, and the solution depends continuously on the initial data and parameters.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "Initial Value Problems",
+        "topic": "Well-Posedness"
+      },
+      "provenance": [
+        {
+          "doc_id": "Lecture notes 7 to 9 (1)",
+          "doc_title": "Lecture notes 7 to 9 (1).md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 7 to 9 (1).md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 7 to 9 (1).pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 7 to 9 (1)  <!-- Page 1 -->  $$25/03/2025 \\"
+        },
+        {
+          "doc_id": "Lecture notes 7 to 9 (1)",
+          "doc_title": "Lecture notes 7 to 9 (1).md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 7 to 9 (1).md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 7 to 9 (1).pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 7 to 9 (1)  <!-- Page 1 -->  $$25/03/2025 \\"
+        },
+        {
+          "doc_id": "Lecture notes 7 to 9",
+          "doc_title": "Lecture notes 7 to 9.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 7 to 9.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 7 to 9.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 7 to 9  <!-- Page 1 --> 25/03/2025 Lecture - 7 "
+        },
+        {
+          "doc_id": "Lecture notes 10 to 15",
+          "doc_title": "Lecture notes 10 to 15.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 10 to 15.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 10 to 15.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 10 to 15  <!-- Page 1 -->  ## Lecture - 10  *"
+        },
+        {
+          "doc_id": "Lecture notes 10 to 15",
+          "doc_title": "Lecture notes 10 to 15.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 10 to 15.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 10 to 15.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 10 to 15  <!-- Page 1 -->  ## Lecture - 10  *"
+        },
+        {
+          "doc_id": "Lecture notes 7 to 9 (1)",
+          "doc_title": "Lecture notes 7 to 9 (1).md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 7 to 9 (1).md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 7 to 9 (1).pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 7 to 9 (1)  <!-- Page 1 -->  $$25/03/2025 \\"
+        }
+      ],
+      "aliases": [
+        "Well-posed initial value problem",
+        "hadamards_criterion_well_posed_ivp",
+        "Well-posed IVP",
+        "hadamards_criterion",
+        "Hadamard's Criterion for Well-Posed IVP",
+        "Hadamard's Criterion for Well Posed IVP"
+      ]
+    },
+    {
+      "id": "CUST_9e4a0ccef537",
+      "label": "First Order Differential Equation",
+      "type": "Concept",
+      "description": "An ordinary differential equation involving only the first derivative of the unknown function with respect to the independent variable.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "Ordinary Differential Equations",
+        "topic": "First-Order ODEs"
+      },
+      "provenance": [
+        {
+          "doc_id": "MA301 Lecture 1",
+          "doc_title": "MA301 Lecture 1.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 1.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 1.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 1  <!-- Page 1 -->  # Lecture - 1 ## Application of "
+        },
+        {
+          "doc_id": "MA301 Lecture 1",
+          "doc_title": "MA301 Lecture 1.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 1.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 1.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 1  <!-- Page 1 -->  # Lecture - 1 ## Application of "
+        },
+        {
+          "doc_id": "MA301 Lecture 1",
+          "doc_title": "MA301 Lecture 1.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 1.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 1.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 1  <!-- Page 1 -->  # Lecture - 1 ## Application of "
+        }
+      ],
+      "aliases": [
+        "First order differential equation",
+        "First Order Differential Equation",
+        "first_order_differential_equation",
+        "First_Order_Differential_Equation",
+        "first order differential equation"
+      ]
+    },
+    {
+      "id": "CUST_c0581c02bc52",
+      "label": "Bungee-Jumping Model",
+      "type": "Concept",
+      "description": "A mathematical model describing the velocity of a jumper as a function of time during free-fall, taking into account gravity and air resistance.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "Ordinary Differential Equations",
+        "topic": "Applied ODEs"
+      },
+      "provenance": [
+        {
+          "doc_id": "MA301 Lecture 1",
+          "doc_title": "MA301 Lecture 1.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 1.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 1.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 1  <!-- Page 1 -->  # Lecture - 1 ## Application of "
+        },
+        {
+          "doc_id": "MA301 Lecture 1",
+          "doc_title": "MA301 Lecture 1.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 1.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 1.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 1  <!-- Page 1 -->  # Lecture - 1 ## Application of "
+        },
+        {
+          "doc_id": "MA301 Lecture 1",
+          "doc_title": "MA301 Lecture 1.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 1.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 1.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 1  <!-- Page 1 -->  # Lecture - 1 ## Application of "
+        }
+      ],
+      "aliases": [
+        "Bungee-jumping problem",
+        "Bungee-Jumping Model",
+        "Bungee_Jumping_Model",
+        "bungee jumper model",
+        "bungee_jumping_model"
+      ]
+    },
+    {
+      "id": "CUST_5979cdd7c0cf",
+      "label": "Mixing Problem",
+      "type": "Concept",
+      "description": "A problem modeling the exchange of salt solution between interconnected tanks using a system of coupled ordinary differential equations.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "Systems of Ordinary Differential Equations",
+        "topic": "Compartmental Analysis"
+      },
+      "provenance": [
+        {
+          "doc_id": "MA301 Lecture 1",
+          "doc_title": "MA301 Lecture 1.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 1.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 1.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 1  <!-- Page 1 -->  # Lecture - 1 ## Application of "
+        }
+      ],
+      "aliases": [
+        "Two-tank mixing problem",
+        "Mixing Problem",
+        "Mixing_Problem",
+        "Mixing problem with two compartments",
+        "mixing_problem",
+        "mixing_problem_with_two_compartments",
+        "Two-compartment mixing problem",
+        "Mixing Problem with Two Compartments"
+      ]
+    },
+    {
+      "id": "CUST_21e2f8bbdfcd",
+      "label": "Homogeneous Linear Differential Equation",
+      "type": "Concept",
+      "description": "A first-order linear homogeneous ordinary differential equation whose solutions can be represented as a constant multiple of a base solution determined by an initial condition.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "First-Order ODEs",
+        "topic": "Homogeneous Linear Equations"
+      },
+      "provenance": [
+        {
+          "doc_id": "MA301 Lecture 2",
+          "doc_title": "MA301 Lecture 2.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 2.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 2.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 2  <!-- Page 1 --> Lecture 2 Homogeneous Linear Equa"
+        }
+      ],
+      "aliases": [
+        "y' + p(x)y = 0",
+        "homogeneous_linear_equation_first_order",
+        "Homogeneous Linear Differential Equation"
+      ]
+    },
+    {
+      "id": "CUST_32d8d1de9bf0",
+      "label": "Second Order Linear ODE",
+      "type": "Concept",
+      "description": "An ordinary differential equation of degree two involving up to second-order derivatives of the dependent variable, widely used in physics and engineering models.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "Ordinary Differential Equations",
+        "topic": "Second-Order ODEs"
+      },
+      "provenance": [
+        {
+          "doc_id": "MA301 Lecture 2",
+          "doc_title": "MA301 Lecture 2.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 2.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 2.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 2  <!-- Page 1 --> Lecture 2 Homogeneous Linear Equa"
+        },
+        {
+          "doc_id": "MA301 Lecture 2",
+          "doc_title": "MA301 Lecture 2.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 2.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 2.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 2  <!-- Page 1 --> Lecture 2 Homogeneous Linear Equa"
+        }
+      ],
+      "aliases": [
+        "Second Order Ordinary Differential Equation",
+        "second_order_linear_ode",
+        "Second Order Linear ODE",
+        "Second Order linear ODE",
+        "second-order-ordinary-differential-equation"
+      ]
+    },
+    {
+      "id": "CUST_644a97aa4c60",
+      "label": "Fourier Equation",
+      "type": "Concept",
+      "description": "A standard second-order linear homogeneous ordinary differential equation of the form y'' + u^2 y = 0.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "Ordinary Differential Equations",
+        "topic": "Classical Equations"
+      },
+      "provenance": [
+        {
+          "doc_id": "MA301 Lecture 2",
+          "doc_title": "MA301 Lecture 2.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 2.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 2.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 2  <!-- Page 1 --> Lecture 2 Homogeneous Linear Equa"
+        },
+        {
+          "doc_id": "MA301 Lecture 2",
+          "doc_title": "MA301 Lecture 2.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 2.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 2.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 2  <!-- Page 1 --> Lecture 2 Homogeneous Linear Equa"
+        },
+        {
+          "doc_id": "MA301 Lecture 2",
+          "doc_title": "MA301 Lecture 2.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 2.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 2.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 2  <!-- Page 1 --> Lecture 2 Homogeneous Linear Equa"
+        }
+      ],
+      "aliases": [
+        "fourier_equation",
+        "fourier-equation",
+        "y'' + u^2y = 0",
+        "Fourier Equation"
+      ]
+    },
+    {
+      "id": "CUST_3f928351ffea",
+      "label": "IVP for 2nd order linear homogeneous ODE",
+      "type": "Concept",
+      "description": "An initial value problem consisting of a second-order linear homogeneous ordinary differential equation accompanied by prescribed values for both the function and its first derivative at a specific point.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "Ordinary Differential Equations",
+        "topic": "Second-Order Linear ODEs"
+      },
+      "provenance": [
+        {
+          "doc_id": "MA301 Lecture 2",
+          "doc_title": "MA301 Lecture 2.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 2.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 2.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 2  <!-- Page 1 --> Lecture 2 Homogeneous Linear Equa"
+        },
+        {
+          "doc_id": "MA301 Lecture 2",
+          "doc_title": "MA301 Lecture 2.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 2.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 2.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 2  <!-- Page 1 --> Lecture 2 Homogeneous Linear Equa"
+        }
+      ],
+      "aliases": [
+        "IVP for 2nd order linear homogeneous ODE",
+        "ivp_second_order_linear_homogeneous_ode"
+      ]
+    },
+    {
+      "id": "CUST_afe21eafaf93",
+      "label": "Existence and uniqueness theorem",
+      "type": "Concept",
+      "description": "A fundamental theorem stating that an initial value problem for a second-order linear homogeneous ordinary differential equation with continuous coefficients admits a unique solution on the given interval.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "Second-Order ODEs",
+        "topic": "Existence and Uniqueness"
+      },
+      "provenance": [
+        {
+          "doc_id": "MA301 Lecture 2",
+          "doc_title": "MA301 Lecture 2.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 2.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 2.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 2  <!-- Page 1 --> Lecture 2 Homogeneous Linear Equa"
+        },
+        {
+          "doc_id": "MA301 Lecture 6 notes",
+          "doc_title": "MA301 Lecture 6 notes.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 6 notes.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 6 notes.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 6 notes  <!-- Page 1 -->  ## Lecture 6  Refer "
+        }
+      ],
+      "aliases": [
+        "Existence and uniqueness theorem",
+        "existence-and-uniqueness-theorem-second-order-ode",
+        "existence_and_uniqueness_theorem_second_order",
+        "existence_and_uniqueness_theorem",
+        "Theorem 1.5",
+        "theorem_1_5_existence_uniqueness",
+        "existence_and_uniqueness_theorem_for_linear_systems",
+        "Existence and Uniqueness Theorem for Linear Systems"
+      ]
+    },
+    {
+      "id": "CUST_8e477e667971",
+      "label": "Wronskian Criterion for Linear Dependence",
+      "type": "Concept",
+      "description": "Theorem stating that for two solutions of a homogeneous linear ODE on an interval, the solutions are linearly dependent if and only if their Wronskian is zero everywhere on the interval.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "Second-Order Linear ODEs",
+        "topic": "Linear Dependence and Wronskian"
+      },
+      "provenance": [
+        {
+          "doc_id": "MA301 Lecture 3",
+          "doc_title": "MA301 Lecture 3.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 3.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 3.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 3  <!-- Page 1 -->  ### Lecture-3  **Remark:** A set"
+        },
+        {
+          "doc_id": "Lecture notes 16 - 18",
+          "doc_title": "Lecture notes 16 - 18.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 16 - 18.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 16 - 18.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 16 - 18  <!-- Page 1 --> $$\\text{Lecture} - 16"
+        },
+        {
+          "doc_id": "MA301 Lecture 3",
+          "doc_title": "MA301 Lecture 3.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 3.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 3.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 3  <!-- Page 1 -->  ### Lecture-3  **Remark:** A set"
+        },
+        {
+          "doc_id": "Lecture notes 16 - 18",
+          "doc_title": "Lecture notes 16 - 18.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 16 - 18.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 16 - 18.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 16 - 18  <!-- Page 1 --> $$\\text{Lecture} - 16"
+        },
+        {
+          "doc_id": "MA301 Lecture 3",
+          "doc_title": "MA301 Lecture 3.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 3.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 3.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 3  <!-- Page 1 -->  ### Lecture-3  **Remark:** A set"
+        }
+      ],
+      "aliases": [
+        "Theorem (T2)",
+        "theorem_t2",
+        "wronskian_criterion_ld",
+        "Wronskian Criterion for Linear Dependence",
+        "Theorem (T 2)"
+      ]
+    },
+    {
+      "id": "Q1036452",
+      "label": "Undetermined Coefficients",
+      "type": "Concept",
+      "description": "An approach for finding a particular solution to a non-homogeneous linear ordinary differential equation with constant coefficients when the forcing term is a polynomial, exponential, sine, cosine, or finite combinations thereof.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "Ordinary Differential Equations",
+        "topic": "Non-homogeneous Linear ODEs"
+      },
+      "provenance": [
+        {
+          "doc_id": "MA301 Lecture 5",
+          "doc_title": "MA301 Lecture 5.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 5.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 5.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 5  <!-- Page 1 -->  # Lecture-5 ## Particular Soluti"
+        },
+        {
+          "doc_id": "MA301 Lecture 5",
+          "doc_title": "MA301 Lecture 5.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 5.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 5.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 5  <!-- Page 1 -->  # Lecture-5 ## Particular Soluti"
+        },
+        {
+          "doc_id": "MA301 Lecture 5",
+          "doc_title": "MA301 Lecture 5.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 5.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 5.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 5  <!-- Page 1 -->  # Lecture-5 ## Particular Soluti"
+        },
+        {
+          "doc_id": "MA301 Lecture 5",
+          "doc_title": "MA301 Lecture 5.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 5.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 5.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 5  <!-- Page 1 -->  # Lecture-5 ## Particular Soluti"
+        }
+      ],
+      "aliases": [
+        "Undetermined Coefficients",
+        "Method of Undetermined Coefficients",
+        "method_of_undetermined_coefficients"
+      ]
+    },
+    {
+      "id": "Q2391013",
+      "label": "Particular Solution",
+      "type": "Concept",
+      "description": "A specific solution to a nonhomogeneous differential equation that does not contain arbitrary constants.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "Ordinary Differential Equations",
+        "topic": "General and Particular Solutions"
+      },
+      "provenance": [
+        {
+          "doc_id": "MA301 Lecture 6 notes",
+          "doc_title": "MA301 Lecture 6 notes.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 6 notes.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 6 notes.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 6 notes  <!-- Page 1 -->  ## Lecture 6  Refer "
+        },
+        {
+          "doc_id": "MA301 Lecture 5",
+          "doc_title": "MA301 Lecture 5.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 5.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 5.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 5  <!-- Page 1 -->  # Lecture-5 ## Particular Soluti"
+        },
+        {
+          "doc_id": "MA301 Lecture 6 notes",
+          "doc_title": "MA301 Lecture 6 notes.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 6 notes.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 6 notes.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 6 notes  <!-- Page 1 -->  ## Lecture 6  Refer "
+        },
+        {
+          "doc_id": "MA301 Lecture 5",
+          "doc_title": "MA301 Lecture 5.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 5.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 5.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 5  <!-- Page 1 -->  # Lecture-5 ## Particular Soluti"
+        }
+      ],
+      "aliases": [
+        "y_p",
+        "Particular Solution",
+        "particular_solution"
+      ]
+    },
+    {
+      "id": "CUST_251822d3fd93",
+      "label": "System of Linear Differential Equations",
+      "type": "Concept",
+      "description": "A set of multiple differential equations involving several unknown functions and their derivatives, linear in the dependent variables.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "Systems of ODEs",
+        "topic": "Linear Systems"
+      },
+      "provenance": [
+        {
+          "doc_id": "MA301 Lecture 6 notes",
+          "doc_title": "MA301 Lecture 6 notes.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 6 notes.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 6 notes.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 6 notes  <!-- Page 1 -->  ## Lecture 6  Refer "
+        },
+        {
+          "doc_id": "MA301 Lecture 6 notes",
+          "doc_title": "MA301 Lecture 6 notes.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 6 notes.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 6 notes.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 6 notes  <!-- Page 1 -->  ## Lecture 6  Refer "
+        },
+        {
+          "doc_id": "MA301 Lecture 6 notes",
+          "doc_title": "MA301 Lecture 6 notes.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 6 notes.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 6 notes.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 6 notes  <!-- Page 1 -->  ## Lecture 6  Refer "
+        }
+      ],
+      "aliases": [
+        "linear system of ODEs",
+        "System of Linear Differential Equations",
+        "system_of_linear_differential_equations"
+      ]
+    },
+    {
+      "id": "Q906378",
+      "label": "Homogeneous Linear System",
+      "type": "Concept",
+      "description": "A system of linear differential equations where the forcing terms or constant components are identically zero.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "Systems of ODEs",
+        "topic": "Linear Systems"
+      },
+      "provenance": [
+        {
+          "doc_id": "MA301 Lecture 6 notes",
+          "doc_title": "MA301 Lecture 6 notes.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 6 notes.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 6 notes.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 6 notes  <!-- Page 1 -->  ## Lecture 6  Refer "
+        },
+        {
+          "doc_id": "MA301 Lecture 6 notes",
+          "doc_title": "MA301 Lecture 6 notes.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 6 notes.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 6 notes.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 6 notes  <!-- Page 1 -->  ## Lecture 6  Refer "
+        },
+        {
+          "doc_id": "MA301 Lecture 6 notes",
+          "doc_title": "MA301 Lecture 6 notes.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 6 notes.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 6 notes.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 6 notes  <!-- Page 1 -->  ## Lecture 6  Refer "
+        }
+      ],
+      "aliases": [
+        "homogeneous differential system",
+        "homogeneous_system_ode",
+        "Homogeneous Linear System",
+        "Homogeneous Linear System Solutions",
+        "homogeneous_system_of_odes"
+      ]
+    },
+    {
+      "id": "CUST_7dac8f9605d6",
+      "label": "Basic Existence Theorem for Systems",
+      "type": "Concept",
+      "description": "",
+      "taxonomy": {
+        "domain": "General Math",
+        "subdomain": "General",
+        "topic": "Basic Existence Theorem for Systems"
+      },
+      "provenance": [],
+      "aliases": []
+    },
+    {
+      "id": "CUST_f3282a00a477",
+      "label": "Superposition Principle for Systems",
+      "type": "Concept",
+      "description": "A linear combination of any two solutions to a homogeneous linear system of differential equations is also a solution to the system.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "Systems of Ordinary Differential Equations",
+        "topic": "Homogeneous Linear Systems"
+      },
+      "provenance": [
+        {
+          "doc_id": "MA301 Lecture 7",
+          "doc_title": "MA301 Lecture 7.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 7.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 7.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 7  <!-- Page 1 --> ## Theorem 1.6 : Lecture 7  **Hyp"
+        },
+        {
+          "doc_id": "MA301 Lecture 7",
+          "doc_title": "MA301 Lecture 7.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 7.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 7.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 7  <!-- Page 1 --> ## Theorem 1.6 : Lecture 7  **Hyp"
+        },
+        {
+          "doc_id": "MA301 Lecture 7",
+          "doc_title": "MA301 Lecture 7.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 7.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 7.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 7  <!-- Page 1 --> ## Theorem 1.6 : Lecture 7  **Hyp"
+        },
+        {
+          "doc_id": "MA301 Lecture 7",
+          "doc_title": "MA301 Lecture 7.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 7.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 7.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 7  <!-- Page 1 --> ## Theorem 1.6 : Lecture 7  **Hyp"
+        }
+      ],
+      "aliases": [
+        "Superposition Principle for Systems",
+        "homogeneous_linear_system_solutions",
+        "Linear Combination of Solutions for Homogeneous System"
+      ]
+    },
+    {
+      "id": "CUST_a1294a3cc0f4",
+      "label": "Wronskian Linear Independence Theorem",
+      "type": "Concept",
+      "description": "Two solutions of a homogeneous linear system are linearly independent on an interval if and only if their Wronskian is non-zero for all points in that interval.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "Systems of Ordinary Differential Equations",
+        "topic": "Wronskian"
+      },
+      "provenance": [
+        {
+          "doc_id": "MA301 Lecture 7",
+          "doc_title": "MA301 Lecture 7.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 7.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 7.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 7  <!-- Page 1 --> ## Theorem 1.6 : Lecture 7  **Hyp"
+        },
+        {
+          "doc_id": "MA301 Lecture 3",
+          "doc_title": "MA301 Lecture 3.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 3.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 3.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 3  <!-- Page 1 -->  ### Lecture-3  **Remark:** A set"
+        },
+        {
+          "doc_id": "Lecture notes 16 - 18",
+          "doc_title": "Lecture notes 16 - 18.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 16 - 18.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 16 - 18.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 16 - 18  <!-- Page 1 --> $$\\text{Lecture} - 16"
+        },
+        {
+          "doc_id": "MA301 Lecture 7",
+          "doc_title": "MA301 Lecture 7.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 7.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 7.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 7  <!-- Page 1 --> ## Theorem 1.6 : Lecture 7  **Hyp"
+        }
+      ],
+      "aliases": [
+        "Theorem (T10)",
+        "Wronskian Linear Independence Theorem",
+        "wronskian_criterion_linear_independence",
+        "Theorem (T1)",
+        "theorem_t1",
+        "wronskian_criterion_li",
+        "Wronskian Criterion for Linear Independence",
+        "theorem_t10_wronskian_independence",
+        "Theorem 10",
+        "wronskian_linear_independence_theorem",
+        "Theorem T10 (Wronskian and Linear Independence)",
+        "Wronskian Theorem for Linear Independence",
+        "Theorem (T 1)"
+      ]
+    },
+    {
+      "id": "Q318714",
+      "label": "Abel's Identity",
+      "type": "Concept",
+      "description": "",
+      "taxonomy": {
+        "domain": "General Math",
+        "subdomain": "General",
+        "topic": "Abel's Identity"
+      },
+      "provenance": [],
+      "aliases": []
+    },
+    {
+      "id": "CUST_248e2cf7fced",
+      "label": "Pendulum motion",
+      "type": "Concept",
+      "description": "A nonlinear second-order ordinary differential equation describing the angular displacement of a pendulum subject to gravity.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "Applied ODEs",
+        "topic": "Nonlinear ODE Models"
+      },
+      "provenance": [
+        {
+          "doc_id": "MA301 Lecture 1",
+          "doc_title": "MA301 Lecture 1.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 1.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 1.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 1  <!-- Page 1 -->  # Lecture - 1 ## Application of "
+        }
+      ],
+      "aliases": [
+        "Oscillating pendulum",
+        "Motion of an Oscillating Pendulum",
+        "Oscillating_Pendulum_Model",
+        "The motion of an oscillating pendulum",
+        "oscillating_pendulum",
+        "Pendulum motion",
+        "Oscillating pendulum model"
+      ]
+    },
+    {
+      "id": "CUST_d8313ec1f2cf",
+      "label": "Homogeneous Linear ODE",
+      "type": "Concept",
+      "description": "A linear differential equation of first or higher order in which the right-hand side forcing term is identically zero.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "Ordinary Differential Equations",
+        "topic": "Linear Differential Equations"
+      },
+      "provenance": [
+        {
+          "doc_id": "MA301 Lecture 2",
+          "doc_title": "MA301 Lecture 2.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 2.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 2.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 2  <!-- Page 1 --> Lecture 2 Homogeneous Linear Equa"
+        },
+        {
+          "doc_id": "Lecture notes 10 to 15",
+          "doc_title": "Lecture notes 10 to 15.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 10 to 15.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 10 to 15.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 10 to 15  <!-- Page 1 -->  ## Lecture - 10  *"
+        },
+        {
+          "doc_id": "MA301 Lecture 2",
+          "doc_title": "MA301 Lecture 2.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 2.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 2.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 2  <!-- Page 1 --> Lecture 2 Homogeneous Linear Equa"
+        }
+      ],
+      "aliases": [
+        "Homogeneous Linear ODE",
+        "homogeneous_linear_equation",
+        "homogeneous_linear_differential_equation",
+        "Homogeneous Linear Equation"
+      ]
+    },
+    {
+      "id": "CUST_12de57a895a7",
+      "label": "First-Order Homogeneous Solution Theorem",
+      "type": "Theorem",
+      "description": "States that any solution to the first-order homogeneous linear differential equation can be expressed as a constant multiple of a unique base solution satisfying an initial condition.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "First-Order ODEs",
+        "topic": "Homogeneous Equations"
+      },
+      "provenance": [
+        {
+          "doc_id": "MA301 Lecture 2",
+          "doc_title": "MA301 Lecture 2.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 2.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 2.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 2  <!-- Page 1 --> Lecture 2 Homogeneous Linear Equa"
+        }
+      ],
+      "aliases": [
+        "first_order_homogeneous_solution_theorem",
+        "General Solution of First Order Homogeneous ODE Theorem",
+        "First-Order Homogeneous Solution Theorem"
+      ]
+    },
+    {
+      "id": "CUST_e228b5101cba",
+      "label": "Standard form second order ODE",
+      "type": "Formula",
+      "description": "The standard or monic representation of a general second order linear ordinary differential equation where the coefficient of the second derivative is one.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "Ordinary Differential Equations",
+        "topic": "Second-Order ODEs"
+      },
+      "provenance": [
+        {
+          "doc_id": "MA301 Lecture 2",
+          "doc_title": "MA301 Lecture 2.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 2.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 2.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 2  <!-- Page 1 --> Lecture 2 Homogeneous Linear Equa"
+        }
+      ],
+      "aliases": [
+        "Standard form second order ODE",
+        "Standard Monic Form of Second Order Linear ODE"
+      ]
+    },
+    {
+      "id": "CUST_0f339303f104",
+      "label": "Initial Value Problem for Second Order Linear Homogeneous ODE",
+      "type": "Definition",
+      "description": "An initial value problem consisting of a homogeneous second-order linear ordinary differential equation along with prescribed function and derivative values at a specific initial point.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "Ordinary Differential Equations",
+        "topic": "Second-Order ODEs"
+      },
+      "provenance": [
+        {
+          "doc_id": "MA301 Lecture 2",
+          "doc_title": "MA301 Lecture 2.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 2.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 2.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 2  <!-- Page 1 --> Lecture 2 Homogeneous Linear Equa"
+        }
+      ],
+      "aliases": [
+        "IVP for 2nd order linear homogeneous ODE",
+        "Initial Value Problem for Second Order Linear Homogeneous ODE"
+      ]
+    },
+    {
+      "id": "CUST_7c4ec320bd1e",
+      "label": "Solution Space S",
+      "type": "Concept",
+      "description": "The set of all solutions to a second-order homogeneous linear ordinary differential equation forms a two-dimensional vector space over the real numbers.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "Second-Order Ordinary Differential Equations",
+        "topic": "Solution Space Structure"
+      },
+      "provenance": [
+        {
+          "doc_id": "MA301 Lecture 3",
+          "doc_title": "MA301 Lecture 3.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 3.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 3.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 3  <!-- Page 1 -->  ### Lecture-3  **Remark:** A set"
+        }
+      ],
+      "aliases": [
+        "Solution Space S"
+      ]
+    },
+    {
+      "id": "CUST_211b46bcb93f",
+      "label": "Vector Space of Solutions for Second-Order ODEs",
+      "type": "Concept",
+      "description": "",
+      "taxonomy": {
+        "domain": "General Math",
+        "subdomain": "General",
+        "topic": "Vector Space of Solutions for Second-Order ODEs"
+      },
+      "provenance": [],
+      "aliases": []
+    },
+    {
+      "id": "CUST_205eb9e77604",
+      "label": "Polynomial Forcing Term Method",
+      "type": "Concept",
+      "description": "A method to find a particular solution when the non-homogeneous term is a polynomial by guessing a general polynomial of the same degree and matching coefficients.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "Ordinary Differential Equations",
+        "topic": "Method of Undetermined Coefficients"
+      },
+      "provenance": [
+        {
+          "doc_id": "MA301 Lecture 5",
+          "doc_title": "MA301 Lecture 5.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 5.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 5.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 5  <!-- Page 1 -->  # Lecture-5 ## Particular Soluti"
+        },
+        {
+          "doc_id": "MA301 Lecture 5",
+          "doc_title": "MA301 Lecture 5.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 5.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 5.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 5  <!-- Page 1 -->  # Lecture-5 ## Particular Soluti"
+        }
+      ],
+      "aliases": [
+        "Polynomial Forcing Term Method"
+      ]
+    },
+    {
+      "id": "CUST_0ae15209d1bf",
+      "label": "Exponential Forcing Term Method",
+      "type": "Concept",
+      "description": "A technique to find a particular solution for linear differential equations with exponential forcing terms by testing an exponential guess, with modifications using powers of x if the guess solves the homogeneous equation.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "Ordinary Differential Equations",
+        "topic": "Method of Undetermined Coefficients"
+      },
+      "provenance": [
+        {
+          "doc_id": "MA301 Lecture 5",
+          "doc_title": "MA301 Lecture 5.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 5.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 5.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 5  <!-- Page 1 -->  # Lecture-5 ## Particular Soluti"
+        },
+        {
+          "doc_id": "MA301 Lecture 5",
+          "doc_title": "MA301 Lecture 5.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 5.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 5.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 5  <!-- Page 1 -->  # Lecture-5 ## Particular Soluti"
+        }
+      ],
+      "aliases": [
+        "Exponential Forcing Term Method"
+      ]
+    },
+    {
+      "id": "CUST_a6406209308b",
+      "label": "Trigonometric Forcing Term Method",
+      "type": "Concept",
+      "description": "A method to determine a particular solution for equations with sinusoidal forcing terms by utilizing a linear combination of sine and cosine functions of the same frequency.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "Ordinary Differential Equations",
+        "topic": "Method of Undetermined Coefficients"
+      },
+      "provenance": [
+        {
+          "doc_id": "MA301 Lecture 5",
+          "doc_title": "MA301 Lecture 5.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 5.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 5.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 5  <!-- Page 1 -->  # Lecture-5 ## Particular Soluti"
+        },
+        {
+          "doc_id": "MA301 Lecture 5",
+          "doc_title": "MA301 Lecture 5.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 5.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 5.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 5  <!-- Page 1 -->  # Lecture-5 ## Particular Soluti"
+        }
+      ],
+      "aliases": [
+        "Trigonometric Forcing Term Method"
+      ]
+    },
+    {
+      "id": "CUST_48ccee31920b",
+      "label": "Particular Solution for Polynomial Forcing",
+      "type": "Concept",
+      "description": "",
+      "taxonomy": {
+        "domain": "General Math",
+        "subdomain": "General",
+        "topic": "Particular Solution for Polynomial Forcing"
+      },
+      "provenance": [],
+      "aliases": []
+    },
+    {
+      "id": "CUST_2739bee01eba",
+      "label": "Particular Solution for Exponential Forcing",
+      "type": "Concept",
+      "description": "",
+      "taxonomy": {
+        "domain": "General Math",
+        "subdomain": "General",
+        "topic": "Particular Solution for Exponential Forcing"
+      },
+      "provenance": [],
+      "aliases": []
+    },
+    {
+      "id": "CUST_decde4a4b439",
+      "label": "Particular Solution for Trigonometric Forcing",
+      "type": "Concept",
+      "description": "",
+      "taxonomy": {
+        "domain": "General Math",
+        "subdomain": "General",
+        "topic": "Particular Solution for Trigonometric Forcing"
+      },
+      "provenance": [],
+      "aliases": []
+    },
+    {
+      "id": "CUST_71ba49b63bb6",
+      "label": "Uniform Lipschitz Continuity in y",
+      "type": "Definition",
+      "description": "A function $f(x,y)$ on a domain $D \\subseteq \\mathbb{R}^2$ satisfies a $y$-Lipschitz condition if there exists $L > 0$ such that $|f(x, y_1) - f(x, y_2)| \\le L|y_1 - y_2|$ for all $(x, y_1), (x, y_2) \\in D$.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "First-Order Ordinary Differential Equations",
+        "topic": "Existence and Uniqueness Theory"
+      },
+      "provenance": [
+        {
+          "doc_id": "Lecture notes 10 to 15",
+          "doc_title": "Lecture notes 10 to 15.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 10 to 15.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 10 to 15.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 10 to 15  <!-- Page 1 -->  ## Lecture - 10  *"
+        },
+        {
+          "doc_id": "Lecture notes 10 to 15",
+          "doc_title": "Lecture notes 10 to 15.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 10 to 15.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 10 to 15.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 10 to 15  <!-- Page 1 -->  ## Lecture - 10  *"
+        }
+      ],
+      "aliases": [
+        "Lipschitz Condition with Respect to y",
+        "Uniform Lipschitz Continuity in y",
+        "y-Lipschitz Condition",
+        "y_lipschitz_condition",
+        "Lipschitz condition with respect to y"
+      ]
+    },
+    {
+      "id": "CUST_dfc08df7761f",
+      "label": "Extreme Value Theorem",
+      "type": "Theorem",
+      "description": "A continuous real-valued function on a compact set, such as a closed rectangle in $\\mathbb{R}^2$, attains its global maximum and minimum values and is consequently bounded.",
+      "taxonomy": {
+        "domain": "Calculus",
+        "subdomain": "Real Analysis",
+        "topic": "Continuous Functions"
+      },
+      "provenance": [
+        {
+          "doc_id": "Lecture notes 10 to 15",
+          "doc_title": "Lecture notes 10 to 15.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 10 to 15.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 10 to 15.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 10 to 15  <!-- Page 1 -->  ## Lecture - 10  *"
+        },
+        {
+          "doc_id": "Lecture notes 10 to 15",
+          "doc_title": "Lecture notes 10 to 15.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 10 to 15.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 10 to 15.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 10 to 15  <!-- Page 1 -->  ## Lecture - 10  *"
+        }
+      ],
+      "aliases": [
+        "Extreme Value Theorem",
+        "Maximum Value Property",
+        "Extremum Value Property",
+        "extremum_value_property"
+      ]
+    },
+    {
+      "id": "CUST_85d8c0edf92a",
+      "label": "Sufficient Condition for Lipschitz Continuity",
+      "type": "Theorem",
+      "description": "If a continuous function $f(x,y)$ has a partial derivative with respect to $y$ that is bounded on $D$, then $f$ satisfies a $y$-Lipschitz condition on $D$ with constant $M = \\sup_D |\\partial f / \\partial y|$.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "First-Order ODEs",
+        "topic": "Lipschitz Conditions"
+      },
+      "provenance": [
+        {
+          "doc_id": "Lecture notes 10 to 15",
+          "doc_title": "Lecture notes 10 to 15.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 10 to 15.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 10 to 15.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 10 to 15  <!-- Page 1 -->  ## Lecture - 10  *"
+        }
+      ],
+      "aliases": [
+        "Sufficient Condition for Lipschitz Continuity",
+        "Bounded Partial Derivative Lipschitz Criterion"
+      ]
+    },
+    {
+      "id": "Q740093",
+      "label": "Peano's Theorem",
+      "type": "Theorem",
+      "description": "Guarantees the existence of at least one local solution to the initial value problem $y' = f(x,y)$, $y(x_0) = y_0$ on an interval $|x - x_0| < \\alpha$ provided $f$ is continuous on a closed rectangle centered at $(x_0, y_0)$.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "First-Order ODEs",
+        "topic": "Existence Theory"
+      },
+      "provenance": [
+        {
+          "doc_id": "Lecture notes 10 to 15",
+          "doc_title": "Lecture notes 10 to 15.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 10 to 15.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 10 to 15.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 10 to 15  <!-- Page 1 -->  ## Lecture - 10  *"
+        }
+      ],
+      "aliases": [
+        "Peano's Theorem",
+        "Peano Existence Theorem",
+        "Peano's Existence Theorem",
+        "peano_existence_theorem"
+      ]
+    },
+    {
+      "id": "CUST_196d26f95c36",
+      "label": "Picard Iteration",
+      "type": "Formula",
+      "description": "An iterative integral recurrence sequence defined by $y_0(x) = y_0$ and $y_n(x) = y_0 + \\int_{x_0}^x f(t, y_{n-1}(t))\\,dt$ whose limit converges uniformly to the unique solution of an IVP.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "First-Order ODEs",
+        "topic": "Approximation Methods"
+      },
+      "provenance": [
+        {
+          "doc_id": "Lecture notes 10 to 15",
+          "doc_title": "Lecture notes 10 to 15.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 10 to 15.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 10 to 15.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 10 to 15  <!-- Page 1 -->  ## Lecture - 10  *"
+        }
+      ],
+      "aliases": [
+        "Picard Successive Approximations",
+        "Picard Iteration",
+        "Picard Iteration Method"
+      ]
+    },
+    {
+      "id": "CUST_8d9698846dcf",
+      "label": "First-Order Linear ODE Solution Structure",
+      "type": "Theorem",
+      "description": "The general solution of a first-order linear inhomogeneous differential equation $y' + p(x)y = q(x)$ is given by the sum of a particular solution $y_p(x)$ and an arbitrary constant multiple of the homogeneous solution $u(x)$.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "First-Order ODEs",
+        "topic": "Linear Differential Equations"
+      },
+      "provenance": [
+        {
+          "doc_id": "Lecture notes 10 to 15",
+          "doc_title": "Lecture notes 10 to 15.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 10 to 15.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 10 to 15.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 10 to 15  <!-- Page 1 -->  ## Lecture - 10  *"
+        }
+      ],
+      "aliases": [
+        "General Solution of Linear Inhomogeneous ODE",
+        "First-Order Linear ODE Solution Structure"
+      ]
+    },
+    {
+      "id": "CUST_86a5cfff6bf3",
+      "label": "Well-Posed Problem",
+      "type": "Definition",
+      "description": "A mathematical problem or IVP is well-posed in the sense of Hadamard if a solution exists, the solution is unique, and the solution depends continuously on the initial and boundary data.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "ODE Theory",
+        "topic": "Well-Posed Problems"
+      },
+      "provenance": [
+        {
+          "doc_id": "Lecture notes 10 to 15",
+          "doc_title": "Lecture notes 10 to 15.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 10 to 15.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 10 to 15.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 10 to 15  <!-- Page 1 -->  ## Lecture - 10  *"
+        }
+      ],
+      "aliases": [
+        "Well-Posed Problem",
+        "Hadamard's Criterion for Well-Posed Problems",
+        "Hadamard's Well-Posedness Criterion",
+        "hadamards_criterion_for_well_posed_ivp"
+      ]
+    },
+    {
+      "id": "CUST_a0dfb5ad31a4",
+      "label": "Existence and Uniqueness Theorem for Second Order ODE",
+      "type": "Theorem",
+      "description": "States that the second-order linear initial value problem $y'' + p(x)y' + q(x)y = 0$ with $y(x_0)=a$ and $y'(x_0)=b$ has a unique solution on an interval $I$ where $p(x)$ and $q(x)$ are continuous.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "Second-Order Linear ODEs",
+        "topic": "Existence and Uniqueness Theory"
+      },
+      "provenance": [
+        {
+          "doc_id": "Lecture notes 10 to 15",
+          "doc_title": "Lecture notes 10 to 15.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 10 to 15.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 10 to 15.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 10 to 15  <!-- Page 1 -->  ## Lecture - 10  *"
+        }
+      ],
+      "aliases": [
+        "Existence and Uniqueness for Second Order Linear Homogeneous ODE",
+        "Existence and Uniqueness Theorem for Second Order ODE",
+        "Second-Order Linear ODE Existence and Uniqueness Theorem",
+        "Existence and Uniqueness Theorem for Second Order Linear ODE"
+      ]
+    },
+    {
+      "id": "CUST_f7c297831508",
+      "label": "Homogeneous ODE",
+      "type": "Definition",
+      "description": "A first-order ordinary differential equation M(x, y) + N(x, y)(dy/dx) = 0 where both M and N are homogeneous functions of the same degree d.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "First-Order ODEs",
+        "topic": "Homogeneous Equations"
+      },
+      "provenance": [
+        {
+          "doc_id": "Lecture notes 4-6",
+          "doc_title": "Lecture notes 4-6.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 4-6.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 4-6.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 4-6  <!-- Page 1 --> $\\begin{aligned}& \\text { Lec"
+        },
+        {
+          "doc_id": "Lecture notes 4-6",
+          "doc_title": "Lecture notes 4-6.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 4-6.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 4-6.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 4-6  <!-- Page 1 --> $\\begin{aligned}& \\text { Lec"
+        }
+      ],
+      "aliases": [
+        "Homogeneous first order ODE",
+        "Homogeneous ODE",
+        "Homogeneous System of ODEs",
+        "homogeneous_first_order_ode",
+        "Homogeneous Differential Equation",
+        "homogeneous_ode",
+        "Homogeneous First-Order ODE",
+        "homogeneous-ode"
+      ]
+    },
+    {
+      "id": "CUST_13635a09d9c9",
+      "label": "Newton's Second Law of Motion",
+      "type": "Concept",
+      "description": "A fundamental physical law stating that the force acting on an object is equal to the mass of that object multiplied by its acceleration.",
+      "taxonomy": {
+        "domain": "Physics And Differential Equations",
+        "subdomain": "Classical Mechanics",
+        "topic": "Equations of Motion"
+      },
+      "provenance": [
+        {
+          "doc_id": "MA301 Lecture 1",
+          "doc_title": "MA301 Lecture 1.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 1.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 1.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 1  <!-- Page 1 -->  # Lecture - 1 ## Application of "
+        },
+        {
+          "doc_id": "MA301 Lecture 1",
+          "doc_title": "MA301 Lecture 1.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 1.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 1.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 1  <!-- Page 1 -->  # Lecture - 1 ## Application of "
+        }
+      ],
+      "aliases": [
+        "F = ma",
+        "newtons_second_law_of_motion",
+        "newtons_second_law",
+        "Newton's Second Law of Motion"
+      ]
+    },
+    {
+      "id": "CUST_e4be742244a8",
+      "label": "Radioactive Decay",
+      "type": "Concept",
+      "description": "A physical process where a substance decomposes at a rate directly proportional to the amount present, modeled by a linear first-order ODE.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "Ordinary Differential Equations",
+        "topic": "Applications of ODEs"
+      },
+      "provenance": [
+        {
+          "doc_id": "MA301 Lecture 1",
+          "doc_title": "MA301 Lecture 1.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 1.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 1.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 1  <!-- Page 1 -->  # Lecture - 1 ## Application of "
+        },
+        {
+          "doc_id": "MA301 Lecture 1",
+          "doc_title": "MA301 Lecture 1.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 1.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 1.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 1  <!-- Page 1 -->  # Lecture - 1 ## Application of "
+        },
+        {
+          "doc_id": "MA301 Lecture 1",
+          "doc_title": "MA301 Lecture 1.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 1.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 1.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 1  <!-- Page 1 -->  # Lecture - 1 ## Application of "
+        }
+      ],
+      "aliases": [
+        "Radioactive decay",
+        "radioactive_decay",
+        "Radioactive Decay Model",
+        "Radioactive Decay",
+        "Radioactive decay process"
+      ]
+    },
+    {
+      "id": "CUST_aae39304c8d3",
+      "label": "Linear Combination of Solutions",
+      "type": "Theorem",
+      "description": "Establishes that any linear combination of solutions to a homogeneous system of linear differential equations is also a solution to the system.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "Systems of ODEs",
+        "topic": "Linear Systems"
+      },
+      "provenance": [
+        {
+          "doc_id": "MA301 Lecture 6 notes",
+          "doc_title": "MA301 Lecture 6 notes.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 6 notes.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 6 notes.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 6 notes  <!-- Page 1 -->  ## Lecture 6  Refer "
+        },
+        {
+          "doc_id": "MA301 Lecture 6 notes",
+          "doc_title": "MA301 Lecture 6 notes.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 6 notes.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 6 notes.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 6 notes  <!-- Page 1 -->  ## Lecture 6  Refer "
+        }
+      ],
+      "aliases": [
+        "Theorem 1.6",
+        "Superposition Principle for Homogeneous Systems",
+        "theorem_1_6_superposition",
+        "Linear Combination of Solutions",
+        "superposition_principle_homogeneous_system",
+        "superposition_principle_for_homogeneous_systems"
+      ]
+    },
+    {
+      "id": "CUST_1ba0f17cdbc0",
+      "label": "Abel's Theorem for Systems",
+      "type": "Theorem",
+      "description": "The Wronskian of two solutions of a homogeneous linear system either vanishes identically or never vanishes on a given interval.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "Systems of Ordinary Differential Equations",
+        "topic": "Abel's Identity"
+      },
+      "provenance": [
+        {
+          "doc_id": "MA301 Lecture 7",
+          "doc_title": "MA301 Lecture 7.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 7.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 7.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 7  <!-- Page 1 --> ## Theorem 1.6 : Lecture 7  **Hyp"
+        },
+        {
+          "doc_id": "MA301 Lecture 7",
+          "doc_title": "MA301 Lecture 7.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 7.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 7.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 7  <!-- Page 1 --> ## Theorem 1.6 : Lecture 7  **Hyp"
+        },
+        {
+          "doc_id": "MA301 Lecture 7",
+          "doc_title": "MA301 Lecture 7.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 7.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 7.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 7  <!-- Page 1 --> ## Theorem 1.6 : Lecture 7  **Hyp"
+        }
+      ],
+      "aliases": [
+        "Theorem (T11)",
+        "Abel's Theorem for Systems",
+        "abels_identity"
+      ]
+    },
+    {
+      "id": "CUST_72b15b7f621c",
+      "label": "bounded_function_definition",
+      "type": "Definition",
+      "description": "A real-valued function is bounded on a domain if its absolute values are strictly less than or equal to a positive real number everywhere in that domain.",
+      "taxonomy": {
+        "domain": "Calculus",
+        "subdomain": "Real Analysis",
+        "topic": "Functions and Continuity"
+      },
+      "provenance": [
+        {
+          "doc_id": "Lecture notes 10 to 15",
+          "doc_title": "Lecture notes 10 to 15.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 10 to 15.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 10 to 15.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 10 to 15  <!-- Page 1 -->  ## Lecture - 10  *"
+        }
+      ],
+      "aliases": []
+    },
+    {
+      "id": "Q2267362",
+      "label": "Bounded Function",
+      "type": "Concept",
+      "description": "",
+      "taxonomy": {
+        "domain": "Calculus",
+        "subdomain": "Real Analysis",
+        "topic": "Functions and Continuity"
+      },
+      "provenance": [
+        {
+          "doc_id": "Lecture notes 10 to 15",
+          "doc_title": "Lecture notes 10 to 15.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 10 to 15.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 10 to 15.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 10 to 15  <!-- Page 1 -->  ## Lecture - 10  *"
+        }
+      ],
+      "aliases": [
+        "bounded_function"
+      ]
+    },
+    {
+      "id": "CUST_627fd5a30a69",
+      "label": "Monic Form",
+      "type": "Concept",
+      "description": "The general form of a second-order linear ordinary differential equation given by d^2y/dx^2 + p(x)(dy/dx) + q(x)y = r(x), representing important physical systems in engineering and physics.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "Ordinary Differential Equations",
+        "topic": "Second-Order Linear ODEs"
+      },
+      "provenance": [
+        {
+          "doc_id": "MA301 Lecture 2",
+          "doc_title": "MA301 Lecture 2.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 2.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 2.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 2  <!-- Page 1 --> Lecture 2 Homogeneous Linear Equa"
+        }
+      ],
+      "aliases": [
+        "Standard Form of Second Order Linear ODE",
+        "Monic Form",
+        "Second Order Linear ODE Standard Form"
+      ]
+    },
+    {
+      "id": "CUST_0fa12fce3bcd",
+      "label": "Basic existence theorem",
+      "type": "Theorem",
+      "description": "States that given continuous coefficients and forcing functions on an interval, a linear system of differential equations possesses a unique solution satisfying arbitrary initial conditions.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "Systems of ODEs",
+        "topic": "Existence and Uniqueness"
+      },
+      "provenance": [
+        {
+          "doc_id": "MA301 Lecture 6 notes",
+          "doc_title": "MA301 Lecture 6 notes.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\MA301 Lecture 6 notes.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"MA301 Lecture 6 notes.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # MA301 Lecture 6 notes  <!-- Page 1 -->  ## Lecture 6  Refer "
+        }
+      ],
+      "aliases": [
+        "Theorem 1.5",
+        "Basic existence theorem"
+      ]
+    },
+    {
+      "id": "Q106642756",
+      "label": "Inhomogeneous Linear Differential Equation",
+      "type": "Concept",
+      "description": "A linear differential equation containing an additional non-zero function of the independent variable on the right-hand side, whose general solution is the sum of a particular solution and the general solution of the associated homogeneous equation.",
+      "taxonomy": {
+        "domain": "Differential Equations",
+        "subdomain": "Ordinary Differential Equations",
+        "topic": "Linear Differential Equations"
+      },
+      "provenance": [
+        {
+          "doc_id": "Lecture notes 10 to 15",
+          "doc_title": "Lecture notes 10 to 15.md",
+          "doc_path": "D:\\obsidian\\comeback-helper\\differential equations\\Lecture notes 10 to 15.md",
+          "page_number": null,
+          "section_heading": null,
+          "exact_quote": "--- course: \"differential equations\" source_file: \"Lecture notes 10 to 15.pdf\" tags: [\"math\", \"coursework\", \"differential-equations\"] ---  # Lecture notes 10 to 15  <!-- Page 1 -->  ## Lecture - 10  *"
+        }
+      ],
+      "aliases": [
+        "Non-homogeneous linear differential equation",
+        "Inhomogeneous Linear Differential Equation"
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "CUST_637b82f0ecf2",
+      "to": "CUST_16fe332f79af",
+      "source": "CUST_637b82f0ecf2",
+      "target": "CUST_16fe332f79af",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_637b82f0ecf2",
+      "to": "CUST_d5707136683b",
+      "source": "CUST_637b82f0ecf2",
+      "target": "CUST_d5707136683b",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_637b82f0ecf2",
+      "to": "Q1132952",
+      "source": "CUST_637b82f0ecf2",
+      "target": "Q1132952",
+      "relation": "USES_DEFINITION",
+      "label": "USES_DEFINITION"
+    },
+    {
+      "from": "CUST_637b82f0ecf2",
+      "to": "Q27670",
+      "source": "CUST_637b82f0ecf2",
+      "target": "Q27670",
+      "relation": "USES_DEFINITION",
+      "label": "USES_DEFINITION"
+    },
+    {
+      "from": "Q124743",
+      "to": "CUST_637b82f0ecf2",
+      "source": "Q124743",
+      "target": "CUST_637b82f0ecf2",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "Q124743",
+      "to": "Q27670",
+      "source": "Q124743",
+      "target": "Q27670",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "Q33104580",
+      "to": "CUST_637b82f0ecf2",
+      "source": "Q33104580",
+      "target": "CUST_637b82f0ecf2",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_aafc5c5549b3",
+      "to": "CUST_637b82f0ecf2",
+      "source": "CUST_aafc5c5549b3",
+      "target": "CUST_637b82f0ecf2",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_aafc5c5549b3",
+      "to": "Q124743",
+      "source": "CUST_aafc5c5549b3",
+      "target": "Q124743",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "Q91259634",
+      "to": "CUST_71ba49b63bb6",
+      "source": "Q91259634",
+      "target": "CUST_71ba49b63bb6",
+      "relation": "USES_DEFINITION",
+      "label": "USES_DEFINITION"
+    },
+    {
+      "from": "Q91259634",
+      "to": "CUST_ad92dc337cca",
+      "source": "Q91259634",
+      "target": "CUST_ad92dc337cca",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_ad92dc337cca",
+      "to": "CUST_71ba49b63bb6",
+      "source": "CUST_ad92dc337cca",
+      "target": "CUST_71ba49b63bb6",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_ad92dc337cca",
+      "to": "Q91259634",
+      "source": "CUST_ad92dc337cca",
+      "target": "Q91259634",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_8a19006ae207",
+      "to": "CUST_32d8d1de9bf0",
+      "source": "CUST_8a19006ae207",
+      "target": "CUST_32d8d1de9bf0",
+      "relation": "USES_DEFINITION",
+      "label": "USES_DEFINITION"
+    },
+    {
+      "from": "CUST_ae69c63f8557",
+      "to": "CUST_32d8d1de9bf0",
+      "source": "CUST_ae69c63f8557",
+      "target": "CUST_32d8d1de9bf0",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_ae69c63f8557",
+      "to": "CUST_627fd5a30a69",
+      "source": "CUST_ae69c63f8557",
+      "target": "CUST_627fd5a30a69",
+      "relation": "USES_DEFINITION",
+      "label": "USES_DEFINITION"
+    },
+    {
+      "from": "CUST_ae69c63f8557",
+      "to": "CUST_e228b5101cba",
+      "source": "CUST_ae69c63f8557",
+      "target": "CUST_e228b5101cba",
+      "relation": "USES_DEFINITION",
+      "label": "USES_DEFINITION"
+    },
+    {
+      "from": "CUST_ebeb1a672978",
+      "to": "CUST_32d8d1de9bf0",
+      "source": "CUST_ebeb1a672978",
+      "target": "CUST_32d8d1de9bf0",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_ebeb1a672978",
+      "to": "CUST_627fd5a30a69",
+      "source": "CUST_ebeb1a672978",
+      "target": "CUST_627fd5a30a69",
+      "relation": "USES_DEFINITION",
+      "label": "USES_DEFINITION"
+    },
+    {
+      "from": "CUST_ebeb1a672978",
+      "to": "CUST_e228b5101cba",
+      "source": "CUST_ebeb1a672978",
+      "target": "CUST_e228b5101cba",
+      "relation": "USES_DEFINITION",
+      "label": "USES_DEFINITION"
+    },
+    {
+      "from": "Q27670",
+      "to": "CUST_a0dfb5ad31a4",
+      "source": "Q27670",
+      "target": "CUST_a0dfb5ad31a4",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "Q27670",
+      "to": "CUST_a1294a3cc0f4",
+      "source": "Q27670",
+      "target": "CUST_a1294a3cc0f4",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "Q27670",
+      "to": "Q111783780",
+      "source": "Q27670",
+      "target": "Q111783780",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "Q27670",
+      "to": "Q124743",
+      "source": "Q27670",
+      "target": "Q124743",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "Q111783780",
+      "to": "Q27670",
+      "source": "Q111783780",
+      "target": "Q27670",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_db60303826e1",
+      "to": "CUST_71ba49b63bb6",
+      "source": "CUST_db60303826e1",
+      "target": "CUST_71ba49b63bb6",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_db60303826e1",
+      "to": "CUST_ad92dc337cca",
+      "source": "CUST_db60303826e1",
+      "target": "CUST_ad92dc337cca",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_db60303826e1",
+      "to": "Q740093",
+      "source": "CUST_db60303826e1",
+      "target": "Q740093",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_db60303826e1",
+      "to": "Q91259634",
+      "source": "CUST_db60303826e1",
+      "target": "Q91259634",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_74cc7d853573",
+      "to": "Q124743",
+      "source": "CUST_74cc7d853573",
+      "target": "Q124743",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "Q3589398",
+      "to": "CUST_16fe332f79af",
+      "source": "Q3589398",
+      "target": "CUST_16fe332f79af",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "Q3589398",
+      "to": "CUST_d5707136683b",
+      "source": "Q3589398",
+      "target": "CUST_d5707136683b",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_16fe332f79af",
+      "to": "Q116450161",
+      "source": "CUST_16fe332f79af",
+      "target": "Q116450161",
+      "relation": "USES_LEMMA",
+      "label": "USES_LEMMA"
+    },
+    {
+      "from": "CUST_d5707136683b",
+      "to": "CUST_16fe332f79af",
+      "source": "CUST_d5707136683b",
+      "target": "CUST_16fe332f79af",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_d5707136683b",
+      "to": "Q1036452",
+      "source": "CUST_d5707136683b",
+      "target": "Q1036452",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_8e700dc97a6a",
+      "to": "CUST_16fe332f79af",
+      "source": "CUST_8e700dc97a6a",
+      "target": "CUST_16fe332f79af",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_8e700dc97a6a",
+      "to": "CUST_d5707136683b",
+      "source": "CUST_8e700dc97a6a",
+      "target": "CUST_d5707136683b",
+      "relation": "USES_DEFINITION",
+      "label": "USES_DEFINITION"
+    },
+    {
+      "from": "CUST_af61613bda81",
+      "to": "CUST_8e700dc97a6a",
+      "source": "CUST_af61613bda81",
+      "target": "CUST_8e700dc97a6a",
+      "relation": "USES_DEFINITION",
+      "label": "USES_DEFINITION"
+    },
+    {
+      "from": "CUST_af61613bda81",
+      "to": "CUST_f3282a00a477",
+      "source": "CUST_af61613bda81",
+      "target": "CUST_f3282a00a477",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "Q15303791",
+      "to": "Q1366795",
+      "source": "Q15303791",
+      "target": "Q1366795",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "Q1366795",
+      "to": "CUST_2b2a63f6fece",
+      "source": "Q1366795",
+      "target": "CUST_2b2a63f6fece",
+      "relation": "USES_LEMMA",
+      "label": "USES_LEMMA"
+    },
+    {
+      "from": "Q1366795",
+      "to": "CUST_835d433957fc",
+      "source": "Q1366795",
+      "target": "CUST_835d433957fc",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "Q1366795",
+      "to": "CUST_8e700dc97a6a",
+      "source": "Q1366795",
+      "target": "CUST_8e700dc97a6a",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "Q1366795",
+      "to": "Q116450161",
+      "source": "Q1366795",
+      "target": "Q116450161",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "Q1366795",
+      "to": "Q15303791",
+      "source": "Q1366795",
+      "target": "Q15303791",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "Q1366795",
+      "to": "Q2734005",
+      "source": "Q1366795",
+      "target": "Q2734005",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_835d433957fc",
+      "to": "CUST_2b2a63f6fece",
+      "source": "CUST_835d433957fc",
+      "target": "CUST_2b2a63f6fece",
+      "relation": "USES_LEMMA",
+      "label": "USES_LEMMA"
+    },
+    {
+      "from": "CUST_835d433957fc",
+      "to": "Q116450161",
+      "source": "CUST_835d433957fc",
+      "target": "Q116450161",
+      "relation": "USES_LEMMA",
+      "label": "USES_LEMMA"
+    },
+    {
+      "from": "CUST_835d433957fc",
+      "to": "Q1366795",
+      "source": "CUST_835d433957fc",
+      "target": "Q1366795",
+      "relation": "USES_DEFINITION",
+      "label": "USES_DEFINITION"
+    },
+    {
+      "from": "Q2734005",
+      "to": "Q1366795",
+      "source": "Q2734005",
+      "target": "Q1366795",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_4ca362e50c52",
+      "to": "CUST_86a5cfff6bf3",
+      "source": "CUST_4ca362e50c52",
+      "target": "CUST_86a5cfff6bf3",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_4ca362e50c52",
+      "to": "CUST_db60303826e1",
+      "source": "CUST_4ca362e50c52",
+      "target": "CUST_db60303826e1",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_4ca362e50c52",
+      "to": "Q740093",
+      "source": "CUST_4ca362e50c52",
+      "target": "Q740093",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_4ca362e50c52",
+      "to": "Q91259634",
+      "source": "CUST_4ca362e50c52",
+      "target": "Q91259634",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_9e4a0ccef537",
+      "to": "CUST_13635a09d9c9",
+      "source": "CUST_9e4a0ccef537",
+      "target": "CUST_13635a09d9c9",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_c0581c02bc52",
+      "to": "CUST_13635a09d9c9",
+      "source": "CUST_c0581c02bc52",
+      "target": "CUST_13635a09d9c9",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_c0581c02bc52",
+      "to": "CUST_9e4a0ccef537",
+      "source": "CUST_c0581c02bc52",
+      "target": "CUST_9e4a0ccef537",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_5979cdd7c0cf",
+      "to": "CUST_9e4a0ccef537",
+      "source": "CUST_5979cdd7c0cf",
+      "target": "CUST_9e4a0ccef537",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_32d8d1de9bf0",
+      "to": "CUST_0f339303f104",
+      "source": "CUST_32d8d1de9bf0",
+      "target": "CUST_0f339303f104",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_32d8d1de9bf0",
+      "to": "CUST_644a97aa4c60",
+      "source": "CUST_32d8d1de9bf0",
+      "target": "CUST_644a97aa4c60",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_32d8d1de9bf0",
+      "to": "CUST_d8313ec1f2cf",
+      "source": "CUST_32d8d1de9bf0",
+      "target": "CUST_d8313ec1f2cf",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_32d8d1de9bf0",
+      "to": "Q27670",
+      "source": "CUST_32d8d1de9bf0",
+      "target": "Q27670",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_644a97aa4c60",
+      "to": "CUST_32d8d1de9bf0",
+      "source": "CUST_644a97aa4c60",
+      "target": "CUST_32d8d1de9bf0",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_644a97aa4c60",
+      "to": "CUST_627fd5a30a69",
+      "source": "CUST_644a97aa4c60",
+      "target": "CUST_627fd5a30a69",
+      "relation": "USES_DEFINITION",
+      "label": "USES_DEFINITION"
+    },
+    {
+      "from": "CUST_644a97aa4c60",
+      "to": "CUST_e228b5101cba",
+      "source": "CUST_644a97aa4c60",
+      "target": "CUST_e228b5101cba",
+      "relation": "USES_DEFINITION",
+      "label": "USES_DEFINITION"
+    },
+    {
+      "from": "CUST_afe21eafaf93",
+      "to": "CUST_251822d3fd93",
+      "source": "CUST_afe21eafaf93",
+      "target": "CUST_251822d3fd93",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_afe21eafaf93",
+      "to": "CUST_ad92dc337cca",
+      "source": "CUST_afe21eafaf93",
+      "target": "CUST_ad92dc337cca",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_8e477e667971",
+      "to": "CUST_74cc7d853573",
+      "source": "CUST_8e477e667971",
+      "target": "CUST_74cc7d853573",
+      "relation": "USES_LEMMA",
+      "label": "USES_LEMMA"
+    },
+    {
+      "from": "CUST_8e477e667971",
+      "to": "Q111783780",
+      "source": "CUST_8e477e667971",
+      "target": "Q111783780",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_8e477e667971",
+      "to": "Q124743",
+      "source": "CUST_8e477e667971",
+      "target": "Q124743",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "Q1036452",
+      "to": "CUST_d5707136683b",
+      "source": "Q1036452",
+      "target": "CUST_d5707136683b",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "Q1036452",
+      "to": "Q111783780",
+      "source": "Q1036452",
+      "target": "Q111783780",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "Q1036452",
+      "to": "Q2391013",
+      "source": "Q1036452",
+      "target": "Q2391013",
+      "relation": "PROVES",
+      "label": "PROVES"
+    },
+    {
+      "from": "Q2391013",
+      "to": "CUST_251822d3fd93",
+      "source": "Q2391013",
+      "target": "CUST_251822d3fd93",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "Q2391013",
+      "to": "Q1036452",
+      "source": "Q2391013",
+      "target": "Q1036452",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_251822d3fd93",
+      "to": "CUST_7dac8f9605d6",
+      "source": "CUST_251822d3fd93",
+      "target": "CUST_7dac8f9605d6",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "Q906378",
+      "to": "CUST_251822d3fd93",
+      "source": "Q906378",
+      "target": "CUST_251822d3fd93",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "Q906378",
+      "to": "CUST_aae39304c8d3",
+      "source": "Q906378",
+      "target": "CUST_aae39304c8d3",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "Q906378",
+      "to": "Q27670",
+      "source": "Q906378",
+      "target": "Q27670",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_7dac8f9605d6",
+      "to": "CUST_251822d3fd93",
+      "source": "CUST_7dac8f9605d6",
+      "target": "CUST_251822d3fd93",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_f3282a00a477",
+      "to": "Q27670",
+      "source": "CUST_f3282a00a477",
+      "target": "Q27670",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_a1294a3cc0f4",
+      "to": "CUST_211b46bcb93f",
+      "source": "CUST_a1294a3cc0f4",
+      "target": "CUST_211b46bcb93f",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_a1294a3cc0f4",
+      "to": "CUST_74cc7d853573",
+      "source": "CUST_a1294a3cc0f4",
+      "target": "CUST_74cc7d853573",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_a1294a3cc0f4",
+      "to": "Q124743",
+      "source": "CUST_a1294a3cc0f4",
+      "target": "Q124743",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_a1294a3cc0f4",
+      "to": "Q27670",
+      "source": "CUST_a1294a3cc0f4",
+      "target": "Q27670",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "Q318714",
+      "to": "CUST_74cc7d853573",
+      "source": "Q318714",
+      "target": "CUST_74cc7d853573",
+      "relation": "COROLLARY_OF",
+      "label": "COROLLARY_OF"
+    },
+    {
+      "from": "Q318714",
+      "to": "Q124743",
+      "source": "Q318714",
+      "target": "Q124743",
+      "relation": "USES_DEFINITION",
+      "label": "USES_DEFINITION"
+    },
+    {
+      "from": "CUST_248e2cf7fced",
+      "to": "CUST_d5707136683b",
+      "source": "CUST_248e2cf7fced",
+      "target": "CUST_d5707136683b",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_d8313ec1f2cf",
+      "to": "CUST_ad92dc337cca",
+      "source": "CUST_d8313ec1f2cf",
+      "target": "CUST_ad92dc337cca",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_12de57a895a7",
+      "to": "CUST_ad92dc337cca",
+      "source": "CUST_12de57a895a7",
+      "target": "CUST_ad92dc337cca",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_0f339303f104",
+      "to": "CUST_ad92dc337cca",
+      "source": "CUST_0f339303f104",
+      "target": "CUST_ad92dc337cca",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_0f339303f104",
+      "to": "CUST_db60303826e1",
+      "source": "CUST_0f339303f104",
+      "target": "CUST_db60303826e1",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_48ccee31920b",
+      "to": "Q1036452",
+      "source": "CUST_48ccee31920b",
+      "target": "Q1036452",
+      "relation": "COROLLARY_OF",
+      "label": "COROLLARY_OF"
+    },
+    {
+      "from": "CUST_2739bee01eba",
+      "to": "Q1036452",
+      "source": "CUST_2739bee01eba",
+      "target": "Q1036452",
+      "relation": "COROLLARY_OF",
+      "label": "COROLLARY_OF"
+    },
+    {
+      "from": "CUST_decde4a4b439",
+      "to": "Q1036452",
+      "source": "CUST_decde4a4b439",
+      "target": "Q1036452",
+      "relation": "COROLLARY_OF",
+      "label": "COROLLARY_OF"
+    },
+    {
+      "from": "CUST_71ba49b63bb6",
+      "to": "CUST_db60303826e1",
+      "source": "CUST_71ba49b63bb6",
+      "target": "CUST_db60303826e1",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_71ba49b63bb6",
+      "to": "Q91259634",
+      "source": "CUST_71ba49b63bb6",
+      "target": "Q91259634",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_85d8c0edf92a",
+      "to": "CUST_71ba49b63bb6",
+      "source": "CUST_85d8c0edf92a",
+      "target": "CUST_71ba49b63bb6",
+      "relation": "PROVES",
+      "label": "PROVES"
+    },
+    {
+      "from": "CUST_85d8c0edf92a",
+      "to": "CUST_dfc08df7761f",
+      "source": "CUST_85d8c0edf92a",
+      "target": "CUST_dfc08df7761f",
+      "relation": "USES_DEFINITION",
+      "label": "USES_DEFINITION"
+    },
+    {
+      "from": "Q740093",
+      "to": "CUST_41046cbb5141",
+      "source": "Q740093",
+      "target": "CUST_41046cbb5141",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "Q740093",
+      "to": "CUST_dfc08df7761f",
+      "source": "Q740093",
+      "target": "CUST_dfc08df7761f",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "Q740093",
+      "to": "Q2267362",
+      "source": "Q740093",
+      "target": "Q2267362",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "Q740093",
+      "to": "Q91259634",
+      "source": "Q740093",
+      "target": "Q91259634",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_196d26f95c36",
+      "to": "CUST_ad92dc337cca",
+      "source": "CUST_196d26f95c36",
+      "target": "CUST_ad92dc337cca",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_8d9698846dcf",
+      "to": "CUST_41046cbb5141",
+      "source": "CUST_8d9698846dcf",
+      "target": "CUST_41046cbb5141",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_86a5cfff6bf3",
+      "to": "CUST_4ca362e50c52",
+      "source": "CUST_86a5cfff6bf3",
+      "target": "CUST_4ca362e50c52",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_86a5cfff6bf3",
+      "to": "CUST_ad92dc337cca",
+      "source": "CUST_86a5cfff6bf3",
+      "target": "CUST_ad92dc337cca",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_86a5cfff6bf3",
+      "to": "CUST_db60303826e1",
+      "source": "CUST_86a5cfff6bf3",
+      "target": "CUST_db60303826e1",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_a0dfb5ad31a4",
+      "to": "CUST_0f339303f104",
+      "source": "CUST_a0dfb5ad31a4",
+      "target": "CUST_0f339303f104",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_a0dfb5ad31a4",
+      "to": "CUST_8d9698846dcf",
+      "source": "CUST_a0dfb5ad31a4",
+      "target": "CUST_8d9698846dcf",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_a0dfb5ad31a4",
+      "to": "CUST_ad92dc337cca",
+      "source": "CUST_a0dfb5ad31a4",
+      "target": "CUST_ad92dc337cca",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_a0dfb5ad31a4",
+      "to": "CUST_db60303826e1",
+      "source": "CUST_a0dfb5ad31a4",
+      "target": "CUST_db60303826e1",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_f7c297831508",
+      "to": "CUST_16fe332f79af",
+      "source": "CUST_f7c297831508",
+      "target": "CUST_16fe332f79af",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_f7c297831508",
+      "to": "CUST_251822d3fd93",
+      "source": "CUST_f7c297831508",
+      "target": "CUST_251822d3fd93",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_f7c297831508",
+      "to": "Q1132952",
+      "source": "CUST_f7c297831508",
+      "target": "Q1132952",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_e4be742244a8",
+      "to": "CUST_16fe332f79af",
+      "source": "CUST_e4be742244a8",
+      "target": "CUST_16fe332f79af",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_e4be742244a8",
+      "to": "CUST_9e4a0ccef537",
+      "source": "CUST_e4be742244a8",
+      "target": "CUST_9e4a0ccef537",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_e4be742244a8",
+      "to": "CUST_d5707136683b",
+      "source": "CUST_e4be742244a8",
+      "target": "CUST_d5707136683b",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_aae39304c8d3",
+      "to": "CUST_251822d3fd93",
+      "source": "CUST_aae39304c8d3",
+      "target": "CUST_251822d3fd93",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "CUST_aae39304c8d3",
+      "to": "CUST_f7c297831508",
+      "source": "CUST_aae39304c8d3",
+      "target": "CUST_f7c297831508",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    },
+    {
+      "from": "Q106642756",
+      "to": "CUST_637b82f0ecf2",
+      "source": "Q106642756",
+      "target": "CUST_637b82f0ecf2",
+      "relation": "DEPENDS_ON",
+      "label": "DEPENDS_ON"
+    }
+  ]
+}
