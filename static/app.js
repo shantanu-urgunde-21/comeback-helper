@@ -564,6 +564,61 @@ document.addEventListener('DOMContentLoaded', () => {
         })));
     }
 
+    // =====================================================================
+    // Note Content Viewer — shared by the Vault Browser and the graph node
+    // detail panel's "Source Notes" list, so both can show the actual
+    // markdown/LaTeX content instead of just a filename.
+    // =====================================================================
+    const noteViewerOverlay = document.getElementById('note-viewer-overlay');
+    const noteViewerTitle   = document.getElementById('note-viewer-title');
+    const noteViewerBody    = document.getElementById('note-viewer-body');
+    const btnCloseNoteViewer = document.getElementById('btn-close-note-viewer');
+
+    async function openNoteViewer(path, fallbackTitle) {
+        if (!noteViewerOverlay || !noteViewerBody) return;
+        noteViewerTitle.textContent = fallbackTitle || 'Note';
+        noteViewerBody.innerHTML = '<p style="color: var(--text-muted);">Loading…</p>';
+        noteViewerOverlay.classList.remove('hidden');
+
+        try {
+            const res = await fetch(`/api/vault/note?path=${encodeURIComponent(path)}`);
+            const data = await res.json();
+            if (!res.ok) {
+                noteViewerBody.innerHTML = `<p style="color: #ef4444;">${escapeHtml(data.detail || 'Failed to load note.')}</p>`;
+                return;
+            }
+            noteViewerTitle.textContent = `${data.title}.md`;
+            noteViewerBody.innerHTML = marked.parse(data.content);
+            renderMathInElement(noteViewerBody, {
+                delimiters: [
+                    { left: '$$', right: '$$', display: true },
+                    { left: '$', right: '$', display: false },
+                    { left: '\\(', right: '\\)', display: false },
+                    { left: '\\[', right: '\\]', display: true }
+                ],
+                throwOnError: false
+            });
+        } catch (err) {
+            noteViewerBody.innerHTML = `<p style="color: #ef4444;">Server connection error: ${escapeHtml(err.message)}</p>`;
+        }
+    }
+
+    function closeNoteViewer() {
+        if (noteViewerOverlay) noteViewerOverlay.classList.add('hidden');
+    }
+
+    if (btnCloseNoteViewer) btnCloseNoteViewer.addEventListener('click', closeNoteViewer);
+    if (noteViewerOverlay) {
+        noteViewerOverlay.addEventListener('click', (e) => {
+            if (e.target === noteViewerOverlay) closeNoteViewer();
+        });
+    }
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && noteViewerOverlay && !noteViewerOverlay.classList.contains('hidden')) {
+            closeNoteViewer();
+        }
+    });
+
     function showNodeDetail(nodeId) {
         const panel = document.getElementById('graph-detail-panel');
         if (!panel || !currentGraphData) return;
@@ -610,7 +665,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (provenance.length) {
             html += `<div class="graph-detail-section">
                 <div class="graph-detail-section-label">Source Notes (${provenance.length})</div>
-                ${provenance.map(p => `<div class="graph-detail-provenance-item">${escapeHtml(p.doc_title || p.doc_id || 'Unknown note')}</div>`).join('')}
+                ${provenance.map(p => {
+                    const label = escapeHtml(p.doc_title || p.doc_id || 'Unknown note');
+                    return p.doc_path
+                        ? `<div class="graph-detail-provenance-item note-item-clickable" data-path="${escapeHtml(p.doc_path)}" data-title="${label}">${label}</div>`
+                        : `<div class="graph-detail-provenance-item">${label}</div>`;
+                }).join('')}
             </div>`;
         }
 
@@ -620,6 +680,16 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>`;
 
         panel.innerHTML = html;
+    }
+
+    // Event delegation: the detail panel's innerHTML is fully replaced on
+    // every node click, so bind once on the panel rather than per-item.
+    const graphDetailPanelEl = document.getElementById('graph-detail-panel');
+    if (graphDetailPanelEl) {
+        graphDetailPanelEl.addEventListener('click', (e) => {
+            const item = e.target.closest('.note-item-clickable');
+            if (item) openNoteViewer(item.dataset.path, item.dataset.title);
+        });
     }
 
     function renderGraphWithFilters() {
@@ -868,7 +938,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 card.innerHTML = `
                     <h3>📁 ${course}</h3>
                     <div class="note-list">
-                        ${notes.map(n => `<div class="note-item">📄 <span>${n.title}.md</span></div>`).join('')}
+                        ${notes.map(n => `<div class="note-item note-item-clickable" data-path="${escapeHtml(n.path)}" data-title="${escapeHtml(n.title)}.md">📄 <span>${escapeHtml(n.title)}.md</span></div>`).join('')}
                     </div>
                 `;
                 container.appendChild(card);
@@ -876,6 +946,16 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {
             console.error('Failed to load vault notes:', err);
         }
+    }
+
+    // Event delegation: note-item cards are re-created on every refresh, so
+    // bind once on the stable container rather than per-item.
+    const vaultListContainer = document.getElementById('vault-list-container');
+    if (vaultListContainer) {
+        vaultListContainer.addEventListener('click', (e) => {
+            const item = e.target.closest('.note-item-clickable');
+            if (item) openNoteViewer(item.dataset.path, item.dataset.title);
+        });
     }
 
     // =====================================================================

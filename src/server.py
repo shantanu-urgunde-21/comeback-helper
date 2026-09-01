@@ -260,6 +260,36 @@ async def get_vault_notes():
     return JSONResponse({"vault": vault_data})
 
 
+@app.get("/api/vault/note")
+async def get_vault_note_content(path: str):
+    """Returns one vault note's raw markdown content.
+
+    `path` is a full path as returned by /api/vault — round-tripped through
+    the client rather than trusted, so it's resolved and checked against
+    the configured vault directory before reading (path-traversal guard;
+    without it a crafted `path` could read any file the server process can).
+    """
+    settings = get_settings()
+    vault_path = settings.vault_path
+
+    try:
+        note_path = Path(path).resolve()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid path")
+
+    if note_path.suffix.lower() != ".md" or not note_path.is_relative_to(vault_path):
+        raise HTTPException(status_code=403, detail="Path is outside the configured vault")
+    if not note_path.exists():
+        raise HTTPException(status_code=404, detail="Note not found")
+
+    try:
+        content = note_path.read_text(encoding="utf-8")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to read note: {e}")
+
+    return JSONResponse({"title": note_path.stem, "path": str(note_path), "content": content})
+
+
 @app.get("/api/graph")
 async def get_graph_data():
     """

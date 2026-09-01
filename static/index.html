@@ -452,7 +452,18 @@
         </main>
     </div>
 
+    <!-- Note Content Viewer (Vault Browser + graph node "Source Notes") -->
+    <div id="note-viewer-overlay" class="modal-overlay hidden">
+        <div class="modal-card">
+            <div class="modal-card-header">
+                <span id="note-viewer-title">Note</span>
+                <button id="btn-close-note-viewer" class="modal-close-btn" aria-label="Close">&times;</button>
+            </div>
+            <div id="note-viewer-body" class="modal-card-body markdown-body"></div>
+        </div>
+    </div>
+
     <!-- App JavaScript -->
-    <script src="/static/app.js?v=3"></script>
+    <script src="/static/app.js?v=4"></script>
 </body>
 </html>
