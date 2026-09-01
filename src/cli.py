@@ -133,13 +133,28 @@ def graph_stats(as_json: bool):
 
         components = 0
         isolates = 0
+        is_dag = True
+        cycle_count = 0
         types_count: dict[str, int] = {}
         if G.number_of_nodes() > 0:
             components = nx.number_connected_components(G.to_undirected())
             isolates = len(list(nx.isolates(G)))
+            # Check DAG status on directed prerequisite edges (excluding symmetric EQUIVALENT_TO)
+            G_directed = nx.DiGraph([(u, v) for u, v, d in G.edges(data=True) if d.get("relation") != "EQUIVALENT_TO"])
+            is_dag = nx.is_directed_acyclic_graph(G_directed)
+            if not is_dag:
+                try:
+                    cycle_count = len(list(nx.simple_cycles(G_directed)))
+                except Exception:
+                    cycle_count = -1
+
             for _, data in G.nodes(data=True):
-                etype = data.get("entity_type", "Concept")
-                types_count[etype] = types_count.get(etype, 0) + 1
+                # Group by kind; for Statement nodes, include the role label so
+                # the distribution is readable ("Statement/Theorem" etc.).
+                kind = data.get("kind", "Object")
+                role = data.get("role")
+                label = f"{kind}/{role}" if (kind == "Statement" and role) else kind
+                types_count[label] = types_count.get(label, 0) + 1
 
         if as_json:
             _emit({
@@ -147,9 +162,11 @@ def graph_stats(as_json: bool):
                 "command": "graph-stats",
                 "nodes": G.number_of_nodes(),
                 "edges": G.number_of_edges(),
+                "is_dag": is_dag,
+                "cycles": cycle_count,
                 "connected_components": components,
                 "isolated_nodes": isolates,
-                "entity_types": types_count,
+                "kinds": types_count,
             })
             return
 
@@ -159,12 +176,13 @@ def graph_stats(as_json: bool):
 
         table.add_row("Total Nodes", str(G.number_of_nodes()))
         table.add_row("Total Edges", str(G.number_of_edges()))
+        table.add_row("Is DAG (Acyclic)", "[bold green]True (0 cycles)[/bold green]" if is_dag else f"[bold red]False ({cycle_count} cycles)[/bold red]")
 
         if G.number_of_nodes() > 0:
             table.add_row("Connected Components", f"{components} [Warning]" if components > 1 else f"{components} [OK]")
             table.add_row("Isolated Nodes", f"{isolates} [Warning]" if isolates > 0 else f"{isolates} [OK]")
             types_str = ", ".join([f"{k}({v})" for k, v in types_count.items()])
-            table.add_row("Entity Types", types_str)
+            table.add_row("Node Kinds", types_str)
 
         console.print(table)
     except Exception as e:
@@ -193,7 +211,8 @@ def graph_preview(note: str, as_json: bool):
                 "nodes": [
                     {
                         "name": n.name,
-                        "entity_type": str(getattr(n.entity_type, "value", n.entity_type)),
+                        "kind": n.kind.value if hasattr(n.kind, "value") else str(n.kind),
+                        "role": n.role.value if getattr(n, "role", None) is not None else None,
                         "description": n.description,
                         "taxonomy": n.taxonomy.model_dump() if hasattr(n.taxonomy, "model_dump") else {},
                     }
@@ -212,7 +231,9 @@ def graph_preview(note: str, as_json: bool):
 
         console.print(f"[bold green]Extracted {len(extraction.nodes)} Nodes:[/bold green]")
         for n in extraction.nodes:
-            console.print(f" • [{n.entity_type}] [bold]{n.name}[/bold] — {n.description[:80]}")
+            kind_label = n.kind.value if hasattr(n.kind, "value") else str(n.kind)
+            role_label = f"/{n.role.value}" if getattr(n, "role", None) is not None else ""
+            console.print(f" • [{kind_label}{role_label}] [bold]{n.name}[/bold] — {n.description[:80]}")
 
         console.print(f"\n[bold green]Extracted {len(extraction.edges)} Edges:[/bold green]")
         for e in extraction.edges:
@@ -236,12 +257,7 @@ def rebuild_graph(use_llm: bool, force: bool, as_json: bool):
         console.print(f"[bold cyan]Rebuilding Knowledge Graph (use_llm={use_llm}, force={force})...[/bold cyan]")
     try:
         from src.wiring import build_indexer
-        from vector.app.store import LocalVectorStore
-        # Without a vector store, _resolve_entity() short-circuits and never
-        # merges anything — this was silently disabling entity resolution on
-        # every CLI rebuild (e.g. "Wronskian" / "wronskian" staying separate
-        # nodes), even though the server path always wires one in.
-        indexer = build_indexer(vector_store=LocalVectorStore())
+        indexer = build_indexer()
         G = indexer.build_or_update_index(use_llm=use_llm, force=force)
 
         if as_json:
@@ -257,6 +273,38 @@ def rebuild_graph(use_llm: bool, force: bool, as_json: bool):
             console.print(Panel(f"[bold green]Graph Rebuild Complete![/bold green]\nTotal Nodes: {G.number_of_nodes()}\nTotal Edges: {G.number_of_edges()}", title="Rebuild Success"))
     except Exception as e:
         _fail(as_json, "Rebuild", e)
+
+
+@main.command(name="graph-repair-dag")
+@_JSON
+def graph_repair_dag(as_json: bool):
+    """Enforce DAG (Directed Acyclic Graph) property by breaking cycles in SQLite and graph.json."""
+    try:
+        from src.wiring import build_indexer
+        indexer = build_indexer()
+        stats = indexer.repair_dag()
+
+        if as_json:
+            _emit({
+                "status": "success",
+                "command": "graph-repair-dag",
+                "initial_cycles": stats.get("initial_cycles", 0),
+                "removed_2cycles": len(stats.get("removed_2cycles", [])),
+                "removed_multihop": len(stats.get("removed_multihop", [])),
+                "total_removed": stats.get("total_removed", 0),
+                "is_dag": stats.get("is_dag", True),
+            })
+        else:
+            msg = (
+                f"[bold green]DAG Repair Complete![/bold green]\n"
+                f"Initial Cycles: {stats.get('initial_cycles', 0)}\n"
+                f"2-Cycles Resolved: {len(stats.get('removed_2cycles', []))}\n"
+                f"Multi-hop Feedback Edges Removed: {len(stats.get('removed_multihop', []))}\n"
+                f"Is DAG: [bold cyan]{stats.get('is_dag', True)}[/bold cyan]"
+            )
+            console.print(Panel(msg, title="DAG Enforcement"))
+    except Exception as e:
+        _fail(as_json, "DAG Repair", e)
 
 
 @main.command(name="authority-seed-msc")
