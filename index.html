@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comeback Helper | STEM Math Knowledge Graph & Vault Explorer</title>
+    <link rel="icon" type="image/png" href="./img/logo.png">
+
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <!-- KaTeX CSS & JS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
+    <!-- Marked JS (Markdown Parser) -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <!-- Vis.js Network (Knowledge Graph Visualizer) -->
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+
+    <!-- App Styles -->
+    <link rel="stylesheet" href="./style.css?v=3">
+</head>
+<body class="dark-theme">
+    <div class="app-layout">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="logo-icon"><img src="./img/logo.png" alt="Comeback Helper concept graph"></div>
+                <div class="brand-text">
+                    <h2>Comeback Helper</h2>
+                    <span>STEM Math Knowledge Graph</span>
+                </div>
+            </div>
+
+            <nav class="nav-menu">
+                <button class="nav-item active" data-tab="tab-graph">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+                    <span>Knowledge Graph</span>
+                </button>
+                <button class="nav-item" data-tab="tab-vault">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+                    <span>Obsidian Vault</span>
+                </button>
+                <button class="nav-item" data-tab="tab-backend">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"></path><circle cx="8" cy="6" r="2"></circle><circle cx="16" cy="12" r="2"></circle><circle cx="10" cy="18" r="2"></circle></svg>
+                    <span>Entity Catalog</span>
+                </button>
+                <button class="nav-item" data-tab="tab-settings">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                    <span>Settings & Info</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="status-indicator">
+                    <span id="static-status-dot" class="status-dot online"></span>
+                    <span id="static-status-label" class="status-label">GitHub Pages (Static Mode)</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="content-area">
+            <!-- TAB 1: KNOWLEDGE GRAPH -->
+            <section id="tab-graph" class="tab-page active">
+                <header class="page-header">
+                    <div class="header-flex">
+                        <div>
+                            <h1>Visual Knowledge Graph</h1>
+                            <p>Interactive map of theorems, concepts, and note links in your STEM Knowledge Base.</p>
+                        </div>
+                        <button id="btn-fit-graph" class="btn-secondary">Center View</button>
+                        <button id="btn-refresh-graph" class="btn-secondary">Refresh Graph</button>
+                        <button id="btn-fullscreen-graph" class="btn-secondary">Fullscreen</button>
+                    </div>
+                </header>
+
+                <!-- Graph Filter & Customization Controls -->
+                <div class="graph-filters" id="graph-filters">
+                    <div class="filter-group">
+                        <span class="filter-label">Filter by Type:</span>
+                        <label class="chip-check"><input type="checkbox" value="Object" checked class="graph-type-filter"><span class="chip">💡 Objects</span></label>
+                        <label class="chip-check"><input type="checkbox" value="Statement" checked class="graph-type-filter"><span class="chip">📐 Statements</span></label>
+                        <label class="chip-check"><input type="checkbox" value="Definition" checked class="graph-type-filter"><span class="chip">📖 Definitions</span></label>
+                        <label class="chip-check"><input type="checkbox" value="Method" checked class="graph-type-filter"><span class="chip">⚙️ Methods</span></label>
+                        <label class="chip-check"><input type="checkbox" value="Formula" checked class="graph-type-filter"><span class="chip">🔣 Formulas</span></label>
+                        <label class="chip-check"><input type="checkbox" value="Proof" checked class="graph-type-filter"><span class="chip">✏️ Proofs</span></label>
+                        <label class="chip-check"><input type="checkbox" value="Example" checked class="graph-type-filter"><span class="chip">🧪 Examples</span></label>
+                    </div>
+                    <div class="filter-group">
+                        <span class="filter-label">Course:</span>
+                        <select id="graph-course-filter" class="custom-select custom-select-sm">
+                            <option value="">All Courses</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Runtime Graph Physics & Layout Customization Panel -->
+                <details class="settings-panel" id="graph-layout-settings" style="margin-bottom: 1rem;">
+                    <summary class="settings-toggle">⚙️ Graph Layout & Decluttering Controls</summary>
+                    <div class="settings-grid">
+                        <div class="setting-item">
+                            <label for="graph-layout-solver">Layout Solver</label>
+                            <select id="graph-layout-solver" class="custom-select custom-select-sm">
+                                <option value="barnesHut">Barnes-Hut (Organic Clusters)</option>
+                                <option value="forceAtlas2Based" selected>Force-Atlas 2 (Spread Out)</option>
+                                <option value="hierarchical">Hierarchical (Dependency Tree)</option>
+                            </select>
+                        </div>
+                        <div class="setting-item">
+                            <label for="graph-spring-length">Node Separation / Spring Distance</label>
+                            <div class="slider-row">
+                                <input type="range" id="graph-spring-length" min="80" max="350" value="180" class="range-slider">
+                                <span id="graph-spring-val" class="slider-value">180px</span>
+                            </div>
+                        </div>
+                        <div class="setting-item">
+                            <label for="graph-node-scale">Node Size</label>
+                            <div class="slider-row">
+                                <input type="range" id="graph-node-scale" min="10" max="35" value="18" class="range-slider">
+                                <span id="graph-node-scale-val" class="slider-value">18px</span>
+                            </div>
+                        </div>
+                        <div class="setting-item">
+                            <label for="graph-edge-labels">Show Edge Labels</label>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="graph-edge-labels" checked>
+                                <span class="toggle-slider"></span>
+                                <span class="toggle-label" id="edge-label-status">Visible</span>
+                            </label>
+                        </div>
+                        <div class="setting-item">
+                            <label for="graph-physics-toggle">Physics Simulation</label>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="graph-physics-toggle" checked>
+                                <span class="toggle-slider"></span>
+                                <span class="toggle-label" id="physics-toggle-status">Active</span>
+                            </label>
+                        </div>
+                    </div>
+                </details>
+
+                <!-- Graph Legend -->
+                <div class="graph-legend">
+                    <div class="legend-group">
+                        <span class="legend-label">Node Color — Hierarchy Depth</span>
+                        <div class="legend-gradient-row">
+                            <span class="legend-gradient-end">Foundational</span>
+                            <div class="legend-gradient-bar"></div>
+                            <span class="legend-gradient-end">Advanced</span>
+                        </div>
+                    </div>
+                    <div class="legend-group">
+                        <span class="legend-label">Concept type — click any node to see it</span>
+                    </div>
+                </div>
+
+                <div class="graph-container">
+                    <div id="vis-graph-canvas" class="graph-canvas"></div>
+                    <div class="graph-detail-panel" id="graph-detail-panel">
+                        <div class="graph-detail-placeholder">Click a node to see its full details.</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 2: OBSIDIAN VAULT -->
+            <section id="tab-vault" class="tab-page">
+                <header class="page-header">
+                    <div class="header-flex">
+                        <div>
+                            <h1>Obsidian Vault Browser</h1>
+                            <p>Explore your organized course directories and LaTeX Markdown notes.</p>
+                        </div>
+                        <button id="btn-refresh-vault" class="btn-secondary">Refresh Vault</button>
+                    </div>
+                </header>
+
+                <div id="vault-list-container" class="vault-grid"></div>
+            </section>
+
+            <!-- TAB 3: BACKEND ENTITY CATALOG -->
+            <section id="tab-backend" class="tab-page">
+                <header class="page-header">
+                    <div class="header-flex">
+                        <div>
+                            <h1>Extracted Mathematical Entity Catalog</h1>
+                            <p>Inspect extracted mathematical entities, domain taxonomy tags, and conceptual role definitions.</p>
+                        </div>
+                        <div class="header-actions">
+                            <button id="btn-refresh-backend" class="btn-secondary">🔄 Refresh Catalog</button>
+                        </div>
+                    </div>
+                </header>
+
+                <div class="backend-container">
+                    <!-- Tag Summary Chips -->
+                    <div class="form-card" style="margin-bottom: 1.5rem;">
+                        <h3>Active Role & Domain Tags Summary</h3>
+                        <div id="backend-tags-container" class="tag-badges-grid" style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem;"></div>
+                    </div>
+
+                    <!-- Entity Catalog Table Card -->
+                    <div class="form-card">
+                        <div class="header-flex" style="margin-bottom: 1rem;">
+                            <h3>Extracted Entity Catalog (<span id="backend-entity-count">0</span> Entities)</h3>
+                            <input type="text" id="backend-search-input" placeholder="Search entity name, tag, or description..." class="custom-select" style="max-width: 300px;">
+                        </div>
+
+                        <div class="table-scroll-container" style="overflow-x: auto;">
+                            <table class="catalog-table" style="width: 100%; border-collapse: collapse; text-align: left;">
+                                <thead>
+                                    <tr style="border-bottom: 1px solid var(--border-color); color: var(--text-muted); font-size: 0.85rem;">
+                                        <th style="padding: 0.75rem;">Entity Name</th>
+                                        <th style="padding: 0.75rem;">Role / Type</th>
+                                        <th style="padding: 0.75rem;">Domain Taxonomy</th>
+                                        <th style="padding: 0.75rem;">Description</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="backend-entity-table-body">
+                                    <tr><td colspan="4" style="padding: 1.5rem; text-align: center; color: var(--text-muted);">Loading entity catalog...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 4: SETTINGS & INFO -->
+            <section id="tab-settings" class="tab-page">
+                <header class="page-header">
+                    <h1>System Information & Graph Statistics</h1>
+                    <p>Read-only summary of pre-indexed STEM math vault knowledge graph metrics.</p>
+                </header>
+
+                <div class="settings-dashboard">
+                    <!-- Config Info Cards -->
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-label">Hosting Mode</div>
+                            <div class="stat-value" style="font-size: 1.1rem; color: #10b981;">GitHub Pages Static</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Vault Notes</div>
+                            <div class="stat-value" id="stat-vault-notes">—</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Graph Nodes</div>
+                            <div class="stat-value" id="stat-graph-nodes">—</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Graph Edges</div>
+                            <div class="stat-value" id="stat-graph-edges">—</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Courses</div>
+                            <div class="stat-value" id="stat-courses">—</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Note Content Viewer (Vault Browser + graph node "Source Notes") -->
+    <div id="note-viewer-overlay" class="modal-overlay hidden">
+        <div class="modal-card">
+            <div class="modal-card-header">
+                <span id="note-viewer-title">Note</span>
+                <button id="btn-close-note-viewer" class="modal-close-btn" aria-label="Close">&times;</button>
+            </div>
+            <div id="note-viewer-body" class="modal-card-body markdown-body"></div>
+        </div>
+    </div>
+
+    <!-- App JavaScript -->
+    <script src="./app.js?v=4"></script>
+</body>
+</html>

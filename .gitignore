@@ -1,0 +1,8 @@
+# Ignore python env and system cache
+.venv/
+venv/
+__pycache__/
+.storage/
+temp_uploads/
+.DS_Store
+Thumbs.db
