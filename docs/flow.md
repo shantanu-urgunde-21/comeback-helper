@@ -44,6 +44,10 @@ is refreshed after each insert; search is hybrid (vector + BM25).
 
 ## 3. Extraction — two LLM passes
 
+Node/taxonomy prompts live in `graph/app/prompts.py`; the two passes themselves are
+`graph/app/llm_extraction.py`'s `extract_nodes_pass`/`extract_edges_pass`, called from
+`MathGraphIndexer.index_note` (`graph/app/indexer.py`).
+
 **Pass 1, per markdown section** (`chunk_id = "{doc_path}#s{n:04d}"`):
 
 ```python
@@ -63,10 +67,14 @@ canonical id:
 GraphEdge(source, target, relation, description)   # description = evidence quote
 ```
 
-`_normalize_relation` rewrites `PREREQUISITE_FOR(A,B)` to `DEPENDS_ON(B,A)` before storage.
+`_normalize_relation` (still in `indexer.py`) rewrites `PREREQUISITE_FOR(A,B)` to
+`DEPENDS_ON(B,A)` before storage.
 
-Both passes degrade Gemini → Ollama → `_block_extraction` (deterministic, wikilinks and
-headings only).
+Both passes degrade Gemini → Ollama → `block_extractor.block_extraction` (deterministic,
+wikilinks and headings only). The Gemini/Ollama half of that ladder —
+try each Gemini candidate model, then each local Ollama model — is
+`shared/llm/fallback.with_gemini_then_ollama`, shared with retrieval's answer synthesis
+(section 5 below) rather than reimplemented per call site.
 
 ## 4. Persistence
 

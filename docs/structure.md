@@ -9,31 +9,48 @@ No line numbers here on purpose — they go stale faster than anything else in a
 
 ```
 src/                    entry points only
-  server.py             FastAPI app, 11 routes, lifespan builds the singletons
+  server.py             FastAPI app factory, lifespan builds the singletons, mounts routers
+  routes/                one APIRouter per HTTP concern — ingest, query, vault, admin
   cli.py                click group, 8 verbs, all --json
   wiring.py             composition root — builds the real classes, one process
   __init__.py           puts services/ on sys.path (load-bearing, see CLAUDE.md)
 
 services/
-  shared/               config, logger, LLM clients — used by every package
+  shared/               config, logger, LLM clients (incl. shared/llm/fallback.py)
   vault/app/manager.py  reads notes, SHA-256 ingest state
   ingestion/app/        PDF → Markdown (OCR providers + LaTeX sanitizer)
   vector/app/           chunker (math-aware) + LanceDB store
-  graph/app/            schema, authority (identity), graph_store (SQLite), indexer
+  graph/app/            schema, authority (identity), graph_store (SQLite), indexer + its
+                         extraction helpers (prompts, extraction_filters, block_extractor,
+                         llm_extraction)
   retrieval/app/engine  hybrid context + answer synthesis
 ```
 
 Packages import each other under short names (`graph.app.indexer`), never
 `services.graph.app.indexer`.
 
-## The four largest modules
+## The `graph/app/` extraction split
+
+`indexer.py` used to hold prompts, entity-name filtering, the deterministic block parser,
+and both LLM passes inline (945 lines). Those are now separate modules it calls into, so
+`MathGraphIndexer` itself is just orchestration (graph I/O, `index_note`,
+`build_or_update_index`, `repair_dag`, `neighborhood`):
 
 | Module | Lines | Owns |
 |---|---:|---|
-| `graph/app/indexer.py` | 762 | 2-pass extraction, `index_note`, `neighborhood`, block-parser fallback |
-| `src/server.py` | 440 | HTTP surface + lifespan singletons |
+| `graph/app/indexer.py` | ~560 | `MathGraphIndexer`: graph I/O, `index_note`, `build_or_update_index`, `neighborhood`, `_normalize_relation` |
+| `graph/app/llm_extraction.py` | ~150 | Pass 1/2 LLM calls (`extract_nodes_pass`, `extract_edges_pass`), built on `shared/llm/fallback.py` |
+| `graph/app/block_extractor.py` | ~115 | Tier-3 deterministic parser (`block_extraction`) — LaTeX envs, typed headings, wikilinks |
+| `graph/app/prompts.py` | ~85 | `PASS1_NODE_PROMPT`, `PASS2_EDGE_PROMPT` |
 | `graph/app/authority.py` | 438 | identity ladder, Wikidata cache, MSC2020 table |
-| `src/cli.py` | 329 | the `--json` verb surface the skill consumes |
+| `graph/app/extraction_filters.py` | ~35 | `is_valid_entity` — rejects structural noise as a node name |
+
+`_split_chunks`, `_normalize_edge_endpoint`, and `_get_candidate_context` stayed on
+`MathGraphIndexer` (not extracted) because `tests/test_graph_indexer.py` calls them
+directly as instance methods.
+
+`src/server.py` (69 lines) and `src/routes/{ingest,query,vault,admin}.py` (~100–135 lines
+each) split the same way: one file per HTTP concern instead of 11 routes in one module.
 
 ## Call chains
 
@@ -52,15 +69,15 @@ Writes the note only. The graph and vector index are not touched — run `rebuil
 ```
 cli rebuild-graph → build_or_update_index(force)
   → index_note(note)
-      → _split_chunks                       H1–H3 sections, chunk_id "{doc}#s0000"
-      → per chunk: _extract_nodes_pass      Pass 1, LLM
+      → _split_chunks                          H1–H3 sections, chunk_id "{doc}#s0000"
+      → per chunk: llm_extraction.extract_nodes_pass   Pass 1, LLM
           → _resolve_entity → authority.resolve_concept()   canonical id
           → graph_store.upsert_node_attrs + insert_mention
-      → _extract_edges_pass                 Pass 2, LLM, once on full text
-          → _normalize_edge_endpoint        map LLM output back to canonical ids
-          → _normalize_relation             PREREQUISITE_FOR → DEPENDS_ON
+      → llm_extraction.extract_edges_pass       Pass 2, LLM, once on full text
+          → _normalize_edge_endpoint            map LLM output back to canonical ids
+          → _normalize_relation                 PREREQUISITE_FOR → DEPENDS_ON
           → graph_store.insert_edge
-  → save_graph()                            exports graph.json
+  → save_graph()                                exports graph.json
 ```
 
 **Answer a query**
@@ -85,20 +102,18 @@ SQLite is the store of record; `graph.json` is written *out* by `save_graph()` f
 
 ## Extraction fallbacks
 
-Both passes degrade the same way, and every level is exercised in practice:
+Both passes degrade the same way, and every level is exercised in practice. The Gemini →
+Ollama half of the ladder is one shared function, `shared/llm/fallback.with_gemini_then_ollama`
+— also used by `retrieval/app/engine.py`'s answer synthesis, not just graph extraction:
 
 ```
-Gemini (candidate models, 429 → next)  →  Ollama (llama3.2, qwen2.5:3b, phi3:mini)  →  _block_extraction
+Gemini (candidate models, any failure → next)  →  Ollama (llama3.2, qwen2.5:3b, phi3:mini)  →  block_extraction
 ```
 
-`_block_extraction` is deterministic — wikilinks and headings, no LLM. It is also the
-`use_llm=False` path used by tests.
+`block_extractor.block_extraction` is deterministic — wikilinks and headings, no LLM. It is
+also the `use_llm=False` path used by tests.
 
 ## Dead code
 
-- `ingestion/app/handwriting/segmenter.py` and `ocr_engine.py` (~276 lines) are referenced
-  by nothing in the tracked tree. The only importer is a gitignored script that still uses
-  the pre-`services/` import path, so it is already broken. Safe to delete.
-
-Nothing else is unreferenced. `extract_from_text` looks orphaned but is what `graph-preview`
+Nothing currently unreferenced. `extract_from_text` looks orphaned but is what `graph-preview`
 calls; it was also the container `/extract` handler before plan.md Phase 7 removed those.

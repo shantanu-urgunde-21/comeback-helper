@@ -1,12 +1,10 @@
-import re
-import json
 from typing import Optional
 
 import numpy as np
 from google.genai import types as genai_types
 
 from shared.config import get_settings
-from shared.llm.gemini import get_gemini_client, get_gemini_candidate_models
+from shared.llm.fallback import with_gemini_then_ollama
 from shared.llm.ollama import get_ollama_client
 from shared.logger import log
 
@@ -166,7 +164,7 @@ class MathQueryEngine:
                     # Format nodes with their descriptions and immediate relations
                     for node in nodes:
                         node_id = node.get("id", "")
-                        node_type = node.get("entity_type", "Concept")
+                        node_type = node.get("kind", "Concept")
                         label = node.get("label", node_id)
                         desc = node.get("description", "")
 
@@ -235,38 +233,25 @@ class MathQueryEngine:
             query_str=prompt,
         )
 
-        # Try Gemini API with candidate model fallback
-        client = get_gemini_client()
-        if client:
-            candidates = get_gemini_candidate_models()
-            for model_name in candidates:
-                try:
-                    log.info(f"Synthesizing RAG response via Gemini '{model_name}'...")
-                    response = client.models.generate_content(
-                        model=model_name,
-                        contents=full_prompt,
-                        config=genai_types.GenerateContentConfig(
-                            temperature=temperature,
-                        ),
-                    )
-                    log.info("RAG response synthesis complete.")
-                    return response.text
-                except Exception as e:
-                    err_str = str(e)
-                    log.warning(f"Gemini RAG synthesis via '{model_name}' failed: {e}")
-                    if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
-                        log.info(f"Candidate '{model_name}' rate-limited. Trying next candidate...")
-                        continue
+        def try_gemini(client, model_name: str) -> str:
+            log.info(f"Synthesizing RAG response via Gemini '{model_name}'...")
+            response = client.models.generate_content(
+                model=model_name,
+                contents=full_prompt,
+                config=genai_types.GenerateContentConfig(
+                    temperature=temperature,
+                ),
+            )
+            log.info("RAG response synthesis complete.")
+            return response.text
 
-        # Ollama Fallback
-        ollama = get_ollama_client()
-        if ollama.is_available():
-            for model in ["llama3.2", "qwen2.5:3b", "phi3:mini"]:
-                if ollama.has_model(model):
-                    log.info(f"Synthesizing RAG response via local Ollama '{model}'...")
-                    ans = ollama.chat(prompt=full_prompt, model=model, temperature=temperature)
-                    if ans:
-                        return ans
+        def try_ollama(model: str) -> "str | None":
+            log.info(f"Synthesizing RAG response via local Ollama '{model}'...")
+            return get_ollama_client().chat(prompt=full_prompt, model=model, temperature=temperature)
+
+        answer, _ = with_gemini_then_ollama(try_gemini, try_ollama)
+        if answer is not None:
+            return answer
 
         return (
             "### Retrieved Vault Context & Graph Connections:\n\n"

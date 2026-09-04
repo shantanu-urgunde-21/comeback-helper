@@ -1,47 +1,21 @@
-import json
 import re
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional
 
 import networkx as nx
-from google.genai import types
 
 from shared.config import get_settings
 from .schema import (
-    MathNodeExtraction,
-    MathEdgeExtraction,
     MathEntityExtraction,
-    MathEntityKind,
-    GraphNode,
-    GraphEdge,
-    ConceptTaxonomy,
     Provenance,
     normalize,
     SYMMETRIC_RELATIONS,
 )
-from shared.llm.gemini import get_gemini_client, get_gemini_model_name, get_gemini_candidate_models
-from shared.llm.ollama import get_ollama_client
 from shared.logger import log
-from .dag import will_create_cycle, repair_graph_dag, resolve_2cycle
-
-
-# ---------------------------------------------------------------------------
-# Noise filter — rejects structural headings and sentence fragments
-# ---------------------------------------------------------------------------
-
-NOISE_PATTERN = re.compile(
-    r"(?i)^("
-    r"exercise|solution|hint|problem|conclusion|example|"
-    r"page\s*\d*|lecture\s*notes?|note\s*\d*|figure\s*\d*|"
-    r"table\s*\d*|section\s*\d*|chapter\s*\d*|"
-    r"from\s|if\s+the\s|the\s+differential|"
-    r"lec\s*\d*|q\.?\s*\d+|ans(wer)?|"
-    r"assignment|homework|quiz|test|exam"
-    r").*"
-)
-
-# Minimum meaningful words after stripping articles/prepositions
-_STRIP_WORDS = {"a", "an", "the", "of", "in", "on", "for", "to", "and", "or", "is", "are", "was", "were"}
+from .dag import repair_graph_dag, resolve_2cycle
+from .extraction_filters import is_valid_entity
+from .block_extractor import block_extraction
+from .llm_extraction import extract_nodes_pass, extract_edges_pass
 
 
 def _normalize_relation(source: str, target: str, relation: str) -> tuple[str, str, str]:
@@ -68,113 +42,16 @@ def _normalize_relation(source: str, target: str, relation: str) -> tuple[str, s
     return source, target, relation
 
 
-def _is_valid_entity(name: str) -> bool:
-    """Returns True if the name looks like a real math concept, not noise."""
-    clean = name.strip()
-    if not clean or len(clean) < 3 or clean.startswith("<!--"):
-        return False
-    if NOISE_PATTERN.match(clean):
-        return False
-    words = [w for w in clean.split() if w.lower() not in _STRIP_WORDS]
-    if len(words) < 1:
-        return False
-    return True
-
-
-# ---------------------------------------------------------------------------
-# 2-Pass Extraction Prompts
-# ---------------------------------------------------------------------------
-
-PASS1_NODE_PROMPT = """\
-You are an expert mathematical entity extractor.
-TASK: Extract formal mathematical entities from the text, classify each on TWO
-independent axes, and assign a 3-tier SKOS taxonomy.
-
-AXIS 1 — kind (REQUIRED, pick exactly one; this is what the thing IS):
-  Object     — a mathematical object, construct, or property (e.g. Wronskian, Integrating Factor, Linear Independence)
-  Statement  — a proposition asserted to hold (e.g. Schwarz's Theorem, Criterion for Exactness)
-  Definition — text that assigns meaning to a term
-  Method     — a procedure or solution technique (e.g. Variation of Parameters, Undetermined Coefficients)
-  Formula    — a specific equation or expression (e.g. Abel's Identity)
-  Proof      — an argument establishing a statement
-  Example    — a concrete instance or model (e.g. a bungee-jumping model)
-
-AXIS 2 — role (OPTIONAL, only when kind is Statement):
-  Axiom | Theorem | Lemma | Corollary | Proposition | Conjecture
-
-  CRITICAL: role is REPORTED, NOT INFERRED. Set it ONLY when the text itself
-  applies that label — a heading such as "Lemma 3.1", or a name such as
-  "Abel's Lemma" or "Picard's Theorem". If the text merely states a result
-  without labelling it, OMIT role entirely. Do NOT reason about whether
-  something "acts like" a lemma; relationships between results are captured
-  as edges, not as this field.
-
-STRICT RULES:
-1. DO NOT extract structural terms (e.g. 'Exercise 1', 'Problem', 'Solution', 'Hint', 'Conclusion', 'Page 1', 'Lecture notes').
-2. Extract the formal mathematical entity name, properly capitalised.
-3. Every node MUST have a `kind`. Do not default to Object when another kind fits — a named result is a Statement, a solution technique is a Method.
-4. Each node MUST have a formal 1-2 sentence description.
-5. Assign domain taxonomy (domain, subdomain, topic).
-
-TEXT:
-{text}
-"""
-
-PASS2_EDGE_PROMPT = """\
-You are an expert mathematical relationship linker.
-TASK: Establish directional relationships between the entities below, using ONLY their IDs.
-
-ENTITY DICTIONARY (id -> name, kind, role):
-{concept_id_map}
-
-NEW ENTITY IDS FROM THIS NOTE (focus edges on these):
-{new_concept_ids}
-
-EXISTING KNOWLEDGE BASE IDS (available link targets):
-{existing_concept_ids}
-
-RELATION TYPES — pick the most specific one that applies. Do NOT fall back to
-DEPENDS_ON when a precise relation fits:
-
-  DEPENDS_ON(A, B)       A requires understanding B first. B is more foundational.
-                         Use only when no more specific relation below applies.
-  HAS_HYPOTHESIS(A, B)   Statement A holds only under condition B.
-                         e.g. Picard's Theorem HAS_HYPOTHESIS Lipschitz Condition
-  USES_DEFINITION(A, B)  A invokes definition B.
-  USES_IN_PROOF(A, B)    A's proof relies on result B.
-  PROVES(A, B)           A is an argument establishing statement B.
-                         A should be a Proof and B a Statement.
-  COROLLARY_OF(A, B)     A follows easily from B.
-  GENERALIZES(A, B)      A is a strictly more general form of B.
-  SPECIAL_CASE_OF(A, B)  A is B with additional constraints.
-  EQUIVALENT_TO(A, B)    A and B are logically equivalent. Emit ONCE, in either order.
-  CHARACTERIZES(A, B)    A is an if-and-only-if criterion for property B.
-                         e.g. Wronskian Criterion CHARACTERIZES Linear Dependence
-  INSTANCE_OF(A, B)      A is a concrete example or model of B.
-
-STRICT RULES:
-1. Use ONLY IDs from the ENTITY DICTIONARY as source and target. Never invent an ID.
-2. Respect the kinds: do not emit PROVES targeting a Definition; do not emit
-   USES_IN_PROOF targeting an Object that is not a result.
-3. Never emit an inverse "is a prerequisite for" edge — express it as DEPENDS_ON.
-4. Do NOT emit an edge in both directions between the same pair. If the
-   relationship is mutual, use EQUIVALENT_TO once.
-5. Include the supporting sentence from the text in the description field.
-
-TEXT:
-{text}
-"""
-
-
 class MathGraphIndexer:
     """
     Indexes mathematical Markdown notes into a NetworkX Property Graph.
 
-    Uses a decoupled 2-Pass extraction architecture:
+    Uses a decoupled 2-Pass extraction architecture (see `llm_extraction.py`):
       Pass 1: Concept & SKOS Taxonomy Extractor (LLM Call #1)
       Pass 2: Relationship & Prerequisite Linker (LLM Call #2)
 
-    Fallback hierarchy: Gemini API → Local Ollama LLM → Deterministic Block Parser.
+    Fallback hierarchy: Gemini API → Local Ollama LLM → Deterministic Block
+    Parser (`block_extractor.py`).
     """
 
     def __init__(
@@ -254,267 +131,6 @@ class MathGraphIndexer:
         """
         from . import graph_store
         graph_store.export_graph_json(self.graph, self.graph_file)
-
-    # ------------------------------------------------------------------
-    # Pass 1: Node & Taxonomy Extraction
-    # ------------------------------------------------------------------
-
-    def _extract_nodes_pass(
-        self, text: str, course_domain: str
-    ) -> tuple[List[GraphNode], str]:
-        """Executes Pass 1 (Node & Taxonomy Extraction) via Gemini or Ollama.
-
-        Returns (nodes, method) — method is "gemini" or "ollama" on success,
-        "none" if every tier failed or was unavailable (index_note's caller
-        then falls back to the block parser and re-tags the chunk
-        "block_parser"). See graph_store.EXTRACTION_METHODS.
-        """
-        client = get_gemini_client()
-        if client:
-            prompt = PASS1_NODE_PROMPT.format(text=text)
-            for model_name in get_gemini_candidate_models():
-                try:
-                    response = client.models.generate_content(
-                        model=model_name,
-                        contents=prompt,
-                        config=types.GenerateContentConfig(
-                            response_mime_type="application/json",
-                            response_schema=MathNodeExtraction,
-                            temperature=0.1,
-                        ),
-                    )
-                    data = json.loads(response.text)
-                    nodes = MathNodeExtraction(**data).nodes
-                    log.info(f"Pass 1 (Gemini {model_name}): Extracted {len(nodes)} concept nodes.")
-                    return nodes, "gemini"
-                except Exception as e:
-                    log.warning(f"Pass 1 Gemini ({model_name}) node extraction failed ({e}), trying candidate...")
-
-        # Ollama Fallback
-        ollama = get_ollama_client()
-        if ollama.is_available():
-            for model in ["llama3.2", "qwen2.5:3b", "phi3:mini"]:
-                if not ollama.has_model(model):
-                    continue
-                prompt = PASS1_NODE_PROMPT.format(text=text[:3000])
-                prompt += (
-                    "\n\nRespond ONLY with valid JSON matching:\n"
-                    '{"nodes": [{"name": "Concept Name", "kind": "Object|Statement|Definition|Method|Formula|Proof|Example", '
-                    '"role": "Theorem|Lemma|Corollary|Axiom|Proposition|Conjecture or omit", '
-                    '"description": "formal definition", "taxonomy": {"domain": "...", "subdomain": "...", "topic": "..."}}]}'
-                )
-                resp = ollama.chat(prompt=prompt, model=model, response_format="json", timeout=60)
-                if resp:
-                    try:
-                        data = json.loads(resp)
-                        nodes = MathNodeExtraction(**data).nodes
-                        log.info(f"Pass 1 (Ollama {model}): Extracted {len(nodes)} concept nodes.")
-                        return nodes, "ollama"
-                    except Exception:
-                        pass
-
-        return [], "none"
-
-    # ------------------------------------------------------------------
-    # Pass 2: Edge & Relationship Extraction
-    # ------------------------------------------------------------------
-
-    def _extract_edges_pass(
-        self,
-        text: str,
-        doc_concept_map: dict[str, str],       # surface name -> canonical_id (this document)
-        existing_concept_map: dict[str, str],   # canonical_id -> label (existing graph)
-        node_types: "dict[str, dict]",          # canonical_id -> {"kind":..., "role":...}
-    ) -> "tuple[list[GraphEdge], str]":
-        """Executes Pass 2 (Relationship & Edge Linker) via Gemini or Ollama.
-
-        `node_types` is what lets the LLM pick type-appropriate relations —
-        without it, Pass 2 was type-blind and emitted USES_LEMMA at theorems
-        and PROVES at definitions (docs/vocabulary-diagnosis.md V3).
-
-        Returns (edges, method) — see `_extract_nodes_pass` for the method tag.
-        """
-        if not doc_concept_map:
-            return [], "none"
-
-        # Build the id->name view the prompt exposes to the LLM
-        id_to_name: dict[str, str] = {v: k for k, v in doc_concept_map.items()}
-        id_to_name.update(existing_concept_map)
-
-        entity_dict = {
-            cid: {
-                "name": name,
-                "kind": node_types.get(cid, {}).get("kind", "Object"),
-                "role": node_types.get(cid, {}).get("role"),
-            }
-            for cid, name in id_to_name.items()
-        }
-
-        concept_id_map_json = json.dumps(entity_dict, ensure_ascii=False)
-        new_concept_ids_json = json.dumps(list(doc_concept_map.values()))
-        existing_concept_ids_json = json.dumps(list(existing_concept_map.keys()))
-
-        client = get_gemini_client()
-        if client:
-            prompt = PASS2_EDGE_PROMPT.format(
-                concept_id_map=concept_id_map_json,
-                new_concept_ids=new_concept_ids_json,
-                existing_concept_ids=existing_concept_ids_json,
-                text=text,
-            )
-            for model_name in get_gemini_candidate_models():
-                try:
-                    response = client.models.generate_content(
-                        model=model_name,
-                        contents=prompt,
-                        config=types.GenerateContentConfig(
-                            response_mime_type="application/json",
-                            response_schema=MathEdgeExtraction,
-                            temperature=0.1,
-                        ),
-                    )
-                    data = json.loads(response.text)
-                    edges = MathEdgeExtraction(**data).edges
-                    log.info(f"Pass 2 (Gemini {model_name}): Linked {len(edges)} relationship edges.")
-                    return edges, "gemini"
-                except Exception as e:
-                    log.warning(f"Pass 2 Gemini ({model_name}) edge extraction failed ({e}), trying candidate...")
-
-        # Ollama Fallback
-        ollama = get_ollama_client()
-        if ollama.is_available():
-            for model in ["llama3.2", "qwen2.5:3b", "phi3:mini"]:
-                if not ollama.has_model(model):
-                    continue
-                prompt = PASS2_EDGE_PROMPT.format(
-                    concept_id_map=concept_id_map_json,
-                    new_concept_ids=new_concept_ids_json,
-                    existing_concept_ids=existing_concept_ids_json,
-                    text=text[:3000],
-                )
-                prompt += (
-                    "\n\nRespond ONLY with valid JSON matching:\n"
-                    '{"edges": [{"source": "id", "target": "id", "relation": "DEPENDS_ON|HAS_HYPOTHESIS|USES_DEFINITION|USES_IN_PROOF|PROVES|COROLLARY_OF|GENERALIZES|SPECIAL_CASE_OF|EQUIVALENT_TO|CHARACTERIZES|INSTANCE_OF", "description": "evidence quote"}]}'
-                )
-                resp = ollama.chat(prompt=prompt, model=model, response_format="json", timeout=60)
-                if resp:
-                    try:
-                        data = json.loads(resp)
-                        edges = MathEdgeExtraction(**data).edges
-                        log.info(f"Pass 2 (Ollama {model}): Linked {len(edges)} relationship edges.")
-                        return edges, "ollama"
-                    except Exception:
-                        pass
-
-        return [], "none"
-
-    # ------------------------------------------------------------------
-    # Tier 3: Deterministic LaTeX block + heading parser (NO prose regex)
-    # ------------------------------------------------------------------
-
-    def _block_extraction(
-        self, text: str, course_domain: str
-    ) -> MathEntityExtraction:
-        """
-        100% offline, deterministic fallback parsing LaTeX environments,
-        Markdown headings with typed prefixes, and wikilinks.
-        """
-        nodes: list[GraphNode] = []
-        edges: list[GraphEdge] = []
-        node_names: set[str] = set()
-
-        def _add_node(name: str, kind: str, desc: str = ""):
-            clean = name.strip().rstrip(":")
-            if clean in node_names or not _is_valid_entity(clean):
-                return
-            node_names.add(clean)
-            nodes.append(
-                GraphNode(
-                    id=clean,
-                    name=clean,
-                    kind=kind,
-                    taxonomy=ConceptTaxonomy(
-                        domain=course_domain,
-                        subdomain="Course Notes",
-                        topic=clean,
-                    ),
-                    description=desc or f"{kind}: {clean}",
-                )
-            )
-
-        # 1. LaTeX environments: \begin{theorem}[Name]...\end{theorem}
-        env_pattern = re.compile(
-            r"\\begin\{(theorem|definition|lemma|corollary|proof|proposition|axiom)\}"
-            r"(?:\[([^\]]+)\])?"
-            r"(.*?)"
-            r"\\end\{\1\}",
-            re.DOTALL | re.IGNORECASE,
-        )
-        # Maps LaTeX env names to MathEntityKind values
-        _ENV_KIND_MAP = {
-            "theorem": MathEntityKind.STATEMENT.value,
-            "lemma": MathEntityKind.STATEMENT.value,
-            "corollary": MathEntityKind.STATEMENT.value,
-            "proposition": MathEntityKind.STATEMENT.value,
-            "axiom": MathEntityKind.STATEMENT.value,
-            "definition": MathEntityKind.DEFINITION.value,
-            "proof": MathEntityKind.PROOF.value,
-        }
-        for match in env_pattern.finditer(text):
-            env_type_raw = match.group(1).lower()
-            env_name = match.group(2)
-            env_body = match.group(3).strip()[:200]
-            env_kind = _ENV_KIND_MAP.get(env_type_raw, MathEntityKind.OBJECT.value)
-            if env_name and _is_valid_entity(env_name):
-                _add_node(env_name.strip(), env_kind, env_body)
-
-        # 2. Typed Markdown headings: ## Theorem: Cauchy-Schwarz Inequality
-        heading_pattern = re.compile(
-            r"^#{1,3}\s+"
-            r"(?:(Theorem|Definition|Concept|Lemma|Proof|Formula|Proposition|Corollary|Axiom|Method|Example)"
-            r"\s*:\s*)"
-            r"(.+)$",
-            re.MULTILINE | re.IGNORECASE,
-        )
-        _HEADING_KIND_MAP = {
-            "theorem": MathEntityKind.STATEMENT.value,
-            "lemma": MathEntityKind.STATEMENT.value,
-            "corollary": MathEntityKind.STATEMENT.value,
-            "proposition": MathEntityKind.STATEMENT.value,
-            "axiom": MathEntityKind.STATEMENT.value,
-            "definition": MathEntityKind.DEFINITION.value,
-            "proof": MathEntityKind.PROOF.value,
-            "formula": MathEntityKind.FORMULA.value,
-            "method": MathEntityKind.METHOD.value,
-            "example": MathEntityKind.EXAMPLE.value,
-            "concept": MathEntityKind.OBJECT.value,
-        }
-        for match in heading_pattern.finditer(text):
-            htype = match.group(1).lower()
-            name = match.group(2).strip().rstrip(":")
-            h_kind = _HEADING_KIND_MAP.get(htype, MathEntityKind.OBJECT.value)
-            _add_node(name, h_kind)
-
-        # 3. Obsidian wikilinks [[Target Concept]]
-        wikilinks = re.findall(r"\[\[(.*?)\]\]", text)
-        for link in wikilinks:
-            link_clean = link.split("|")[0].strip()
-            if (
-                _is_valid_entity(link_clean)
-                and not link_clean.endswith((".png", ".jpg", ".pdf"))
-            ):
-                _add_node(link_clean, MathEntityKind.OBJECT.value, "Wikilink reference from vault note")
-                if nodes and nodes[0].name != link_clean:
-                    edges.append(
-                        GraphEdge(
-                            source=nodes[0].name,
-                            target=link_clean,
-                            relation="DEPENDS_ON",
-                        )
-                    )
-
-        log.info(f"Block extractor found {len(nodes)} nodes and {len(edges)} edges.")
-        return MathEntityExtraction(nodes=nodes, edges=edges)
 
     # ------------------------------------------------------------------
     # Helper & Decoupled Extraction Pipeline
@@ -627,17 +243,17 @@ class MathGraphIndexer:
           Pass 2: Relationship & Edge Linking
         """
         if not use_llm:
-            return self._block_extraction(text, course_domain)
+            return block_extraction(text, course_domain)
 
         # Pass 1: Extract concept nodes
-        extracted_nodes, _ = self._extract_nodes_pass(text, course_domain)
+        extracted_nodes, _ = extract_nodes_pass(text, course_domain)
 
         # Fallback to block extractor if LLM node extraction returned nothing
         if not extracted_nodes:
-            return self._block_extraction(text, course_domain)
+            return block_extraction(text, course_domain)
 
         # Filter extracted nodes through noise validator
-        valid_nodes = [n for n in extracted_nodes if _is_valid_entity(n.name)]
+        valid_nodes = [n for n in extracted_nodes if is_valid_entity(n.name)]
 
         # Pass 2: Link relationships & edges between nodes
         doc_concept_map = {n.name: (n.id if n.id else n.name) for n in valid_nodes}
@@ -649,7 +265,7 @@ class MathGraphIndexer:
             }
             for n in valid_nodes
         }
-        extracted_edges, _ = self._extract_edges_pass(text, doc_concept_map, existing_concept_map, node_types)
+        extracted_edges, _ = extract_edges_pass(text, doc_concept_map, existing_concept_map, node_types)
 
         return MathEntityExtraction(nodes=valid_nodes, edges=extracted_edges)
 
@@ -719,15 +335,15 @@ class MathGraphIndexer:
 
         for chunk_id, chunk_text in chunks:
             if use_llm:
-                raw_nodes, method = self._extract_nodes_pass(chunk_text, course)
-                chunk_nodes = [n for n in raw_nodes if _is_valid_entity(n.name)]
+                raw_nodes, method = extract_nodes_pass(chunk_text, course)
+                chunk_nodes = [n for n in raw_nodes if is_valid_entity(n.name)]
                 if not chunk_nodes:
-                    block = self._block_extraction(chunk_text, course)
-                    chunk_nodes = [n for n in block.nodes if _is_valid_entity(n.name)]
+                    block = block_extraction(chunk_text, course)
+                    chunk_nodes = [n for n in block.nodes if is_valid_entity(n.name)]
                     method = "block_parser"
             else:
-                block = self._block_extraction(chunk_text, course)
-                chunk_nodes = [n for n in block.nodes if _is_valid_entity(n.name)]
+                block = block_extraction(chunk_text, course)
+                chunk_nodes = [n for n in block.nodes if is_valid_entity(n.name)]
                 method = "block_parser"
 
             chunk_methods[chunk_id] = method
@@ -764,9 +380,9 @@ class MathGraphIndexer:
                         "kind": self.graph.nodes[cid].get("kind", "Object"),
                         "role": self.graph.nodes[cid].get("role"),
                     }
-            raw_edges, edge_method = self._extract_edges_pass(content, doc_concept_map, existing_concept_map, node_types)
+            raw_edges, edge_method = extract_edges_pass(content, doc_concept_map, existing_concept_map, node_types)
         else:
-            block = self._block_extraction(content, course)
+            block = block_extraction(content, course)
             raw_edges = block.edges
             edge_method = "block_parser"
 
@@ -934,7 +550,6 @@ class MathGraphIndexer:
 
     def repair_dag(self) -> dict:
         """Enforces DAG property on the in-memory graph and syncs SQLite store."""
-        from .dag import repair_graph_dag
         from . import graph_store
 
         stats = repair_graph_dag(self.graph)

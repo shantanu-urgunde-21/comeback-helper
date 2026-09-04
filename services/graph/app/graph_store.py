@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS edges (
 );
 """
 
-# Tiers `_extract_nodes_pass`/`_extract_edges_pass` can resolve to, in the
+# Tiers `llm_extraction.extract_nodes_pass`/`extract_edges_pass` can resolve to, in the
 # order index_note tries them. "block_parser" means both LLM tiers were
 # unavailable or returned nothing usable for that chunk/document, so a note
 # indexed on that tier got the regex/heading extractor, not an LLM.

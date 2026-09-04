@@ -55,11 +55,3 @@ Each package still takes its collaborators as constructor arguments rather than 
 them at module scope, and each falls back to constructing the real class when nothing is
 injected — that's what lets `wiring.py` build the shared singletons once and lets tests
 construct a package in isolation with no args.
-
----
-
-## Known carry-overs
-
-- `ingestion/app/handwriting/{segmenter,ocr_engine}.py` are unreferenced by the live OCR
-  path (~276 lines) — carried over rather than dropped, so nothing is lost by accident. Safe
-  to delete once confirmed.
