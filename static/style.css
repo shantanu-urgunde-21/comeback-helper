@@ -1699,9 +1699,48 @@ textarea:focus {
         max-width: 100%;
     }
 
-    .catalog-table th, .catalog-table td {
-        padding: 0.5rem;
-        font-size: 0.8rem;
+    /* A 4-column fixed-width table has no room to breathe at this width —
+       the role chip and the domain/description text start overlapping.
+       Drop the grid and render each row as a labeled card instead
+       (data-label attributes are set in app.js's renderBackendTable). */
+    .catalog-table thead {
+        display: none;
+    }
+
+    .catalog-table, .catalog-table tbody, .catalog-table tr, .catalog-table td {
+        display: block;
+        width: 100%;
+    }
+
+    .catalog-table tr {
+        margin-bottom: 12px;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        padding: 10px 12px;
+    }
+
+    .catalog-table tbody tr:last-child {
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .catalog-table td {
+        border-bottom: none;
+        padding: 4px 0;
+    }
+
+    .catalog-table td[data-label]::before {
+        content: attr(data-label);
+        display: block;
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--text-dim);
+        margin-bottom: 2px;
+    }
+
+    .catalog-description {
+        -webkit-line-clamp: 4;
     }
 
     .markdown-body {

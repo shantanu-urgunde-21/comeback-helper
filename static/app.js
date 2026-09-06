@@ -1394,10 +1394,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const desc = n.description || '—';
 
             tr.innerHTML = `
-                <td class="catalog-entity-name">${escapeHtml(n.label || n.name || n.id)}</td>
-                <td><span class="catalog-role-chip" style="--chip-color: ${roleColor};">${escapeHtml(role)}</span></td>
-                <td class="catalog-domain">${escapeHtml(domain)}</td>
-                <td class="catalog-description" title="${escapeHtml(desc)}">${escapeHtml(desc)}</td>
+                <td class="catalog-entity-name" data-label="Entity Name">${escapeHtml(n.label || n.name || n.id)}</td>
+                <td data-label="Role / Type"><span class="catalog-role-chip" style="--chip-color: ${roleColor};">${escapeHtml(role)}</span></td>
+                <td class="catalog-domain" data-label="Domain Taxonomy">${escapeHtml(domain)}</td>
+                <td class="catalog-description" data-label="Description" title="${escapeHtml(desc)}">${escapeHtml(desc)}</td>
             `;
             tableBody.appendChild(tr);
         });
