@@ -7,13 +7,35 @@ def export_static_site():
     dist_dir = repo_root / "dist_static"
     dist_dir.mkdir(parents=True, exist_ok=True)
 
-    # 1. Copy logo & css
+    # 1. Copy logo, css & app JS
     static_src = repo_root / "static"
     img_dist = dist_dir / "img"
     if img_dist.exists():
         shutil.rmtree(img_dist)
     shutil.copytree(static_src / "img", img_dist)
     shutil.copy2(static_src / "style.css", dist_dir / "style.css")
+    shutil.copy2(static_src / "app.js", dist_dir / "app.js")
+
+    # index.html and app.js are shared with the live server (src/server.py
+    # serves the same files under /static/). The only thing that changes for
+    # GitHub Pages is: (a) the <meta name="build-mode"> flag app.js reads to
+    # decide whether to call /api/... or read data/*.json, and (b) absolute
+    # /static/... asset paths, which only resolve under the live server's
+    # root and 404 on a GitHub Pages project site. See CLAUDE.md / README for
+    # why there is deliberately no separate hand-maintained copy of these.
+    html = (static_src / "index.html").read_text(encoding="utf-8")
+    if '<meta name="build-mode" content="live">' not in html:
+        raise RuntimeError(
+            "static/index.html's build-mode meta tag has changed shape — "
+            "update the replace in export_static_site.py or app.js will "
+            "wire up live-only tabs (Ingest/Query) on GitHub Pages."
+        )
+    html = html.replace(
+        '<meta name="build-mode" content="live">',
+        '<meta name="build-mode" content="static">',
+    )
+    html = html.replace('"/static/', '"./')
+    (dist_dir / "index.html").write_text(html, encoding="utf-8")
 
     # Create empty .nojekyll for GitHub Pages
     (dist_dir / ".nojekyll").write_text("", encoding="utf-8")
@@ -92,7 +114,7 @@ def export_static_site():
     (data_dir / "graph.json").write_text(json.dumps(graph_data, indent=2), encoding="utf-8")
     (data_dir / "vault.json").write_text(json.dumps(vault_index, indent=2), encoding="utf-8")
 
-    print("Static site data successfully generated in dist_static/")
+    print("Static site (index.html, app.js, style.css, img/, data/) generated in dist_static/")
     print(f"  Total graph nodes: {len(graph_data.get('nodes', []))}")
     print(f"  Total graph edges: {len(graph_data.get('edges', []))}")
     total_notes = sum(len(v) for v in vault_index["vault"].values())

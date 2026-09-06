@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="build-mode" content="live">
     <title>Comeback Helper | STEM Math Knowledge Base & Ingestion Assistant</title>
     <link rel="icon" type="image/png" href="/static/img/logo.png">
 
@@ -23,7 +24,7 @@
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
 
     <!-- App Styles -->
-    <link rel="stylesheet" href="/static/style.css?v=3">
+    <link rel="stylesheet" href="/static/style.css?v=4">
 </head>
 <body class="dark-theme">
     <!-- Mobile Top Navigation Bar -->
@@ -52,11 +53,11 @@
             </div>
 
             <nav class="nav-menu">
-                <button class="nav-item active" data-tab="tab-query">
+                <button class="nav-item active" data-tab="tab-query" data-build="live-only">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
                     <span>Math Assistant</span>
                 </button>
-                <button class="nav-item" data-tab="tab-ingest">
+                <button class="nav-item" data-tab="tab-ingest" data-build="live-only">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
                     <span>Ingest STEM Notes</span>
                 </button>
@@ -79,9 +80,13 @@
             </nav>
 
             <div class="sidebar-footer">
-                <div class="status-indicator">
+                <div class="status-indicator" data-build="live-only">
                     <span id="ollama-status-dot" class="status-dot offline"></span>
                     <span id="ollama-status-label" class="status-label">Checking Local Ollama...</span>
+                </div>
+                <div class="status-indicator" data-build="static-only" hidden>
+                    <span class="status-dot online"></span>
+                    <span class="status-label">GitHub Pages (Static Mode)</span>
                 </div>
             </div>
         </aside>
@@ -89,7 +94,7 @@
         <!-- Main Content Area -->
         <main class="content-area">
             <!-- TAB 1: MATH ASSISTANT -->
-            <section id="tab-query" class="tab-page active">
+            <section id="tab-query" class="tab-page active" data-build="live-only">
                 <header class="page-header">
                     <h1>Math & Coursework Assistant</h1>
                     <p>Ask conceptual questions, request derivations, or explore cross-course connections.</p>
@@ -165,7 +170,7 @@
             </section>
 
             <!-- TAB 2: INGEST PDF -->
-            <section id="tab-ingest" class="tab-page">
+            <section id="tab-ingest" class="tab-page" data-build="live-only">
                 <header class="page-header">
                     <h1>Ingest Course Materials</h1>
                     <p>Upload handwritten notes, lecture slides, or textbook PDFs to convert into LaTeX Markdown in Obsidian.</p>
@@ -279,12 +284,14 @@
                         <!-- Legacy types for backward compatibility -->
                         <label class="chip-check" style="display:none;"><input type="checkbox" value="Concept" checked class="graph-type-filter"></label>
                         <label class="chip-check" style="display:none;"><input type="checkbox" value="Theorem" checked class="graph-type-filter"></label>
+                        <button type="button" id="btn-types-all" class="quick-link-btn">All</button>
+                        <button type="button" id="btn-types-none" class="quick-link-btn quick-link-btn-muted">None</button>
                     </div>
-                    <div class="filter-group">
+                    <div class="filter-group" id="graph-course-filter-group">
                         <span class="filter-label">Course:</span>
-                        <select id="graph-course-filter" class="custom-select custom-select-sm">
-                            <option value="">All Courses</option>
-                        </select>
+                        <div id="graph-course-chips" class="graph-course-chips"></div>
+                        <button type="button" id="btn-courses-all" class="quick-link-btn">All</button>
+                        <button type="button" id="btn-courses-none" class="quick-link-btn quick-link-btn-muted">None</button>
                     </div>
                 </div>
 
@@ -295,31 +302,40 @@
                         <div class="setting-item">
                             <label for="graph-layout-solver">Layout Solver</label>
                             <select id="graph-layout-solver" class="custom-select custom-select-sm">
-                                <option value="barnesHut">Barnes-Hut (Organic Clusters)</option>
                                 <option value="forceAtlas2Based" selected>Force-Atlas 2 (Spread Out)</option>
+                                <option value="barnesHut">Barnes-Hut (Organic Clusters)</option>
+                                <option value="repulsion">Repulsion (Uniform Spread)</option>
                                 <option value="hierarchical">Hierarchical (Dependency Tree)</option>
                             </select>
                         </div>
                         <div class="setting-item">
                             <label for="graph-spring-length">Node Separation / Spring Distance</label>
                             <div class="slider-row">
-                                <input type="range" id="graph-spring-length" min="80" max="350" value="180" class="range-slider">
-                                <span id="graph-spring-val" class="slider-value">180px</span>
+                                <input type="range" id="graph-spring-length" min="100" max="500" value="250" class="range-slider">
+                                <span id="graph-spring-val" class="slider-value">250px</span>
                             </div>
                         </div>
                         <div class="setting-item">
                             <label for="graph-node-scale">Node Size</label>
                             <div class="slider-row">
-                                <input type="range" id="graph-node-scale" min="10" max="35" value="18" class="range-slider">
-                                <span id="graph-node-scale-val" class="slider-value">18px</span>
+                                <input type="range" id="graph-node-scale" min="6" max="30" value="10" class="range-slider">
+                                <span id="graph-node-scale-val" class="slider-value">10px</span>
                             </div>
+                        </div>
+                        <div class="setting-item">
+                            <label for="graph-node-labels">Show Node Labels</label>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="graph-node-labels">
+                                <span class="toggle-slider"></span>
+                                <span class="toggle-label" id="node-label-status">Hidden</span>
+                            </label>
                         </div>
                         <div class="setting-item">
                             <label for="graph-edge-labels">Show Edge Labels</label>
                             <label class="toggle-switch">
-                                <input type="checkbox" id="graph-edge-labels" checked>
+                                <input type="checkbox" id="graph-edge-labels">
                                 <span class="toggle-slider"></span>
-                                <span class="toggle-label" id="edge-label-status">Visible</span>
+                                <span class="toggle-label" id="edge-label-status">Hidden</span>
                             </label>
                         </div>
                         <div class="setting-item">
@@ -381,7 +397,7 @@
                         </div>
                         <div class="header-actions">
                             <button id="btn-refresh-backend" class="btn-secondary">🔄 Refresh Catalog</button>
-                            <button id="btn-clear-all-dbs" class="btn-secondary" style="background-color: #ef4444; color: white;">🗑️ Clear All Databases</button>
+                            <button id="btn-clear-all-dbs" class="btn-secondary" style="background-color: #ef4444; color: white;" data-build="live-only">🗑️ Clear All Databases</button>
                         </div>
                     </div>
                 </header>
@@ -429,17 +445,21 @@
                 <div class="settings-dashboard">
                     <!-- Config Info Cards -->
                     <div class="stats-grid">
-                        <div class="stat-card">
+                        <div class="stat-card" data-build="live-only">
                             <div class="stat-label">Gemini Model</div>
                             <div class="stat-value" id="stat-gemini-model">—</div>
                         </div>
-                        <div class="stat-card">
+                        <div class="stat-card" data-build="live-only">
                             <div class="stat-label">Embedding Model</div>
                             <div class="stat-value" id="stat-embed-model">—</div>
                         </div>
-                        <div class="stat-card">
+                        <div class="stat-card" data-build="live-only">
                             <div class="stat-label">Vector Chunks</div>
                             <div class="stat-value" id="stat-vector-chunks">—</div>
+                        </div>
+                        <div class="stat-card" data-build="static-only" hidden>
+                            <div class="stat-label">Vault Notes</div>
+                            <div class="stat-value" id="stat-vault-notes">—</div>
                         </div>
                         <div class="stat-card">
                             <div class="stat-label">Graph Nodes</div>
@@ -456,7 +476,7 @@
                     </div>
 
                     <!-- Rebuild Actions -->
-                    <div class="rebuild-section">
+                    <div class="rebuild-section" data-build="live-only">
                         <h3>Index Management</h3>
                         <p class="rebuild-desc">Re-index vault notes if the graph or vector store seems out of date.</p>
                         <div class="rebuild-actions">
@@ -486,6 +506,6 @@
     </div>
 
     <!-- App JavaScript -->
-    <script src="/static/app.js?v=4"></script>
+    <script src="/static/app.js?v=7"></script>
 </body>
 </html>

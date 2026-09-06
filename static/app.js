@@ -1,6 +1,49 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // --- State Variables (declared first to prevent TDZ ReferenceErrors) ---
+    let currentGraphData = null;
+    let graphNetwork = null;
+    let graphNodesDataSet = null;
+    let graphEdgesDataSet = null;
+    let currentSolverUsed = null;
+    let selectedNodeIds = new Set();
+    let isMultiSelectMode = false;
+
+    // --- Build Mode: 'live' talks to the FastAPI backend (/api/...); 'static'
+    // (GitHub Pages) has no backend and reads the pre-exported data/*.json
+    // instead. Same index.html/app.js serve both — export_static_site.py
+    // flips the <meta name="build-mode"> tag and rewrites /static/ asset
+    // paths when it copies these files into dist_static/.
+    const STATIC_MODE = document.querySelector('meta[name="build-mode"]')?.content === 'static';
+
+    if (STATIC_MODE) {
+        document.querySelectorAll('[data-build="live-only"]').forEach(el => el.remove());
+        document.querySelectorAll('[data-build="static-only"]').forEach(el => { el.hidden = false; });
+
+        // tab-query was the default active tab and it was just removed —
+        // fall back to the first remaining nav item (Knowledge Graph).
+        if (!document.querySelector('.nav-item.active')) {
+            const firstNav = document.querySelector('.nav-item');
+            const firstTab = firstNav?.getAttribute('data-tab');
+            firstNav?.classList.add('active');
+            if (firstTab) document.getElementById(firstTab)?.classList.add('active');
+        }
+    }
+
+    let cachedStaticVaultData = null;
+    async function getStaticVaultData() {
+        if (cachedStaticVaultData) return cachedStaticVaultData;
+        try {
+            const res = await fetch('data/vault.json');
+            cachedStaticVaultData = await res.json();
+        } catch (e) {
+            console.warn('Could not load data/vault.json:', e);
+            cachedStaticVaultData = { vault: {} };
+        }
+        return cachedStaticVaultData;
+    }
+
     // --- Initial Health Check & Course List ---
-    checkOllamaHealth();
+    if (!STATIC_MODE) checkOllamaHealth();
     loadCourseDropdowns();
 
     // --- Navigation Tabs & Mobile Drawer ---
@@ -77,14 +120,51 @@ document.addEventListener('DOMContentLoaded', () => {
     // =====================================================================
     async function loadCourseDropdowns() {
         try {
-            const res = await fetch('/api/courses');
-            const data = await res.json();
-            const courses = data.courses || [];
+            const courses = STATIC_MODE
+                ? Object.keys((await getStaticVaultData()).vault || {})
+                : (await (await fetch('/api/courses')).json()).courses || [];
+            const coursesSet = new Set(courses);
+            if (currentGraphData && Array.isArray(currentGraphData.nodes)) {
+                currentGraphData.nodes.forEach(n => {
+                    if (n.course) coursesSet.add(n.course);
+                    if (Array.isArray(n.provenance)) {
+                        n.provenance.forEach(p => {
+                            const dp = p.doc_path || '';
+                            if (dp.startsWith('notes/')) {
+                                const parts = dp.split('/');
+                                if (parts.length > 2 && parts[1] && !parts[1].endsWith('.md')) {
+                                    coursesSet.add(parts[1]);
+                                }
+                            }
+                        });
+                    }
+                });
+            }
+            const allCourses = Array.from(coursesSet).sort();
 
-            const targets = ['query-course', 'graph-course-filter'];
-            targets.forEach(id => {
-                const sel = document.getElementById(id);
-                if (!sel) return;
+            const courseChipsContainer = document.getElementById('graph-course-chips');
+            if (courseChipsContainer) {
+                const prevChecked = new Map();
+                courseChipsContainer.querySelectorAll('.graph-course-filter').forEach(cb => {
+                    prevChecked.set(cb.value, cb.checked);
+                });
+
+                courseChipsContainer.innerHTML = '';
+                allCourses.forEach(c => {
+                    const isChecked = prevChecked.has(c) ? prevChecked.get(c) : true;
+                    const label = document.createElement('label');
+                    label.className = 'chip-check';
+                    label.innerHTML = `<input type="checkbox" value="${escapeHtml(c)}" ${isChecked ? 'checked' : ''} class="graph-course-filter"><span class="chip">📁 ${escapeHtml(c)}</span>`;
+                    const input = label.querySelector('input');
+                    input.addEventListener('change', () => {
+                        if (currentGraphData) renderGraphWithFilters();
+                    });
+                    courseChipsContainer.appendChild(label);
+                });
+            }
+
+            const sel = document.getElementById('query-course');
+            if (sel) {
                 // Keep the first "All Courses" option
                 while (sel.options.length > 1) sel.remove(1);
                 courses.forEach(c => {
@@ -93,7 +173,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     opt.textContent = c;
                     sel.appendChild(opt);
                 });
-            });
+            }
         } catch (e) {
             console.warn('Could not load courses:', e);
         }
@@ -146,7 +226,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const responseCard    = document.getElementById('query-response-card');
     const responseContent = document.getElementById('response-content');
 
-    btnSubmitQuery.addEventListener('click', async () => {
+    if (btnSubmitQuery) btnSubmitQuery.addEventListener('click', async () => {
         const prompt = queryInput.value.trim();
         if (!prompt) return;
 
@@ -214,17 +294,89 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let currentPdfFile = null;
 
-    dropZone.addEventListener('click', () => pdfFileInput.click());
-    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
-    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
-    dropZone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        dropZone.classList.remove('drag-over');
-        if (e.dataTransfer.files.length > 0) handleFileSelect(e.dataTransfer.files[0]);
-    });
-    pdfFileInput.addEventListener('change', (e) => {
-        if (e.target.files.length > 0) handleFileSelect(e.target.files[0]);
-    });
+    if (dropZone) {
+        dropZone.addEventListener('click', () => pdfFileInput.click());
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            if (e.dataTransfer.files.length > 0) handleFileSelect(e.dataTransfer.files[0]);
+        });
+        pdfFileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) handleFileSelect(e.target.files[0]);
+        });
+
+        btnClearFile.addEventListener('click', () => {
+            currentPdfFile = null;
+            pdfFileInput.value = '';
+            selectedFileInfo.classList.add('hidden');
+        });
+
+        btnStartIngest.addEventListener('click', async () => {
+            if (!currentPdfFile) { alert('Please select or drop a PDF file first.'); return; }
+
+            const courseName = document.getElementById('course-name-input').value.trim() || 'Handwritten Coursework';
+            const ocrMode    = document.getElementById('ocr-mode-select')?.value || 'local_handwriting';
+            const dpi        = parseInt(document.getElementById('ingest-dpi')?.value || '200');
+            const autoIndex  = document.getElementById('ingest-autoindex')?.checked ?? true;
+
+            const formData = new FormData();
+            formData.append('file', currentPdfFile);
+            formData.append('course', courseName);
+            formData.append('ocr_mode', ocrMode);
+            formData.append('dpi', dpi.toString());
+            formData.append('auto_index', autoIndex.toString());
+
+            ingestLoading.classList.remove('hidden');
+            ingestResult.classList.add('hidden');
+            ingestPreviewCard.classList.add('hidden');
+            btnStartIngest.disabled = true;
+
+            try {
+                const res = await fetch('/api/ingest', { method: 'POST', body: formData });
+                const data = await res.json();
+
+                if (res.ok && data.status === 'success') {
+                    let successMsg = `<strong>Successfully Ingested!</strong><br>Note saved: <code>${data.note_path}</code>`;
+                    if (data.graph_indexed) successMsg += '<br>✅ Knowledge graph updated';
+                    if (data.vector_chunks > 0) successMsg += `<br>✅ ${data.vector_chunks} chunks indexed in vector store`;
+                    ingestResult.className = 'alert-box success';
+                    ingestResult.innerHTML = successMsg;
+                    ingestResult.classList.remove('hidden');
+
+                    if (data.content) {
+                        previewMarkdownBody.innerHTML = marked.parse(data.content);
+                        previewPathBadge.textContent = `${courseName} Note Saved`;
+                        renderMathInElement(previewMarkdownBody, {
+                            delimiters: [
+                                { left: '$$', right: '$$', display: true },
+                                { left: '$', right: '$', display: false },
+                                { left: '\\(', right: '\\)', display: false },
+                                { left: '\\[', right: '\\]', display: true }
+                            ],
+                            throwOnError: false
+                        });
+                        ingestPreviewCard.classList.remove('hidden');
+                    }
+
+                    // Refresh course dropdowns
+                    loadCourseDropdowns();
+                } else {
+                    ingestResult.className = 'alert-box error';
+                    ingestResult.innerHTML = `<strong>Ingestion Failed:</strong> ${data.detail || 'Unknown error'}`;
+                    ingestResult.classList.remove('hidden');
+                }
+            } catch (err) {
+                ingestResult.className = 'alert-box error';
+                ingestResult.innerHTML = `<strong>Server Connection Error:</strong> ${err.message}`;
+                ingestResult.classList.remove('hidden');
+            } finally {
+                ingestLoading.classList.add('hidden');
+                btnStartIngest.disabled = false;
+            }
+        });
+    }
 
     function handleFileSelect(file) {
         if (!file.name.endsWith('.pdf')) { alert('Please select a PDF file.'); return; }
@@ -233,81 +385,10 @@ document.addEventListener('DOMContentLoaded', () => {
         selectedFileInfo.classList.remove('hidden');
     }
 
-    btnClearFile.addEventListener('click', () => {
-        currentPdfFile = null;
-        pdfFileInput.value = '';
-        selectedFileInfo.classList.add('hidden');
-    });
-
-    btnStartIngest.addEventListener('click', async () => {
-        if (!currentPdfFile) { alert('Please select or drop a PDF file first.'); return; }
-
-        const courseName = document.getElementById('course-name-input').value.trim() || 'Handwritten Coursework';
-        const ocrMode    = document.getElementById('ocr-mode-select')?.value || 'local_handwriting';
-        const dpi        = parseInt(document.getElementById('ingest-dpi')?.value || '200');
-        const autoIndex  = document.getElementById('ingest-autoindex')?.checked ?? true;
-
-        const formData = new FormData();
-        formData.append('file', currentPdfFile);
-        formData.append('course', courseName);
-        formData.append('ocr_mode', ocrMode);
-        formData.append('dpi', dpi.toString());
-        formData.append('auto_index', autoIndex.toString());
-
-        ingestLoading.classList.remove('hidden');
-        ingestResult.classList.add('hidden');
-        ingestPreviewCard.classList.add('hidden');
-        btnStartIngest.disabled = true;
-
-        try {
-            const res = await fetch('/api/ingest', { method: 'POST', body: formData });
-            const data = await res.json();
-
-            if (res.ok && data.status === 'success') {
-                let successMsg = `<strong>Successfully Ingested!</strong><br>Note saved: <code>${data.note_path}</code>`;
-                if (data.graph_indexed) successMsg += '<br>✅ Knowledge graph updated';
-                if (data.vector_chunks > 0) successMsg += `<br>✅ ${data.vector_chunks} chunks indexed in vector store`;
-                ingestResult.className = 'alert-box success';
-                ingestResult.innerHTML = successMsg;
-                ingestResult.classList.remove('hidden');
-
-                if (data.content) {
-                    previewMarkdownBody.innerHTML = marked.parse(data.content);
-                    previewPathBadge.textContent = `${courseName} Note Saved`;
-                    renderMathInElement(previewMarkdownBody, {
-                        delimiters: [
-                            { left: '$$', right: '$$', display: true },
-                            { left: '$', right: '$', display: false },
-                            { left: '\\(', right: '\\)', display: false },
-                            { left: '\\[', right: '\\]', display: true }
-                        ],
-                        throwOnError: false
-                    });
-                    ingestPreviewCard.classList.remove('hidden');
-                }
-
-                // Refresh course dropdowns
-                loadCourseDropdowns();
-            } else {
-                ingestResult.className = 'alert-box error';
-                ingestResult.innerHTML = `<strong>Ingestion Failed:</strong> ${data.detail || 'Unknown error'}`;
-                ingestResult.classList.remove('hidden');
-            }
-        } catch (err) {
-            ingestResult.className = 'alert-box error';
-            ingestResult.innerHTML = `<strong>Server Connection Error:</strong> ${err.message}`;
-            ingestResult.classList.remove('hidden');
-        } finally {
-            ingestLoading.classList.add('hidden');
-            btnStartIngest.disabled = false;
-        }
-    });
-
     // =====================================================================
     // Knowledge Graph Visualization (with filters)
     // =====================================================================
     // Multi-Select Mode (Touch / Mobile & Desktop)
-    let isMultiSelectMode = false;
     const btnMultiSelectToggle = document.getElementById('btn-multiselect-toggle');
     const btnClearSelection = document.getElementById('btn-clear-selection');
 
@@ -381,9 +462,33 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.graph-type-filter').forEach(cb => {
         cb.addEventListener('change', () => { if (currentGraphData) renderGraphWithFilters(); });
     });
-    const graphCourseFilter = document.getElementById('graph-course-filter');
-    if (graphCourseFilter) {
-        graphCourseFilter.addEventListener('change', () => { if (currentGraphData) renderGraphWithFilters(); });
+    const btnTypesAll = document.getElementById('btn-types-all');
+    if (btnTypesAll) {
+        btnTypesAll.addEventListener('click', () => {
+            document.querySelectorAll('.graph-type-filter').forEach(cb => cb.checked = true);
+            if (currentGraphData) renderGraphWithFilters();
+        });
+    }
+    const btnTypesNone = document.getElementById('btn-types-none');
+    if (btnTypesNone) {
+        btnTypesNone.addEventListener('click', () => {
+            document.querySelectorAll('.graph-type-filter').forEach(cb => cb.checked = false);
+            if (currentGraphData) renderGraphWithFilters();
+        });
+    }
+    const btnCoursesAll = document.getElementById('btn-courses-all');
+    if (btnCoursesAll) {
+        btnCoursesAll.addEventListener('click', () => {
+            document.querySelectorAll('.graph-course-filter').forEach(cb => cb.checked = true);
+            if (currentGraphData) renderGraphWithFilters();
+        });
+    }
+    const btnCoursesNone = document.getElementById('btn-courses-none');
+    if (btnCoursesNone) {
+        btnCoursesNone.addEventListener('click', () => {
+            document.querySelectorAll('.graph-course-filter').forEach(cb => cb.checked = false);
+            if (currentGraphData) renderGraphWithFilters();
+        });
     }
 
     // Runtime layout & physics customization listeners
@@ -392,6 +497,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const sliderNodeScale    = document.getElementById('graph-node-scale');
     const sliderNodeScaleVal = document.getElementById('graph-node-scale-val');
     const selectLayoutSolver = document.getElementById('graph-layout-solver');
+    const toggleNodeLabels   = document.getElementById('graph-node-labels');
     const toggleEdgeLabels   = document.getElementById('graph-edge-labels');
     const togglePhysics      = document.getElementById('graph-physics-toggle');
 
@@ -417,6 +523,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    if (toggleNodeLabels) {
+        toggleNodeLabels.addEventListener('change', (e) => {
+            const status = document.getElementById('node-label-status');
+            if (status) status.textContent = e.target.checked ? 'Visible' : 'Hidden';
+            if (currentGraphData) renderGraphWithFilters();
+        });
+    }
+
     if (toggleEdgeLabels) {
         toggleEdgeLabels.addEventListener('change', (e) => {
             const status = document.getElementById('edge-label-status');
@@ -436,17 +550,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    let currentGraphData = null;
-    let graphNetwork = null;
-    let graphNodesDataSet = null;
-    let graphEdgesDataSet = null;
-
     async function loadKnowledgeGraph() {
         const container = document.getElementById('vis-graph-canvas');
         if (!container) return;
 
         try {
-            const res = await fetch('/api/graph');
+            const res = await fetch(STATIC_MODE ? 'data/graph.json' : '/api/graph');
             currentGraphData = await res.json();
             renderGraphWithFilters();
         } catch (err) {
@@ -458,7 +567,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!graphNetwork) return;
 
         const solver = document.getElementById('graph-layout-solver')?.value || 'forceAtlas2Based';
-        const springLength = parseInt(document.getElementById('graph-spring-length')?.value || '180');
+        const springLength = parseInt(document.getElementById('graph-spring-length')?.value || '250');
         const physicsEnabled = document.getElementById('graph-physics-toggle')?.checked ?? true;
 
         let physicsConfig = { enabled: physicsEnabled };
@@ -470,22 +579,34 @@ document.addEventListener('DOMContentLoaded', () => {
                 centralGravity: 0.2,
                 springLength: springLength,
                 springConstant: 0.04,
-                damping: 0.09
+                damping: 0.09,
+                avoidOverlap: 0.8
             };
         } else if (solver === 'forceAtlas2Based') {
             physicsConfig.solver = 'forceAtlas2Based';
             physicsConfig.forceAtlas2Based = {
-                gravitationalConstant: -50,
-                centralGravity: 0.01,
+                gravitationalConstant: -60,
+                centralGravity: 0.008,
                 springLength: springLength,
-                springConstant: 0.08
+                springConstant: 0.06,
+                damping: 0.4,
+                avoidOverlap: 1
+            };
+        } else if (solver === 'repulsion') {
+            physicsConfig.solver = 'repulsion';
+            physicsConfig.repulsion = {
+                nodeDistance: springLength,
+                centralGravity: 0.05,
+                springLength: springLength,
+                springConstant: 0.05,
+                damping: 0.12
             };
         } else if (solver === 'hierarchical') {
             physicsConfig.solver = 'hierarchicalRepulsion';
             physicsConfig.hierarchicalRepulsion = {
-                nodeDistance: 200,
+                nodeDistance: springLength,
                 centralGravity: 0.0,
-                springLength: 150,
+                springLength: springLength,
                 springConstant: 0.01,
                 damping: 0.12,
                 avoidOverlap: 1
@@ -577,12 +698,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const NODE_BASE_FONT = { color: '#ffffff', face: 'Inter', size: 13 };
     const NODE_DIM_FONT = { color: 'rgba(255,255,255,0.08)', face: 'Inter', size: 13 };
 
-    // The set of nodes the user has clicked (ctrl/cmd-click adds to it,
-    // a plain click replaces it) — highlightNeighborhood shows the union of
-    // every selected node's neighborhood, so selecting several nodes lets
-    // you compare their neighborhoods at once.
-    let selectedNodeIds = new Set();
-
     function highlightNeighborhood(nodeIds) {
         if (!graphNetwork || !graphNodesDataSet || !graphEdgesDataSet) return;
         const keepNodes = new Set(nodeIds);
@@ -592,11 +707,19 @@ document.addEventListener('DOMContentLoaded', () => {
             graphNetwork.getConnectedEdges(id).forEach(e => keepEdges.add(e));
         }
 
-        graphNodesDataSet.update(graphNodesDataSet.get().map(n => ({
-            id: n.id,
-            opacity: keepNodes.has(n.id) ? 1 : 0.12,
-            font: keepNodes.has(n.id) ? NODE_BASE_FONT : NODE_DIM_FONT,
-        })));
+        const showNodeLabels = document.getElementById('graph-node-labels')?.checked ?? false;
+
+        graphNodesDataSet.update(graphNodesDataSet.get().map(n => {
+            const isHighlighted = keepNodes.has(n.id);
+            const orig = currentGraphData ? currentGraphData.nodes.find(x => x.id === n.id) : null;
+            const labelText = orig ? (orig.label || orig.name || orig.id) : n.id;
+            return {
+                id: n.id,
+                opacity: isHighlighted ? 1 : 0.12,
+                font: isHighlighted ? NODE_BASE_FONT : NODE_DIM_FONT,
+                label: (showNodeLabels || isHighlighted) ? labelText : undefined
+            };
+        }));
 
         graphEdgesDataSet.update(graphEdgesDataSet.get().map(e => {
             const highlight = keepEdges.has(e.id);
@@ -613,7 +736,17 @@ document.addEventListener('DOMContentLoaded', () => {
         selectedNodeIds.clear();
         updateSelectionUI();
         if (!graphNodesDataSet || !graphEdgesDataSet) return;
-        graphNodesDataSet.update(graphNodesDataSet.get().map(n => ({ id: n.id, opacity: 1, font: NODE_BASE_FONT })));
+        const showNodeLabels = document.getElementById('graph-node-labels')?.checked ?? false;
+        graphNodesDataSet.update(graphNodesDataSet.get().map(n => {
+            const orig = currentGraphData ? currentGraphData.nodes.find(x => x.id === n.id) : null;
+            const labelText = orig ? (orig.label || orig.name || orig.id) : n.id;
+            return {
+                id: n.id,
+                opacity: 1,
+                font: NODE_BASE_FONT,
+                label: showNodeLabels ? labelText : undefined
+            };
+        }));
         graphEdgesDataSet.update(graphEdgesDataSet.get().map(e => ({
             id: e.id, color: EDGE_BASE_COLOR, width: 1, font: EDGE_BASE_FONT,
         })));
@@ -636,14 +769,27 @@ document.addEventListener('DOMContentLoaded', () => {
         noteViewerOverlay.classList.remove('hidden');
 
         try {
-            const res = await fetch(`/api/vault/note?path=${encodeURIComponent(path)}`);
-            const data = await res.json();
-            if (!res.ok) {
-                noteViewerBody.innerHTML = `<p style="color: #ef4444;">${escapeHtml(data.detail || 'Failed to load note.')}</p>`;
-                return;
+            let title, content;
+            if (STATIC_MODE) {
+                const res = await fetch(path);
+                if (!res.ok) {
+                    noteViewerBody.innerHTML = `<p style="color: #ef4444;">Failed to load note: ${escapeHtml(res.statusText)}</p>`;
+                    return;
+                }
+                title = fallbackTitle ? fallbackTitle.replace(/\.md$/, '') : path.split('/').pop().replace(/\.md$/, '');
+                content = await res.text();
+            } else {
+                const res = await fetch(`/api/vault/note?path=${encodeURIComponent(path)}`);
+                const data = await res.json();
+                if (!res.ok) {
+                    noteViewerBody.innerHTML = `<p style="color: #ef4444;">${escapeHtml(data.detail || 'Failed to load note.')}</p>`;
+                    return;
+                }
+                title = data.title;
+                content = data.content;
             }
-            noteViewerTitle.textContent = `${data.title}.md`;
-            noteViewerBody.innerHTML = marked.parse(data.content);
+            noteViewerTitle.textContent = `${title}.md`;
+            noteViewerBody.innerHTML = marked.parse(content);
             renderMathInElement(noteViewerBody, {
                 delimiters: [
                     { left: '$$', right: '$$', display: true },
@@ -760,17 +906,42 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const activeTypes = new Set();
         document.querySelectorAll('.graph-type-filter:checked').forEach(cb => activeTypes.add(cb.value));
-        const courseFilter = document.getElementById('graph-course-filter')?.value || '';
+        const courseCheckboxes = document.querySelectorAll('.graph-course-filter');
+        let activeCourses = null;
+        if (courseCheckboxes.length > 0) {
+            activeCourses = new Set();
+            courseCheckboxes.forEach(cb => {
+                if (cb.checked) activeCourses.add(cb.value.toLowerCase());
+            });
+        }
+
         const solver = document.getElementById('graph-layout-solver')?.value || 'forceAtlas2Based';
-        const springLength = parseInt(document.getElementById('graph-spring-length')?.value || '180');
-        const baseNodeSize = parseInt(document.getElementById('graph-node-scale')?.value || '18');
-        const showEdgeLabels = document.getElementById('graph-edge-labels')?.checked ?? true;
+        const springLength = parseInt(document.getElementById('graph-spring-length')?.value || '250');
+        const baseNodeSize = parseInt(document.getElementById('graph-node-scale')?.value || '10');
+        const showNodeLabels = document.getElementById('graph-node-labels')?.checked ?? false;
+        const showEdgeLabels = document.getElementById('graph-edge-labels')?.checked ?? false;
         const physicsEnabled = document.getElementById('graph-physics-toggle')?.checked ?? true;
 
         const filteredNodes = currentGraphData.nodes.filter(n => {
             const kind = n.kind || n.type || n.entity_type || 'Object';
-            if (activeTypes.size > 0 && !activeTypes.has(kind)) return false;
-            if (courseFilter && n.group !== courseFilter && n.group !== 'Concept') return false;
+            if (!activeTypes.has(kind)) return false;
+
+            if (activeCourses !== null) {
+                if (activeCourses.size === 0) return false;
+                const nodeCourseIdentifiers = [];
+                if (n.course) nodeCourseIdentifiers.push(n.course.toLowerCase());
+                if (n.group) nodeCourseIdentifiers.push(n.group.toLowerCase());
+                if (n.taxonomy && n.taxonomy.domain) nodeCourseIdentifiers.push(n.taxonomy.domain.toLowerCase());
+                if (Array.isArray(n.provenance)) {
+                    n.provenance.forEach(p => {
+                        if (p.doc_path) nodeCourseIdentifiers.push(p.doc_path.toLowerCase());
+                    });
+                }
+                const matchesCourse = Array.from(activeCourses).some(ac =>
+                    nodeCourseIdentifiers.some(nc => nc.includes(ac) || ac.includes(nc))
+                );
+                if (!matchesCourse) return false;
+            }
             return true;
         });
         const nodeIds = new Set(filteredNodes.map(n => n.id));
@@ -790,11 +961,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const role = n.role ? `${n.kind || n.type || 'Statement'} / ${n.role}` : (n.kind || n.type || n.entity_type || 'Object');
             const depth = depths.get(n.id) || 0;
             const fillColor = depthToColor(depth, maxDepth);
-            const nodeSize = (n.kind === 'Statement' && n.role === 'Theorem') ? Math.round(baseNodeSize * 1.25) : baseNodeSize;
+            const nodeSize = (n.kind === 'Statement' && n.role === 'Theorem') ? Math.round(baseNodeSize * 1.3) : baseNodeSize;
 
             return {
                 id: n.id,
-                label: n.label || n.name || n.id,
+                label: showNodeLabels ? (n.label || n.name || n.id) : undefined,
                 color: {
                     background: fillColor,
                     border: fillColor,
@@ -811,6 +982,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const edgesArray = filteredEdges.map(e => {
             const rel = e.label || e.relation || '';
             return {
+                id: e.id || `${e.from || e.source}->${e.to || e.target}`,
                 from: e.from || e.source,
                 to: e.to || e.target,
                 label: showEdgeLabels && rel !== 'links_to' ? rel : undefined,
@@ -819,6 +991,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 font: EDGE_BASE_FONT
             };
         });
+
+        if (graphNetwork && graphNodesDataSet && graphEdgesDataSet && currentSolverUsed === solver) {
+            graphEdgesDataSet.clear();
+            graphNodesDataSet.clear();
+            graphNodesDataSet.add(nodesArray);
+            graphEdgesDataSet.add(edgesArray);
+            graphNetwork.setOptions({ physics: { enabled: physicsEnabled } });
+            return;
+        }
+
+        currentSolverUsed = solver;
+        if (graphNetwork) {
+            try { graphNetwork.destroy(); } catch (e) {}
+            graphNetwork = null;
+        }
+        container.innerHTML = '';
 
         graphNodesDataSet = new vis.DataSet(nodesArray);
         graphEdgesDataSet = new vis.DataSet(edgesArray);
@@ -829,57 +1017,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let options = {
             interaction: { hover: true, tooltipDelay: 150, hideEdgesOnDrag: true, hideEdgesOnZoom: true },
-            // 'dynamic' (the vis-network default) gives every edge a hidden
-            // support node that physics also simulates — with ~175 edges
-            // that's ~175 phantom bodies on top of the real nodes, and the
-            // main cause of this view feeling unresponsive as the graph grew.
-            // 'continuous' still curves the line but is computed directly
-            // from a roundness formula, no physics support node involved,
-            // so it stays cheap.
             edges: { smooth: { enabled: true, type: 'continuous', roundness: 0.15 } },
+            layout: { improvedLayout: false },
             physics: {
                 enabled: physicsEnabled,
-                // Uncapped default is up to 1000 iterations; isolated nodes
-                // (unanchored — no springs, only repulsion/gravity) can keep
-                // the simulation oscillating below the auto-stop threshold
-                // instead of ever finishing, so cap it explicitly.
-                stabilization: { iterations: 200, fit: true }
+                stabilization: { iterations: 150, fit: true }
             }
         };
 
         if (solver === 'hierarchical') {
-            // DEPENDS_ON(A, B) draws the edge from A (dependent) to B
-            // (prerequisite) — vis-network's directed sort puts an edge's
-            // 'from' at a lower level number than its 'to', and direction
-            // 'DU' renders level 0 at the bottom. Net effect: prerequisites
-            // (higher level number) render above the concepts that depend
-            // on them, top-to-bottom like a syllabus.
             options.layout = {
                 hierarchical: {
                     direction: 'DU',
                     sortMethod: 'directed',
-                    levelSeparation: 150,
-                    // Baseline only — hierarchicalRepulsion physics below
-                    // does the real spacing work, so this just keeps nodes
-                    // from starting on top of each other before physics
-                    // settles.
-                    nodeSpacing: 150
+                    levelSeparation: springLength,
+                    nodeSpacing: springLength
                 }
             };
-            // A pure fixed grid (physics off) is what caused the label
-            // overlap: every node on a level gets the same slot width
-            // regardless of label length. hierarchicalRepulsion is built to
-            // pair with layout.hierarchical — it keeps the level structure
-            // (clear top-to-bottom entry points) while letting nodes push
-            // apart from crowded neighbors, within and across levels.
             options.physics = {
                 enabled: physicsEnabled,
-                stabilization: { iterations: 200, fit: true },
+                stabilization: { iterations: 150, fit: true },
                 solver: 'hierarchicalRepulsion',
                 hierarchicalRepulsion: {
-                    nodeDistance: 200,
+                    nodeDistance: springLength,
                     centralGravity: 0.0,
-                    springLength: 150,
+                    springLength: springLength,
                     springConstant: 0.01,
                     damping: 0.12,
                     avoidOverlap: 1
@@ -888,35 +1050,42 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (solver === 'forceAtlas2Based') {
             options.physics = {
                 enabled: physicsEnabled,
-                stabilization: { iterations: 200, fit: true },
+                stabilization: { iterations: 150, fit: true },
                 solver: 'forceAtlas2Based',
                 forceAtlas2Based: {
-                    gravitationalConstant: -50,
-                    centralGravity: 0.01,
+                    gravitationalConstant: -60,
+                    centralGravity: 0.008,
                     springLength: springLength,
-                    springConstant: 0.08
+                    springConstant: 0.06,
+                    damping: 0.4,
+                    avoidOverlap: 1
+                }
+            };
+        } else if (solver === 'repulsion') {
+            options.physics = {
+                enabled: physicsEnabled,
+                stabilization: { iterations: 150, fit: true },
+                solver: 'repulsion',
+                repulsion: {
+                    nodeDistance: springLength,
+                    centralGravity: 0.05,
+                    springLength: springLength,
+                    springConstant: 0.05,
+                    damping: 0.12
                 }
             };
         } else {
             options.physics = {
                 enabled: physicsEnabled,
-                // A wider spread needs more iterations to settle than the
-                // tight hairball it replaces did.
-                stabilization: { iterations: 300, fit: true },
+                stabilization: { iterations: 200, fit: true },
                 solver: 'barnesHut',
                 barnesHut: {
-                    // -7000/0.2 pulled every node toward one shared center
-                    // hard enough that repulsion couldn't keep well-connected
-                    // nodes from overlapping — that's the clutter in the
-                    // dense core. Stronger repulsion + much weaker central
-                    // pull lets connectivity (springs), not gravity, decide
-                    // where clusters land.
                     gravitationalConstant: -18000,
                     centralGravity: 0.05,
                     springLength: springLength,
                     springConstant: 0.04,
                     damping: 0.15,
-                    avoidOverlap: 0.5
+                    avoidOverlap: 0.8
                 }
             };
         }
@@ -951,23 +1120,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // Automatically center the entire graph once loaded
+        // Automatically center the entire graph once loaded without forcing physics to freeze
         graphNetwork.once('stabilizationIterationsDone', () => {
             graphNetwork.fit({ animation: { duration: 600, easingFunction: 'easeInOutQuad' } });
-            // Physics' only job here is computing the initial layout. Left
-            // running, it never actually finishes: isolated nodes (43 of
-            // them — no springs, only repulsion/gravity) have nothing to
-            // reach equilibrium against, so the simulation keeps computing
-            // forces every frame forever, competing with pan/zoom for the
-            // render loop — that's what made the view unresponsive and
-            // scroll-to-zoom feel dead. Freeze once laid out; the "Physics
-            // Simulation" toggle re-enables it on demand (e.g. to drag a
-            // node and watch its neighbors react).
-            graphNetwork.setOptions({ physics: { enabled: false } });
-            const physicsToggle = document.getElementById('graph-physics-toggle');
-            const physicsStatus = document.getElementById('physics-toggle-status');
-            if (physicsToggle) physicsToggle.checked = false;
-            if (physicsStatus) physicsStatus.textContent = 'Frozen';
+            const currentPhysicsState = document.getElementById('graph-physics-toggle')?.checked ?? true;
+            graphNetwork.setOptions({ physics: { enabled: currentPhysicsState } });
         });
         setTimeout(() => {
             if (graphNetwork) graphNetwork.fit({ animation: true });
@@ -985,8 +1142,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!container) return;
 
         try {
-            const res = await fetch('/api/vault');
-            const data = await res.json();
+            const data = STATIC_MODE ? await getStaticVaultData() : await (await fetch('/api/vault')).json();
 
             container.innerHTML = '';
             const vault = data.vault || {};
@@ -1031,6 +1187,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function loadSystemSettings() {
         try {
+            if (STATIC_MODE) {
+                const [vaultData, graphData] = await Promise.all([
+                    getStaticVaultData(),
+                    fetch('data/graph.json').then(r => r.json()).catch(() => ({ nodes: [], edges: [] }))
+                ]);
+                const vault = vaultData.vault || {};
+                const courses = Object.keys(vault);
+                const totalNotes = courses.reduce((sum, c) => sum + (vault[c] || []).length, 0);
+
+                setText('stat-vault-notes', totalNotes.toString());
+                setText('stat-graph-nodes', (graphData.nodes || []).length.toString());
+                setText('stat-graph-edges', (graphData.edges || []).length.toString());
+                setText('stat-courses', courses.length > 0 ? courses.join(', ') : 'None');
+                return;
+            }
+
             const res = await fetch('/api/settings');
             const data = await res.json();
 
@@ -1142,7 +1314,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!tableBody) return;
 
         try {
-            const res = await fetch('/api/graph');
+            const res = await fetch(STATIC_MODE ? 'data/graph.json' : '/api/graph');
             const data = await res.json();
             currentBackendNodes = data.nodes || [];
 
