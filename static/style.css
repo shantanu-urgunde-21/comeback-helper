@@ -1,39 +1,45 @@
 :root {
-    --bg-main: #0b0f19;
-    --bg-sidebar: #111726;
-    --bg-card: #182032;
-    --bg-input: #0f1523;
-    --border-color: #27334d;
-    --border-accent: #3b82f6;
-    
-    --primary: #6366f1;
-    --primary-hover: #4f46e5;
-    --primary-glow: rgba(99, 102, 241, 0.35);
-    --secondary: #ec4899;
-    
-    --text-main: #f3f4f6;
-    --text-muted: #9ca3af;
-    --text-dim: #6b7280;
-    
-    --success: #10b981;
-    --error: #ef4444;
-    --warning: #f59e0b;
-    
+    /* Rosé Pine Moon — https://rosepinetheme.com/palette/ingredients/#moon */
+    --bg-main: #1f1d30;
+    --bg-sidebar: #232136;
+    --bg-card: #2a273f;
+    --bg-input: #1f1d30;
+    --border-color: #44415a;
+    --border-accent: #ea9a97;
+
+    --primary: #f6c177;
+    --primary-hover: #ea9a97;
+    --primary-glow: rgba(246, 193, 119, 0.35);
+    --secondary: #eb6f92;
+
+    --text-main: #e0def4;
+    --text-muted: #908caa;
+    --text-dim: #6e6a86;
+
+    --success: #9ccfd8;
+    --error: #eb6f92;
+    --warning: #f6c177;
+
     --radius-sm: 8px;
     --radius-md: 12px;
     --radius-lg: 16px;
 
     --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.24), 0 8px 20px -12px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-    --bg-card-glass: rgba(24, 32, 50, 0.62);
-    --bg-sidebar-glass: rgba(17, 23, 38, 0.72);
-    --glow-object: #3b82f6;
-    --glow-statement: #f59e0b;
-    --glow-definition: #10b981;
-    --glow-method: #8b5cf6;
-    --glow-formula: #06b6d4;
-    --glow-proof: #ec4899;
-    --glow-example: #14b8a6;
-    
+    --bg-card-glass: rgba(42, 39, 63, 0.62);
+    --bg-sidebar-glass: rgba(35, 33, 54, 0.72);
+    --glow-object: #9ccfd8;
+    --glow-statement: #f6c177;
+    --glow-definition: #3e8fb0;
+    --glow-method: #c4a7e7;
+    --glow-formula: #ea9a97;
+    --glow-proof: #eb6f92;
+    --glow-example: #f6c177;
+
+    --aurora-1: rgba(246, 193, 119, 0.16);
+    --aurora-2: rgba(235, 111, 146, 0.13);
+    --aurora-3: rgba(196, 167, 231, 0.10);
+    --aurora-4: rgba(62, 143, 176, 0.08);
+
     --font-main: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     --font-code: 'JetBrains Mono', monospace;
 }
@@ -63,10 +69,10 @@ body.dark-theme::before {
     z-index: 0;
     pointer-events: none;
     background:
-        radial-gradient(650px circle at 12% 8%, rgba(99, 102, 241, 0.18), transparent 60%),
-        radial-gradient(550px circle at 88% 12%, rgba(236, 72, 153, 0.13), transparent 60%),
-        radial-gradient(750px circle at 60% 95%, rgba(6, 182, 212, 0.12), transparent 60%),
-        radial-gradient(500px circle at 25% 85%, rgba(16, 185, 129, 0.08), transparent 60%);
+        radial-gradient(650px circle at 12% 8%, var(--aurora-1), transparent 60%),
+        radial-gradient(550px circle at 88% 12%, var(--aurora-2), transparent 60%),
+        radial-gradient(750px circle at 60% 95%, var(--aurora-3), transparent 60%),
+        radial-gradient(500px circle at 25% 85%, var(--aurora-4), transparent 60%);
 }
 
 .app-layout {
@@ -82,23 +88,38 @@ body.dark-theme::before {
    ===================================================================== */
 
 .sidebar {
-    width: 280px;
-    background-color: var(--bg-sidebar-glass);
+    width: 76px;
+    /* The shared aurora glow (body::before) only reliably reaches the top of
+       this column, so the rest of a full-height rail reads as a flat dark
+       slab. This gradient gives the sidebar its own top-to-bottom (and a
+       faint secondary-tinted corner) color life independent of where the
+       aurora blobs happen to sit. */
+    background:
+        linear-gradient(165deg, color-mix(in srgb, var(--primary) 14%, transparent), transparent 55%),
+        linear-gradient(0deg, color-mix(in srgb, var(--secondary) 8%, transparent), transparent 45%),
+        var(--bg-sidebar-glass);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border-right: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
-    padding: 24px 16px;
+    align-items: center;
+    padding: 20px 0;
     flex-shrink: 0;
 }
 
 .brand {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 12px;
-    margin-bottom: 32px;
-    padding: 0 8px;
+    margin-bottom: 28px;
+}
+
+/* Icon rail: no room (or need) for the wordmark next to the logo — it comes
+   back in the mobile drawer below, where the sidebar has full width again. */
+.brand-text {
+    display: none;
 }
 
 .logo-icon {
@@ -133,15 +154,20 @@ body.dark-theme::before {
 .nav-menu {
     display: flex;
     flex-direction: column;
+    align-items: center;
     gap: 8px;
     flex: 1;
+    width: 100%;
 }
 
 .nav-item {
+    position: relative;
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 12px 16px;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    padding: 0;
     background: transparent;
     border: none;
     border-radius: var(--radius-sm);
@@ -159,19 +185,50 @@ body.dark-theme::before {
 }
 
 .nav-item.active {
-    background: linear-gradient(90deg, rgba(99, 102, 241, 0.18), rgba(236, 72, 153, 0.06) 70%, transparent);
+    background: linear-gradient(90deg, color-mix(in srgb, var(--primary) 18%, transparent), color-mix(in srgb, var(--secondary) 6%, transparent) 70%, transparent);
     border-left: 3px solid var(--primary);
     color: var(--primary);
     font-weight: 600;
-    box-shadow: inset 0 0 24px rgba(99, 102, 241, 0.08);
+    box-shadow: inset 0 0 24px color-mix(in srgb, var(--primary) 8%, transparent);
+}
+
+/* Icon-rail tooltip: the label text stays in the DOM (mobile drawer shows it
+   inline) but floats out to the right of the icon on hover/focus at rail
+   width instead of sitting inline next to it. */
+.nav-item span {
+    position: absolute;
+    left: calc(100% + 10px);
+    top: 50%;
+    transform: translateY(-50%) translateX(-4px);
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    white-space: nowrap;
+    box-shadow: var(--shadow-card);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+    z-index: 60;
+}
+
+.nav-item:hover span,
+.nav-item:focus-visible span {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
 }
 
 .sidebar-footer {
     padding-top: 16px;
     border-top: 1px solid var(--border-color);
+    width: 100%;
+    display: flex;
+    justify-content: center;
 }
 
 .status-indicator {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -181,6 +238,30 @@ body.dark-theme::before {
 
 .status-indicator[hidden] {
     display: none;
+}
+
+/* Same floating-tooltip treatment as .nav-item span: rail width has no room
+   for the status text, so it shows on hover instead of taking up space. */
+.status-label {
+    position: absolute;
+    left: calc(100% + 10px);
+    top: 50%;
+    transform: translateY(-50%) translateX(-4px);
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    white-space: nowrap;
+    box-shadow: var(--shadow-card);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+    z-index: 60;
+}
+
+.status-indicator:hover .status-label {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
 }
 
 .status-dot {
@@ -263,7 +344,7 @@ body.dark-theme::before {
 }
 
 .settings-panel[open] {
-    border-color: rgba(99, 102, 241, 0.3);
+    border-color: color-mix(in srgb, var(--primary) 30%, transparent);
 }
 
 .settings-toggle {
@@ -430,7 +511,7 @@ body.dark-theme::before {
 
 .quick-btn:hover {
     border-color: var(--primary);
-    background-color: rgba(99, 102, 241, 0.1);
+    background-color: color-mix(in srgb, var(--primary) 10%, transparent);
     color: var(--primary);
 }
 
@@ -481,7 +562,7 @@ textarea:focus {
    ===================================================================== */
 
 .btn-primary {
-    background: linear-gradient(135deg, var(--primary), #8b5cf6 60%, var(--secondary));
+    background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 50%, var(--secondary)) 60%, var(--secondary));
     color: #fff;
     border: none;
     padding: 10px 20px;
@@ -655,7 +736,7 @@ textarea:focus {
 
 .markdown-body code {
     font-family: var(--font-code);
-    background-color: rgba(99, 102, 241, 0.1);
+    background-color: color-mix(in srgb, var(--primary) 10%, transparent);
     padding: 2px 6px;
     border-radius: 4px;
     font-size: 13px;
@@ -726,7 +807,7 @@ textarea:focus {
 
 .drop-zone:hover, .drop-zone.drag-over {
     border-color: var(--primary);
-    background-color: rgba(99, 102, 241, 0.05);
+    background-color: color-mix(in srgb, var(--primary) 5%, transparent);
 }
 
 .drop-icon {
@@ -1131,7 +1212,7 @@ textarea:focus {
 }
 
 .stat-card:hover {
-    border-color: rgba(99, 102, 241, 0.3);
+    border-color: color-mix(in srgb, var(--primary) 30%, transparent);
 }
 
 .stat-label {
@@ -1473,15 +1554,64 @@ textarea:focus {
         display: flex;
     }
 
+    /* The desktop rail collapses to icons only; the mobile drawer has the
+       width to spare, so it goes back to a normal labeled nav list instead
+       of an icon rail. It also drops the glass blur: a slide-out drawer
+       sits on top of .sidebar-backdrop's own blur(4px) dim layer, and
+       blur-behind-blur compounds into an unreadable haze — solid is both
+       correct here (it's not floating over the aurora bg) and legible. */
     .sidebar {
         position: fixed;
         top: 0;
         left: -320px;
         bottom: 0;
         width: 280px;
+        align-items: stretch;
+        padding: 24px 16px;
         z-index: 1000;
+        background: var(--bg-sidebar);
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
         transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         box-shadow: 4px 0 24px rgba(0, 0, 0, 0.6);
+    }
+
+    .brand {
+        justify-content: flex-start;
+        padding: 0 8px;
+    }
+
+    .brand-text {
+        display: block;
+    }
+
+    .nav-menu {
+        align-items: stretch;
+    }
+
+    .nav-item {
+        width: auto;
+        height: auto;
+        justify-content: flex-start;
+        gap: 12px;
+        padding: 12px 16px;
+    }
+
+    .nav-item span,
+    .status-label {
+        position: static;
+        opacity: 1;
+        pointer-events: auto;
+        transform: none;
+        background: none;
+        border: none;
+        box-shadow: none;
+        padding: 0;
+        color: inherit;
+    }
+
+    .sidebar-footer {
+        justify-content: flex-start;
     }
 
     .sidebar.open {
