@@ -106,6 +106,18 @@
         "path": "notes/differential equations/MA301 Lecture 9.md",
         "size": 12616
       }
+    ],
+    "Measure and Probability": [
+      {
+        "title": "Continuous mixing of two measurable functions is measurable",
+        "path": "notes/Measure and Probability/Continuous mixing of two measurable functions is measurable.md",
+        "size": 2529
+      },
+      {
+        "title": "MA_305_Comprehensive_Notes",
+        "path": "notes/Measure and Probability/MA_305_Comprehensive_Notes.md",
+        "size": 57102
+      }
     ]
   }
 }

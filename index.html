@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Comeback Helper | STEM Math Knowledge Graph & Vault Explorer</title>
+    <meta name="build-mode" content="static">
+    <title>Comeback Helper | STEM Math Knowledge Base & Ingestion Assistant</title>
     <link rel="icon" type="image/png" href="./img/logo.png">
 
     <!-- Google Fonts: Inter & JetBrains Mono -->
@@ -23,7 +24,7 @@
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
 
     <!-- App Styles -->
-    <link rel="stylesheet" href="./style.css?v=3">
+    <link rel="stylesheet" href="./style.css?v=4">
 </head>
 <body class="dark-theme">
     <!-- Mobile Top Navigation Bar -->
@@ -47,12 +48,20 @@
                 <div class="logo-icon"><img src="./img/logo.png" alt="Comeback Helper concept graph"></div>
                 <div class="brand-text">
                     <h2>Comeback Helper</h2>
-                    <span>STEM Math Knowledge Graph</span>
+                    <span>Math RAG & Ingestion System</span>
                 </div>
             </div>
 
             <nav class="nav-menu">
-                <button class="nav-item active" data-tab="tab-graph">
+                <button class="nav-item active" data-tab="tab-query" data-build="live-only">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                    <span>Math Assistant</span>
+                </button>
+                <button class="nav-item" data-tab="tab-ingest" data-build="live-only">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                    <span>Ingest STEM Notes</span>
+                </button>
+                <button class="nav-item" data-tab="tab-graph">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
                     <span>Knowledge Graph</span>
                 </button>
@@ -62,31 +71,190 @@
                 </button>
                 <button class="nav-item" data-tab="tab-backend">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"></path><circle cx="8" cy="6" r="2"></circle><circle cx="16" cy="12" r="2"></circle><circle cx="10" cy="18" r="2"></circle></svg>
-                    <span>Entity Catalog</span>
+                    <span>Backend & Entities</span>
                 </button>
                 <button class="nav-item" data-tab="tab-settings">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-                    <span>Settings & Info</span>
+                    <span>Settings</span>
                 </button>
             </nav>
 
             <div class="sidebar-footer">
-                <div class="status-indicator">
-                    <span id="static-status-dot" class="status-dot online"></span>
-                    <span id="static-status-label" class="status-label">GitHub Pages (Static Mode)</span>
+                <div class="status-indicator" data-build="live-only">
+                    <span id="ollama-status-dot" class="status-dot offline"></span>
+                    <span id="ollama-status-label" class="status-label">Checking Local Ollama...</span>
+                </div>
+                <div class="status-indicator" data-build="static-only" hidden>
+                    <span class="status-dot online"></span>
+                    <span class="status-label">GitHub Pages (Static Mode)</span>
                 </div>
             </div>
         </aside>
 
         <!-- Main Content Area -->
         <main class="content-area">
-            <!-- TAB 1: KNOWLEDGE GRAPH -->
-            <section id="tab-graph" class="tab-page active">
+            <!-- TAB 1: MATH ASSISTANT -->
+            <section id="tab-query" class="tab-page active" data-build="live-only">
+                <header class="page-header">
+                    <h1>Math & Coursework Assistant</h1>
+                    <p>Ask conceptual questions, request derivations, or explore cross-course connections.</p>
+                </header>
+
+                <div class="query-container">
+                    <div class="quick-prompts">
+                        <span class="quick-label">Sample Queries:</span>
+                        <button class="quick-btn" onclick="setQueryPrompt('State First Fundamental Theorem of Calculus.')">Fundamental Theorem of Calculus</button>
+                        <button class="quick-btn" onclick="setQueryPrompt('How do you solve separable differential equations?')">Separable ODEs</button>
+                        <button class="quick-btn" onclick="setQueryPrompt('Explain Spectral Theorem in Linear Algebra.')">Spectral Theorem</button>
+                    </div>
+
+                    <!-- Retrieval Settings Panel -->
+                    <details class="settings-panel" id="retrieval-settings">
+                        <summary class="settings-toggle">⚙ Retrieval Settings</summary>
+                        <div class="settings-grid">
+                            <div class="setting-item">
+                                <label for="query-topk">Top-K Chunks</label>
+                                <div class="slider-row">
+                                    <input type="range" id="query-topk" min="1" max="20" value="5" class="range-slider">
+                                    <span id="query-topk-val" class="slider-value">5</span>
+                                </div>
+                            </div>
+                            <div class="setting-item">
+                                <label for="query-temp">Temperature</label>
+                                <div class="slider-row">
+                                    <input type="range" id="query-temp" min="0" max="100" value="30" class="range-slider">
+                                    <span id="query-temp-val" class="slider-value">0.3</span>
+                                </div>
+                            </div>
+                            <div class="setting-item">
+                                <label for="query-course">Course Filter</label>
+                                <select id="query-course" class="custom-select">
+                                    <option value="">All Courses</option>
+                                </select>
+                            </div>
+                            <div class="setting-item">
+                                <label for="query-use-graph">Graph Context</label>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="query-use-graph" checked>
+                                    <span class="toggle-slider"></span>
+                                    <span class="toggle-label" id="graph-toggle-label">Enabled</span>
+                                </label>
+                            </div>
+                        </div>
+                    </details>
+
+                    <div class="input-card">
+                        <textarea id="query-input" placeholder="Enter your math question, theorem inquiry, or proof request..." rows="4"></textarea>
+                        <div class="input-actions">
+                            <span class="hint">LaTeX math formulas will render automatically ($...$ and $$...$$)</span>
+                            <button id="btn-submit-query" class="btn-primary">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                                <span>Ask Assistant</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="query-loading" class="loading-spinner hidden">
+                        <div class="spinner"></div>
+                        <p>Traversing Knowledge Graph & Synthesizing Derivation...</p>
+                    </div>
+
+                    <div id="query-response-card" class="response-card hidden">
+                        <div class="card-header">
+                            <h3>Assistant Explanation & Derivation</h3>
+                            <button class="btn-icon" onclick="copyResponseText()" title="Copy Response">📋</button>
+                        </div>
+                        <div id="response-content" class="markdown-body"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 2: INGEST PDF -->
+            <section id="tab-ingest" class="tab-page" data-build="live-only">
+                <header class="page-header">
+                    <h1>Ingest Course Materials</h1>
+                    <p>Upload handwritten notes, lecture slides, or textbook PDFs to convert into LaTeX Markdown in Obsidian.</p>
+                </header>
+
+                <div class="ingest-container">
+                    <div class="form-card">
+                        <div class="form-group">
+                            <label for="course-name-input">Course Folder Name</label>
+                            <input type="text" id="course-name-input" placeholder="e.g. Handwritten Coursework, Real Analysis, Machine Learning" value="Handwritten Coursework">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="ocr-mode-select">OCR Ingestion Engine</label>
+                            <select id="ocr-mode-select" class="custom-select">
+                                <option value="local_handwriting" selected>🟢 Local Qwen2.5-VL 3B (Ollama - 100% Offline, ~2GB VRAM)</option>
+                                <option value="gemini_vision">⚡ Cloud Gemini 2.0 Flash Vision (Online API)</option>
+                            </select>
+                        </div>
+
+                        <!-- Processing Options -->
+                        <details class="settings-panel" id="ingest-settings">
+                            <summary class="settings-toggle">⚙ Processing Options</summary>
+                            <div class="settings-grid">
+                                <div class="setting-item">
+                                    <label for="ingest-dpi">Render DPI</label>
+                                    <div class="slider-row">
+                                        <input type="range" id="ingest-dpi" min="100" max="400" value="200" step="50" class="range-slider">
+                                        <span id="ingest-dpi-val" class="slider-value">200</span>
+                                    </div>
+                                </div>
+                                <div class="setting-item">
+                                    <label for="ingest-autoindex">Auto-Index after Ingestion</label>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="ingest-autoindex" checked>
+                                        <span class="toggle-slider"></span>
+                                        <span class="toggle-label" id="autoindex-toggle-label">Enabled</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </details>
+
+                        <div id="drop-zone" class="drop-zone">
+                            <div class="drop-icon">📄</div>
+                            <h3>Drag & Drop Course PDF here</h3>
+                            <p>or click to browse local files</p>
+                            <input type="file" id="pdf-file-input" accept=".pdf" class="hidden">
+                        </div>
+
+                        <div id="selected-file-info" class="selected-file hidden">
+                            <span id="selected-file-name">filename.pdf</span>
+                            <button id="btn-clear-file" class="btn-text">Remove</button>
+                        </div>
+
+                        <button id="btn-start-ingest" class="btn-primary btn-block">
+                            <span>Process & Save to Obsidian Vault</span>
+                        </button>
+
+                        <div id="ingest-loading" class="loading-spinner hidden">
+                            <div class="spinner"></div>
+                            <p id="ingest-loading-msg">Executing Station 1/4: Preprocessing & Ruling Line Erasure...</p>
+                        </div>
+
+                        <div id="ingest-result" class="alert-box hidden"></div>
+
+                        <!-- Live Note Preview Card -->
+                        <div id="ingest-preview-card" class="response-card hidden">
+                            <div class="card-header">
+                                <h3>Generated Obsidian Note Preview</h3>
+                                <span id="preview-path-badge" class="badge">Note Saved</span>
+                            </div>
+                            <div id="preview-markdown-body" class="markdown-body"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 3: KNOWLEDGE GRAPH -->
+            <section id="tab-graph" class="tab-page">
                 <header class="page-header">
                     <div class="header-flex">
                         <div>
                             <h1>Visual Knowledge Graph</h1>
-                            <p>Interactive map of theorems, concepts, and note links in your STEM Knowledge Base.</p>
+                            <p>Interactive map of theorems, concepts, and note links in your Obsidian Vault.</p>
                         </div>
                         <div class="header-actions">
                             <button id="btn-multiselect-toggle" class="btn-secondary" title="Toggle multi-select mode (for touch/mobile)">
@@ -113,12 +281,17 @@
                         <label class="chip-check"><input type="checkbox" value="Formula" checked class="graph-type-filter"><span class="chip">🔣 Formulas</span></label>
                         <label class="chip-check"><input type="checkbox" value="Proof" checked class="graph-type-filter"><span class="chip">✏️ Proofs</span></label>
                         <label class="chip-check"><input type="checkbox" value="Example" checked class="graph-type-filter"><span class="chip">🧪 Examples</span></label>
+                        <!-- Legacy types for backward compatibility -->
+                        <label class="chip-check" style="display:none;"><input type="checkbox" value="Concept" checked class="graph-type-filter"></label>
+                        <label class="chip-check" style="display:none;"><input type="checkbox" value="Theorem" checked class="graph-type-filter"></label>
+                        <button type="button" id="btn-types-all" class="quick-link-btn">All</button>
+                        <button type="button" id="btn-types-none" class="quick-link-btn quick-link-btn-muted">None</button>
                     </div>
-                    <div class="filter-group">
+                    <div class="filter-group" id="graph-course-filter-group">
                         <span class="filter-label">Course:</span>
-                        <select id="graph-course-filter" class="custom-select custom-select-sm">
-                            <option value="">All Courses</option>
-                        </select>
+                        <div id="graph-course-chips" class="graph-course-chips"></div>
+                        <button type="button" id="btn-courses-all" class="quick-link-btn">All</button>
+                        <button type="button" id="btn-courses-none" class="quick-link-btn quick-link-btn-muted">None</button>
                     </div>
                 </div>
 
@@ -129,31 +302,40 @@
                         <div class="setting-item">
                             <label for="graph-layout-solver">Layout Solver</label>
                             <select id="graph-layout-solver" class="custom-select custom-select-sm">
-                                <option value="barnesHut">Barnes-Hut (Organic Clusters)</option>
                                 <option value="forceAtlas2Based" selected>Force-Atlas 2 (Spread Out)</option>
+                                <option value="barnesHut">Barnes-Hut (Organic Clusters)</option>
+                                <option value="repulsion">Repulsion (Uniform Spread)</option>
                                 <option value="hierarchical">Hierarchical (Dependency Tree)</option>
                             </select>
                         </div>
                         <div class="setting-item">
                             <label for="graph-spring-length">Node Separation / Spring Distance</label>
                             <div class="slider-row">
-                                <input type="range" id="graph-spring-length" min="80" max="350" value="180" class="range-slider">
-                                <span id="graph-spring-val" class="slider-value">180px</span>
+                                <input type="range" id="graph-spring-length" min="100" max="500" value="250" class="range-slider">
+                                <span id="graph-spring-val" class="slider-value">250px</span>
                             </div>
                         </div>
                         <div class="setting-item">
                             <label for="graph-node-scale">Node Size</label>
                             <div class="slider-row">
-                                <input type="range" id="graph-node-scale" min="10" max="35" value="18" class="range-slider">
-                                <span id="graph-node-scale-val" class="slider-value">18px</span>
+                                <input type="range" id="graph-node-scale" min="6" max="30" value="10" class="range-slider">
+                                <span id="graph-node-scale-val" class="slider-value">10px</span>
                             </div>
+                        </div>
+                        <div class="setting-item">
+                            <label for="graph-node-labels">Show Node Labels</label>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="graph-node-labels">
+                                <span class="toggle-slider"></span>
+                                <span class="toggle-label" id="node-label-status">Hidden</span>
+                            </label>
                         </div>
                         <div class="setting-item">
                             <label for="graph-edge-labels">Show Edge Labels</label>
                             <label class="toggle-switch">
-                                <input type="checkbox" id="graph-edge-labels" checked>
+                                <input type="checkbox" id="graph-edge-labels">
                                 <span class="toggle-slider"></span>
-                                <span class="toggle-label" id="edge-label-status">Visible</span>
+                                <span class="toggle-label" id="edge-label-status">Hidden</span>
                             </label>
                         </div>
                         <div class="setting-item">
@@ -190,13 +372,13 @@
                 </div>
             </section>
 
-            <!-- TAB 2: OBSIDIAN VAULT -->
+            <!-- TAB 4: OBSIDIAN VAULT -->
             <section id="tab-vault" class="tab-page">
                 <header class="page-header">
                     <div class="header-flex">
                         <div>
                             <h1>Obsidian Vault Browser</h1>
-                            <p>Explore your organized course directories and LaTeX Markdown notes.</p>
+                            <p>Explore your organized course directories and Markdown notes.</p>
                         </div>
                         <button id="btn-refresh-vault" class="btn-secondary">Refresh Vault</button>
                     </div>
@@ -205,16 +387,17 @@
                 <div id="vault-list-container" class="vault-grid"></div>
             </section>
 
-            <!-- TAB 3: BACKEND ENTITY CATALOG -->
+            <!-- TAB 5: BACKEND & ENTITY CATALOG -->
             <section id="tab-backend" class="tab-page">
                 <header class="page-header">
                     <div class="header-flex">
                         <div>
-                            <h1>Extracted Mathematical Entity Catalog</h1>
-                            <p>Inspect extracted mathematical entities, domain taxonomy tags, and conceptual role definitions.</p>
+                            <h1>Backend Entity Catalog & Storage Inspector</h1>
+                            <p>Inspect extracted mathematical entities, domain taxonomy tags, and database health.</p>
                         </div>
                         <div class="header-actions">
                             <button id="btn-refresh-backend" class="btn-secondary">🔄 Refresh Catalog</button>
+                            <button id="btn-clear-all-dbs" class="btn-secondary" style="background-color: #ef4444; color: white;" data-build="live-only">🗑️ Clear All Databases</button>
                         </div>
                     </div>
                 </header>
@@ -244,7 +427,7 @@
                                     </tr>
                                 </thead>
                                 <tbody id="backend-entity-table-body">
-                                    <tr><td colspan="4" style="padding: 1.5rem; text-align: center; color: var(--text-muted);">Loading entity catalog...</td></tr>
+                                    <tr><td colspan="4" style="padding: 1.5rem; text-align: center; color: var(--text-muted);">Click Refresh to load entity catalog...</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -252,21 +435,29 @@
                 </div>
             </section>
 
-            <!-- TAB 4: SETTINGS & INFO -->
+            <!-- TAB 6: SETTINGS -->
             <section id="tab-settings" class="tab-page">
                 <header class="page-header">
-                    <h1>System Information & Graph Statistics</h1>
-                    <p>Read-only summary of pre-indexed STEM math vault knowledge graph metrics.</p>
+                    <h1>System Settings & Index Management</h1>
+                    <p>View configuration, monitor index health, and trigger manual re-indexing.</p>
                 </header>
 
                 <div class="settings-dashboard">
                     <!-- Config Info Cards -->
                     <div class="stats-grid">
-                        <div class="stat-card">
-                            <div class="stat-label">Hosting Mode</div>
-                            <div class="stat-value" style="font-size: 1.1rem; color: #10b981;">GitHub Pages Static</div>
+                        <div class="stat-card" data-build="live-only">
+                            <div class="stat-label">Gemini Model</div>
+                            <div class="stat-value" id="stat-gemini-model">—</div>
                         </div>
-                        <div class="stat-card">
+                        <div class="stat-card" data-build="live-only">
+                            <div class="stat-label">Embedding Model</div>
+                            <div class="stat-value" id="stat-embed-model">—</div>
+                        </div>
+                        <div class="stat-card" data-build="live-only">
+                            <div class="stat-label">Vector Chunks</div>
+                            <div class="stat-value" id="stat-vector-chunks">—</div>
+                        </div>
+                        <div class="stat-card" data-build="static-only" hidden>
                             <div class="stat-label">Vault Notes</div>
                             <div class="stat-value" id="stat-vault-notes">—</div>
                         </div>
@@ -282,6 +473,21 @@
                             <div class="stat-label">Courses</div>
                             <div class="stat-value" id="stat-courses">—</div>
                         </div>
+                    </div>
+
+                    <!-- Rebuild Actions -->
+                    <div class="rebuild-section" data-build="live-only">
+                        <h3>Index Management</h3>
+                        <p class="rebuild-desc">Re-index vault notes if the graph or vector store seems out of date.</p>
+                        <div class="rebuild-actions">
+                            <button id="btn-rebuild-graph" class="btn-secondary">
+                                🕸️ Rebuild Knowledge Graph
+                            </button>
+                            <button id="btn-rebuild-vectors" class="btn-secondary">
+                                📊 Rebuild Vector Index
+                            </button>
+                        </div>
+                        <div id="rebuild-result" class="alert-box hidden"></div>
                     </div>
                 </div>
             </section>
@@ -300,6 +506,6 @@
     </div>
 
     <!-- App JavaScript -->
-    <script src="./app.js?v=4"></script>
+    <script src="./app.js?v=7"></script>
 </body>
 </html>

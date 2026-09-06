@@ -814,6 +814,27 @@ textarea:focus {
     border-color: var(--primary);
 }
 
+.graph-course-chips {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.quick-link-btn {
+    background: none;
+    border: none;
+    color: var(--primary);
+    font-size: 11px;
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 0 2px;
+}
+
+.quick-link-btn-muted {
+    color: var(--text-muted);
+}
+
 .graph-legend {
     display: flex;
     align-items: center;

@@ -1,7 +1,50 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // --- Initial Load ---
+    // --- State Variables (declared first to prevent TDZ ReferenceErrors) ---
+    let currentGraphData = null;
+    let graphNetwork = null;
+    let graphNodesDataSet = null;
+    let graphEdgesDataSet = null;
+    let currentSolverUsed = null;
+    let selectedNodeIds = new Set();
+    let isMultiSelectMode = false;
+
+    // --- Build Mode: 'live' talks to the FastAPI backend (/api/...); 'static'
+    // (GitHub Pages) has no backend and reads the pre-exported data/*.json
+    // instead. Same index.html/app.js serve both — export_static_site.py
+    // flips the <meta name="build-mode"> tag and rewrites /static/ asset
+    // paths when it copies these files into dist_static/.
+    const STATIC_MODE = document.querySelector('meta[name="build-mode"]')?.content === 'static';
+
+    if (STATIC_MODE) {
+        document.querySelectorAll('[data-build="live-only"]').forEach(el => el.remove());
+        document.querySelectorAll('[data-build="static-only"]').forEach(el => { el.hidden = false; });
+
+        // tab-query was the default active tab and it was just removed —
+        // fall back to the first remaining nav item (Knowledge Graph).
+        if (!document.querySelector('.nav-item.active')) {
+            const firstNav = document.querySelector('.nav-item');
+            const firstTab = firstNav?.getAttribute('data-tab');
+            firstNav?.classList.add('active');
+            if (firstTab) document.getElementById(firstTab)?.classList.add('active');
+        }
+    }
+
+    let cachedStaticVaultData = null;
+    async function getStaticVaultData() {
+        if (cachedStaticVaultData) return cachedStaticVaultData;
+        try {
+            const res = await fetch('data/vault.json');
+            cachedStaticVaultData = await res.json();
+        } catch (e) {
+            console.warn('Could not load data/vault.json:', e);
+            cachedStaticVaultData = { vault: {} };
+        }
+        return cachedStaticVaultData;
+    }
+
+    // --- Initial Health Check & Course List ---
+    if (!STATIC_MODE) checkOllamaHealth();
     loadCourseDropdowns();
-    loadKnowledgeGraph();
 
     // --- Navigation Tabs & Mobile Drawer ---
     const navItems = document.querySelectorAll('.nav-item');
@@ -46,43 +89,306 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // =====================================================================
-    // Course Dropdowns (shared across tabs)
+    // Ollama Health Check
     // =====================================================================
-    let cachedVaultData = null;
+    async function checkOllamaHealth() {
+        const dot = document.getElementById('ollama-status-dot');
+        const label = document.getElementById('ollama-status-label');
+        if (!dot || !label) return;
 
-    async function getVaultData() {
-        if (cachedVaultData) return cachedVaultData;
         try {
-            const res = await fetch('data/vault.json');
-            cachedVaultData = await res.json();
-            return cachedVaultData;
+            const res = await fetch('/api/health/ollama?t=' + Date.now(), { cache: 'no-store' });
+            const data = await res.json();
+            if (data.service_online && data.model_available) {
+                dot.className = 'status-dot online';
+                label.textContent = `Local VLM Ready (${data.target_model})`;
+            } else if (data.service_online) {
+                dot.className = 'status-dot offline';
+                label.textContent = `Ollama Online (${data.target_model} missing)`;
+            } else {
+                dot.className = 'status-dot offline';
+                label.textContent = 'Ollama Service Offline';
+            }
         } catch (e) {
-            console.warn('Could not load data/vault.json:', e);
-            return { vault: {} };
+            dot.className = 'status-dot offline';
+            label.textContent = 'Ollama Offline';
         }
     }
 
+    // =====================================================================
+    // Course Dropdowns (shared across tabs)
+    // =====================================================================
     async function loadCourseDropdowns() {
         try {
-            const data = await getVaultData();
-            const courses = Object.keys(data.vault || {}).sort();
+            const courses = STATIC_MODE
+                ? Object.keys((await getStaticVaultData()).vault || {})
+                : (await (await fetch('/api/courses')).json()).courses || [];
+            const coursesSet = new Set(courses);
+            if (currentGraphData && Array.isArray(currentGraphData.nodes)) {
+                currentGraphData.nodes.forEach(n => {
+                    if (n.course) coursesSet.add(n.course);
+                    if (Array.isArray(n.provenance)) {
+                        n.provenance.forEach(p => {
+                            const dp = p.doc_path || '';
+                            if (dp.startsWith('notes/')) {
+                                const parts = dp.split('/');
+                                if (parts.length > 2 && parts[1] && !parts[1].endsWith('.md')) {
+                                    coursesSet.add(parts[1]);
+                                }
+                            }
+                        });
+                    }
+                });
+            }
+            const allCourses = Array.from(coursesSet).sort();
 
-            const sel = document.getElementById('graph-course-filter');
-            if (!sel) return;
-            while (sel.options.length > 1) sel.remove(1);
-            courses.forEach(c => {
-                const opt = document.createElement('option');
-                opt.value = c;
-                opt.textContent = c;
-                sel.appendChild(opt);
-            });
+            const courseChipsContainer = document.getElementById('graph-course-chips');
+            if (courseChipsContainer) {
+                const prevChecked = new Map();
+                courseChipsContainer.querySelectorAll('.graph-course-filter').forEach(cb => {
+                    prevChecked.set(cb.value, cb.checked);
+                });
+
+                courseChipsContainer.innerHTML = '';
+                allCourses.forEach(c => {
+                    const isChecked = prevChecked.has(c) ? prevChecked.get(c) : true;
+                    const label = document.createElement('label');
+                    label.className = 'chip-check';
+                    label.innerHTML = `<input type="checkbox" value="${escapeHtml(c)}" ${isChecked ? 'checked' : ''} class="graph-course-filter"><span class="chip">📁 ${escapeHtml(c)}</span>`;
+                    const input = label.querySelector('input');
+                    input.addEventListener('change', () => {
+                        if (currentGraphData) renderGraphWithFilters();
+                    });
+                    courseChipsContainer.appendChild(label);
+                });
+            }
+
+            const sel = document.getElementById('query-course');
+            if (sel) {
+                // Keep the first "All Courses" option
+                while (sel.options.length > 1) sel.remove(1);
+                courses.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c;
+                    opt.textContent = c;
+                    sel.appendChild(opt);
+                });
+            }
         } catch (e) {
             console.warn('Could not load courses:', e);
         }
     }
 
+    // =====================================================================
+    // Slider Value Displays
+    // =====================================================================
+    const topkSlider = document.getElementById('query-topk');
+    const topkVal   = document.getElementById('query-topk-val');
+    const tempSlider = document.getElementById('query-temp');
+    const tempVal   = document.getElementById('query-temp-val');
+    const dpiSlider = document.getElementById('ingest-dpi');
+    const dpiVal    = document.getElementById('ingest-dpi-val');
+
+    if (topkSlider && topkVal) {
+        topkSlider.addEventListener('input', () => { topkVal.textContent = topkSlider.value; });
+    }
+    if (tempSlider && tempVal) {
+        tempSlider.addEventListener('input', () => {
+            tempVal.textContent = (parseInt(tempSlider.value) / 100).toFixed(1);
+        });
+    }
+    if (dpiSlider && dpiVal) {
+        dpiSlider.addEventListener('input', () => { dpiVal.textContent = dpiSlider.value; });
+    }
+
+    // Toggle label updates
+    const graphToggle = document.getElementById('query-use-graph');
+    const graphLabel  = document.getElementById('graph-toggle-label');
+    if (graphToggle && graphLabel) {
+        graphToggle.addEventListener('change', () => {
+            graphLabel.textContent = graphToggle.checked ? 'Enabled' : 'Disabled';
+        });
+    }
+    const autoIdxToggle = document.getElementById('ingest-autoindex');
+    const autoIdxLabel  = document.getElementById('autoindex-toggle-label');
+    if (autoIdxToggle && autoIdxLabel) {
+        autoIdxToggle.addEventListener('change', () => {
+            autoIdxLabel.textContent = autoIdxToggle.checked ? 'Enabled' : 'Disabled';
+        });
+    }
+
+    // =====================================================================
+    // Query Assistant
+    // =====================================================================
+    const queryInput      = document.getElementById('query-input');
+    const btnSubmitQuery  = document.getElementById('btn-submit-query');
+    const queryLoading    = document.getElementById('query-loading');
+    const responseCard    = document.getElementById('query-response-card');
+    const responseContent = document.getElementById('response-content');
+
+    if (btnSubmitQuery) btnSubmitQuery.addEventListener('click', async () => {
+        const prompt = queryInput.value.trim();
+        if (!prompt) return;
+
+        queryLoading.classList.remove('hidden');
+        responseCard.classList.add('hidden');
+        btnSubmitQuery.disabled = true;
+
+        // Gather retrieval settings
+        const topK        = parseInt(document.getElementById('query-topk')?.value || '5');
+        const temperature = parseInt(document.getElementById('query-temp')?.value || '30') / 100;
+        const course      = document.getElementById('query-course')?.value || '';
+        const useGraph    = document.getElementById('query-use-graph')?.checked ?? true;
+
+        try {
+            const res = await fetch('/api/query', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    prompt,
+                    top_k: topK,
+                    temperature,
+                    course: course || null,
+                    use_graph: useGraph
+                })
+            });
+
+            const data = await res.json();
+            if (res.ok && data.status === 'success') {
+                responseContent.innerHTML = marked.parse(data.answer);
+                renderMathInElement(responseContent, {
+                    delimiters: [
+                        { left: '$$', right: '$$', display: true },
+                        { left: '$', right: '$', display: false },
+                        { left: '\\(', right: '\\)', display: false },
+                        { left: '\\[', right: '\\]', display: true }
+                    ],
+                    throwOnError: false
+                });
+                responseCard.classList.remove('hidden');
+            } else {
+                alert('Query Error: ' + (data.detail || 'Failed to generate answer.'));
+            }
+        } catch (err) {
+            alert('Server connection error: ' + err.message);
+        } finally {
+            queryLoading.classList.add('hidden');
+            btnSubmitQuery.disabled = false;
+        }
+    });
+
+    // =====================================================================
+    // PDF Ingestion
+    // =====================================================================
+    const dropZone         = document.getElementById('drop-zone');
+    const pdfFileInput     = document.getElementById('pdf-file-input');
+    const selectedFileInfo = document.getElementById('selected-file-info');
+    const selectedFileName = document.getElementById('selected-file-name');
+    const btnClearFile     = document.getElementById('btn-clear-file');
+    const btnStartIngest   = document.getElementById('btn-start-ingest');
+    const ingestLoading    = document.getElementById('ingest-loading');
+    const ingestResult     = document.getElementById('ingest-result');
+    const ingestPreviewCard   = document.getElementById('ingest-preview-card');
+    const previewMarkdownBody = document.getElementById('preview-markdown-body');
+    const previewPathBadge    = document.getElementById('preview-path-badge');
+
+    let currentPdfFile = null;
+
+    if (dropZone) {
+        dropZone.addEventListener('click', () => pdfFileInput.click());
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            if (e.dataTransfer.files.length > 0) handleFileSelect(e.dataTransfer.files[0]);
+        });
+        pdfFileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) handleFileSelect(e.target.files[0]);
+        });
+
+        btnClearFile.addEventListener('click', () => {
+            currentPdfFile = null;
+            pdfFileInput.value = '';
+            selectedFileInfo.classList.add('hidden');
+        });
+
+        btnStartIngest.addEventListener('click', async () => {
+            if (!currentPdfFile) { alert('Please select or drop a PDF file first.'); return; }
+
+            const courseName = document.getElementById('course-name-input').value.trim() || 'Handwritten Coursework';
+            const ocrMode    = document.getElementById('ocr-mode-select')?.value || 'local_handwriting';
+            const dpi        = parseInt(document.getElementById('ingest-dpi')?.value || '200');
+            const autoIndex  = document.getElementById('ingest-autoindex')?.checked ?? true;
+
+            const formData = new FormData();
+            formData.append('file', currentPdfFile);
+            formData.append('course', courseName);
+            formData.append('ocr_mode', ocrMode);
+            formData.append('dpi', dpi.toString());
+            formData.append('auto_index', autoIndex.toString());
+
+            ingestLoading.classList.remove('hidden');
+            ingestResult.classList.add('hidden');
+            ingestPreviewCard.classList.add('hidden');
+            btnStartIngest.disabled = true;
+
+            try {
+                const res = await fetch('/api/ingest', { method: 'POST', body: formData });
+                const data = await res.json();
+
+                if (res.ok && data.status === 'success') {
+                    let successMsg = `<strong>Successfully Ingested!</strong><br>Note saved: <code>${data.note_path}</code>`;
+                    if (data.graph_indexed) successMsg += '<br>✅ Knowledge graph updated';
+                    if (data.vector_chunks > 0) successMsg += `<br>✅ ${data.vector_chunks} chunks indexed in vector store`;
+                    ingestResult.className = 'alert-box success';
+                    ingestResult.innerHTML = successMsg;
+                    ingestResult.classList.remove('hidden');
+
+                    if (data.content) {
+                        previewMarkdownBody.innerHTML = marked.parse(data.content);
+                        previewPathBadge.textContent = `${courseName} Note Saved`;
+                        renderMathInElement(previewMarkdownBody, {
+                            delimiters: [
+                                { left: '$$', right: '$$', display: true },
+                                { left: '$', right: '$', display: false },
+                                { left: '\\(', right: '\\)', display: false },
+                                { left: '\\[', right: '\\]', display: true }
+                            ],
+                            throwOnError: false
+                        });
+                        ingestPreviewCard.classList.remove('hidden');
+                    }
+
+                    // Refresh course dropdowns
+                    loadCourseDropdowns();
+                } else {
+                    ingestResult.className = 'alert-box error';
+                    ingestResult.innerHTML = `<strong>Ingestion Failed:</strong> ${data.detail || 'Unknown error'}`;
+                    ingestResult.classList.remove('hidden');
+                }
+            } catch (err) {
+                ingestResult.className = 'alert-box error';
+                ingestResult.innerHTML = `<strong>Server Connection Error:</strong> ${err.message}`;
+                ingestResult.classList.remove('hidden');
+            } finally {
+                ingestLoading.classList.add('hidden');
+                btnStartIngest.disabled = false;
+            }
+        });
+    }
+
+    function handleFileSelect(file) {
+        if (!file.name.endsWith('.pdf')) { alert('Please select a PDF file.'); return; }
+        currentPdfFile = file;
+        selectedFileName.textContent = file.name;
+        selectedFileInfo.classList.remove('hidden');
+    }
+
+    // =====================================================================
+    // Knowledge Graph Visualization (with filters)
+    // =====================================================================
     // Multi-Select Mode (Touch / Mobile & Desktop)
-    let isMultiSelectMode = false;
     const btnMultiSelectToggle = document.getElementById('btn-multiselect-toggle');
     const btnClearSelection = document.getElementById('btn-clear-selection');
 
@@ -139,6 +445,10 @@ document.addEventListener('DOMContentLoaded', () => {
         document.addEventListener('fullscreenchange', () => {
             const isFullscreen = document.fullscreenElement === graphContainerEl;
             btnFullscreenGraph.textContent = isFullscreen ? 'Exit Fullscreen' : 'Fullscreen';
+            // The canvas' pixel size changed (600px tall panel -> full
+            // viewport or back) — vis-network sizes its <canvas> off the
+            // container's dimensions at creation time, so it needs an
+            // explicit redraw/refit or it stays sized for the old box.
             if (graphNetwork) {
                 setTimeout(() => {
                     graphNetwork.redraw();
@@ -152,9 +462,33 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.graph-type-filter').forEach(cb => {
         cb.addEventListener('change', () => { if (currentGraphData) renderGraphWithFilters(); });
     });
-    const graphCourseFilter = document.getElementById('graph-course-filter');
-    if (graphCourseFilter) {
-        graphCourseFilter.addEventListener('change', () => { if (currentGraphData) renderGraphWithFilters(); });
+    const btnTypesAll = document.getElementById('btn-types-all');
+    if (btnTypesAll) {
+        btnTypesAll.addEventListener('click', () => {
+            document.querySelectorAll('.graph-type-filter').forEach(cb => cb.checked = true);
+            if (currentGraphData) renderGraphWithFilters();
+        });
+    }
+    const btnTypesNone = document.getElementById('btn-types-none');
+    if (btnTypesNone) {
+        btnTypesNone.addEventListener('click', () => {
+            document.querySelectorAll('.graph-type-filter').forEach(cb => cb.checked = false);
+            if (currentGraphData) renderGraphWithFilters();
+        });
+    }
+    const btnCoursesAll = document.getElementById('btn-courses-all');
+    if (btnCoursesAll) {
+        btnCoursesAll.addEventListener('click', () => {
+            document.querySelectorAll('.graph-course-filter').forEach(cb => cb.checked = true);
+            if (currentGraphData) renderGraphWithFilters();
+        });
+    }
+    const btnCoursesNone = document.getElementById('btn-courses-none');
+    if (btnCoursesNone) {
+        btnCoursesNone.addEventListener('click', () => {
+            document.querySelectorAll('.graph-course-filter').forEach(cb => cb.checked = false);
+            if (currentGraphData) renderGraphWithFilters();
+        });
     }
 
     // Runtime layout & physics customization listeners
@@ -163,6 +497,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const sliderNodeScale    = document.getElementById('graph-node-scale');
     const sliderNodeScaleVal = document.getElementById('graph-node-scale-val');
     const selectLayoutSolver = document.getElementById('graph-layout-solver');
+    const toggleNodeLabels   = document.getElementById('graph-node-labels');
     const toggleEdgeLabels   = document.getElementById('graph-edge-labels');
     const togglePhysics      = document.getElementById('graph-physics-toggle');
 
@@ -188,6 +523,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    if (toggleNodeLabels) {
+        toggleNodeLabels.addEventListener('change', (e) => {
+            const status = document.getElementById('node-label-status');
+            if (status) status.textContent = e.target.checked ? 'Visible' : 'Hidden';
+            if (currentGraphData) renderGraphWithFilters();
+        });
+    }
+
     if (toggleEdgeLabels) {
         toggleEdgeLabels.addEventListener('change', (e) => {
             const status = document.getElementById('edge-label-status');
@@ -207,21 +550,16 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    let currentGraphData = null;
-    let graphNetwork = null;
-    let graphNodesDataSet = null;
-    let graphEdgesDataSet = null;
-
     async function loadKnowledgeGraph() {
         const container = document.getElementById('vis-graph-canvas');
         if (!container) return;
 
         try {
-            const res = await fetch('data/graph.json');
+            const res = await fetch(STATIC_MODE ? 'data/graph.json' : '/api/graph');
             currentGraphData = await res.json();
             renderGraphWithFilters();
         } catch (err) {
-            console.error('Failed to load data/graph.json:', err);
+            console.error('Failed to load graph:', err);
         }
     }
 
@@ -229,7 +567,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!graphNetwork) return;
 
         const solver = document.getElementById('graph-layout-solver')?.value || 'forceAtlas2Based';
-        const springLength = parseInt(document.getElementById('graph-spring-length')?.value || '180');
+        const springLength = parseInt(document.getElementById('graph-spring-length')?.value || '250');
         const physicsEnabled = document.getElementById('graph-physics-toggle')?.checked ?? true;
 
         let physicsConfig = { enabled: physicsEnabled };
@@ -241,22 +579,34 @@ document.addEventListener('DOMContentLoaded', () => {
                 centralGravity: 0.2,
                 springLength: springLength,
                 springConstant: 0.04,
-                damping: 0.09
+                damping: 0.09,
+                avoidOverlap: 0.8
             };
         } else if (solver === 'forceAtlas2Based') {
             physicsConfig.solver = 'forceAtlas2Based';
             physicsConfig.forceAtlas2Based = {
-                gravitationalConstant: -50,
-                centralGravity: 0.01,
+                gravitationalConstant: -60,
+                centralGravity: 0.008,
                 springLength: springLength,
-                springConstant: 0.08
+                springConstant: 0.06,
+                damping: 0.4,
+                avoidOverlap: 1
+            };
+        } else if (solver === 'repulsion') {
+            physicsConfig.solver = 'repulsion';
+            physicsConfig.repulsion = {
+                nodeDistance: springLength,
+                centralGravity: 0.05,
+                springLength: springLength,
+                springConstant: 0.05,
+                damping: 0.12
             };
         } else if (solver === 'hierarchical') {
             physicsConfig.solver = 'hierarchicalRepulsion';
             physicsConfig.hierarchicalRepulsion = {
-                nodeDistance: 200,
+                nodeDistance: springLength,
                 centralGravity: 0.0,
-                springLength: 150,
+                springLength: springLength,
                 springConstant: 0.01,
                 damping: 0.12,
                 avoidOverlap: 1
@@ -266,6 +616,14 @@ document.addEventListener('DOMContentLoaded', () => {
         graphNetwork.setOptions({ physics: physicsConfig });
     }
 
+    // ------------------------------------------------------------------
+    // Hierarchy depth → gradient fill color
+    // ------------------------------------------------------------------
+    // DEPENDS_ON(A, B) means A requires B (B is the more foundational
+    // concept) and is drawn edge.from=A, edge.to=B. A node that depends on
+    // nothing (no outgoing edge) is depth 0 — maximally foundational.
+    // depth(A) = 1 + max(depth(B)) over everything A depends on, so depth
+    // increases the further a concept sits from the foundations.
     function computeNodeDepths(nodes, edges) {
         const outgoing = new Map();
         nodes.forEach(n => outgoing.set(n.id, []));
@@ -276,7 +634,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         const depths = new Map();
-        const visiting = new Set();
+        const visiting = new Set(); // cycle guard: a node revisited while
+                                     // still being computed contributes 0
+                                     // for that edge instead of recursing.
         function depthOf(id) {
             if (depths.has(id)) return depths.get(id);
             if (visiting.has(id)) return 0;
@@ -295,8 +655,8 @@ document.addEventListener('DOMContentLoaded', () => {
         return { depths, maxDepth };
     }
 
-    const DEPTH_COLOR_START = [14, 165, 233];
-    const DEPTH_COLOR_END   = [239, 68, 68];
+    const DEPTH_COLOR_START = [14, 165, 233];  // #0ea5e9 — foundational (electric blue)
+    const DEPTH_COLOR_END   = [239, 68, 68];   // #ef4444 — advanced (vivid red)
 
     function depthToColor(depth, maxDepth) {
         const t = maxDepth > 0 ? depth / maxDepth : 0;
@@ -317,6 +677,10 @@ document.addEventListener('DOMContentLoaded', () => {
         'Concept':    '#94a3b8',
     };
 
+    // ------------------------------------------------------------------
+    // Node detail panel
+    // ------------------------------------------------------------------
+
     function escapeHtml(s) {
         const div = document.createElement('div');
         div.textContent = s ?? '';
@@ -334,8 +698,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const NODE_BASE_FONT = { color: '#ffffff', face: 'Inter', size: 13 };
     const NODE_DIM_FONT = { color: 'rgba(255,255,255,0.08)', face: 'Inter', size: 13 };
 
-    let selectedNodeIds = new Set();
-
     function highlightNeighborhood(nodeIds) {
         if (!graphNetwork || !graphNodesDataSet || !graphEdgesDataSet) return;
         const keepNodes = new Set(nodeIds);
@@ -345,11 +707,19 @@ document.addEventListener('DOMContentLoaded', () => {
             graphNetwork.getConnectedEdges(id).forEach(e => keepEdges.add(e));
         }
 
-        graphNodesDataSet.update(graphNodesDataSet.get().map(n => ({
-            id: n.id,
-            opacity: keepNodes.has(n.id) ? 1 : 0.12,
-            font: keepNodes.has(n.id) ? NODE_BASE_FONT : NODE_DIM_FONT,
-        })));
+        const showNodeLabels = document.getElementById('graph-node-labels')?.checked ?? false;
+
+        graphNodesDataSet.update(graphNodesDataSet.get().map(n => {
+            const isHighlighted = keepNodes.has(n.id);
+            const orig = currentGraphData ? currentGraphData.nodes.find(x => x.id === n.id) : null;
+            const labelText = orig ? (orig.label || orig.name || orig.id) : n.id;
+            return {
+                id: n.id,
+                opacity: isHighlighted ? 1 : 0.12,
+                font: isHighlighted ? NODE_BASE_FONT : NODE_DIM_FONT,
+                label: (showNodeLabels || isHighlighted) ? labelText : undefined
+            };
+        }));
 
         graphEdgesDataSet.update(graphEdgesDataSet.get().map(e => {
             const highlight = keepEdges.has(e.id);
@@ -366,35 +736,60 @@ document.addEventListener('DOMContentLoaded', () => {
         selectedNodeIds.clear();
         updateSelectionUI();
         if (!graphNodesDataSet || !graphEdgesDataSet) return;
-        graphNodesDataSet.update(graphNodesDataSet.get().map(n => ({ id: n.id, opacity: 1, font: NODE_BASE_FONT })));
+        const showNodeLabels = document.getElementById('graph-node-labels')?.checked ?? false;
+        graphNodesDataSet.update(graphNodesDataSet.get().map(n => {
+            const orig = currentGraphData ? currentGraphData.nodes.find(x => x.id === n.id) : null;
+            const labelText = orig ? (orig.label || orig.name || orig.id) : n.id;
+            return {
+                id: n.id,
+                opacity: 1,
+                font: NODE_BASE_FONT,
+                label: showNodeLabels ? labelText : undefined
+            };
+        }));
         graphEdgesDataSet.update(graphEdgesDataSet.get().map(e => ({
             id: e.id, color: EDGE_BASE_COLOR, width: 1, font: EDGE_BASE_FONT,
         })));
     }
 
     // =====================================================================
-    // Note Content Viewer — static markdown reader
+    // Note Content Viewer — shared by the Vault Browser and the graph node
+    // detail panel's "Source Notes" list, so both can show the actual
+    // markdown/LaTeX content instead of just a filename.
     // =====================================================================
-    const noteViewerOverlay  = document.getElementById('note-viewer-overlay');
-    const noteViewerTitle    = document.getElementById('note-viewer-title');
-    const noteViewerBody     = document.getElementById('note-viewer-body');
+    const noteViewerOverlay = document.getElementById('note-viewer-overlay');
+    const noteViewerTitle   = document.getElementById('note-viewer-title');
+    const noteViewerBody    = document.getElementById('note-viewer-body');
     const btnCloseNoteViewer = document.getElementById('btn-close-note-viewer');
 
     async function openNoteViewer(path, fallbackTitle) {
         if (!noteViewerOverlay || !noteViewerBody) return;
         noteViewerTitle.textContent = fallbackTitle || 'Note';
-        noteViewerBody.innerHTML = '<p style="color: var(--text-muted);">Loading note content…</p>';
+        noteViewerBody.innerHTML = '<p style="color: var(--text-muted);">Loading…</p>';
         noteViewerOverlay.classList.remove('hidden');
 
         try {
-            const res = await fetch(path);
-            if (!res.ok) {
-                noteViewerBody.innerHTML = `<p style="color: #ef4444;">Failed to load note: ${res.statusText}</p>`;
-                return;
+            let title, content;
+            if (STATIC_MODE) {
+                const res = await fetch(path);
+                if (!res.ok) {
+                    noteViewerBody.innerHTML = `<p style="color: #ef4444;">Failed to load note: ${escapeHtml(res.statusText)}</p>`;
+                    return;
+                }
+                title = fallbackTitle ? fallbackTitle.replace(/\.md$/, '') : path.split('/').pop().replace(/\.md$/, '');
+                content = await res.text();
+            } else {
+                const res = await fetch(`/api/vault/note?path=${encodeURIComponent(path)}`);
+                const data = await res.json();
+                if (!res.ok) {
+                    noteViewerBody.innerHTML = `<p style="color: #ef4444;">${escapeHtml(data.detail || 'Failed to load note.')}</p>`;
+                    return;
+                }
+                title = data.title;
+                content = data.content;
             }
-            const markdownText = await res.text();
-            noteViewerTitle.textContent = fallbackTitle || path.split('/').pop();
-            noteViewerBody.innerHTML = marked.parse(markdownText);
+            noteViewerTitle.textContent = `${title}.md`;
+            noteViewerBody.innerHTML = marked.parse(content);
             renderMathInElement(noteViewerBody, {
                 delimiters: [
                     { left: '$$', right: '$$', display: true },
@@ -405,7 +800,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 throwOnError: false
             });
         } catch (err) {
-            noteViewerBody.innerHTML = `<p style="color: #ef4444;">Connection error: ${escapeHtml(err.message)}</p>`;
+            noteViewerBody.innerHTML = `<p style="color: #ef4444;">Server connection error: ${escapeHtml(err.message)}</p>`;
         }
     }
 
@@ -491,6 +886,8 @@ document.addEventListener('DOMContentLoaded', () => {
         panel.innerHTML = html;
     }
 
+    // Event delegation: the detail panel's innerHTML is fully replaced on
+    // every node click, so bind once on the panel rather than per-item.
     const graphDetailPanelEl = document.getElementById('graph-detail-panel');
     if (graphDetailPanelEl) {
         graphDetailPanelEl.addEventListener('click', (e) => {
@@ -509,17 +906,42 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const activeTypes = new Set();
         document.querySelectorAll('.graph-type-filter:checked').forEach(cb => activeTypes.add(cb.value));
-        const courseFilter = document.getElementById('graph-course-filter')?.value || '';
+        const courseCheckboxes = document.querySelectorAll('.graph-course-filter');
+        let activeCourses = null;
+        if (courseCheckboxes.length > 0) {
+            activeCourses = new Set();
+            courseCheckboxes.forEach(cb => {
+                if (cb.checked) activeCourses.add(cb.value.toLowerCase());
+            });
+        }
+
         const solver = document.getElementById('graph-layout-solver')?.value || 'forceAtlas2Based';
-        const springLength = parseInt(document.getElementById('graph-spring-length')?.value || '180');
-        const baseNodeSize = parseInt(document.getElementById('graph-node-scale')?.value || '18');
-        const showEdgeLabels = document.getElementById('graph-edge-labels')?.checked ?? true;
+        const springLength = parseInt(document.getElementById('graph-spring-length')?.value || '250');
+        const baseNodeSize = parseInt(document.getElementById('graph-node-scale')?.value || '10');
+        const showNodeLabels = document.getElementById('graph-node-labels')?.checked ?? false;
+        const showEdgeLabels = document.getElementById('graph-edge-labels')?.checked ?? false;
         const physicsEnabled = document.getElementById('graph-physics-toggle')?.checked ?? true;
 
         const filteredNodes = currentGraphData.nodes.filter(n => {
             const kind = n.kind || n.type || n.entity_type || 'Object';
-            if (activeTypes.size > 0 && !activeTypes.has(kind)) return false;
-            if (courseFilter && n.group !== courseFilter && n.group !== 'Concept') return false;
+            if (!activeTypes.has(kind)) return false;
+
+            if (activeCourses !== null) {
+                if (activeCourses.size === 0) return false;
+                const nodeCourseIdentifiers = [];
+                if (n.course) nodeCourseIdentifiers.push(n.course.toLowerCase());
+                if (n.group) nodeCourseIdentifiers.push(n.group.toLowerCase());
+                if (n.taxonomy && n.taxonomy.domain) nodeCourseIdentifiers.push(n.taxonomy.domain.toLowerCase());
+                if (Array.isArray(n.provenance)) {
+                    n.provenance.forEach(p => {
+                        if (p.doc_path) nodeCourseIdentifiers.push(p.doc_path.toLowerCase());
+                    });
+                }
+                const matchesCourse = Array.from(activeCourses).some(ac =>
+                    nodeCourseIdentifiers.some(nc => nc.includes(ac) || ac.includes(nc))
+                );
+                if (!matchesCourse) return false;
+            }
             return true;
         });
         const nodeIds = new Set(filteredNodes.map(n => n.id));
@@ -530,6 +952,8 @@ document.addEventListener('DOMContentLoaded', () => {
             return nodeIds.has(from) && nodeIds.has(to);
         });
 
+        // Depths computed over the full graph (not just the filtered view)
+        // so a node's color stays stable as filters toggle.
         const { depths, maxDepth } = computeNodeDepths(currentGraphData.nodes, currentGraphData.edges);
 
         const nodesArray = filteredNodes.map(n => {
@@ -537,11 +961,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const role = n.role ? `${n.kind || n.type || 'Statement'} / ${n.role}` : (n.kind || n.type || n.entity_type || 'Object');
             const depth = depths.get(n.id) || 0;
             const fillColor = depthToColor(depth, maxDepth);
-            const nodeSize = (n.kind === 'Statement' && n.role === 'Theorem') ? Math.round(baseNodeSize * 1.25) : baseNodeSize;
+            const nodeSize = (n.kind === 'Statement' && n.role === 'Theorem') ? Math.round(baseNodeSize * 1.3) : baseNodeSize;
 
             return {
                 id: n.id,
-                label: n.label || n.name || n.id,
+                label: showNodeLabels ? (n.label || n.name || n.id) : undefined,
                 color: {
                     background: fillColor,
                     border: fillColor,
@@ -558,6 +982,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const edgesArray = filteredEdges.map(e => {
             const rel = e.label || e.relation || '';
             return {
+                id: e.id || `${e.from || e.source}->${e.to || e.target}`,
                 from: e.from || e.source,
                 to: e.to || e.target,
                 label: showEdgeLabels && rel !== 'links_to' ? rel : undefined,
@@ -566,6 +991,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 font: EDGE_BASE_FONT
             };
         });
+
+        if (graphNetwork && graphNodesDataSet && graphEdgesDataSet && currentSolverUsed === solver) {
+            graphEdgesDataSet.clear();
+            graphNodesDataSet.clear();
+            graphNodesDataSet.add(nodesArray);
+            graphEdgesDataSet.add(edgesArray);
+            graphNetwork.setOptions({ physics: { enabled: physicsEnabled } });
+            return;
+        }
+
+        currentSolverUsed = solver;
+        if (graphNetwork) {
+            try { graphNetwork.destroy(); } catch (e) {}
+            graphNetwork = null;
+        }
+        container.innerHTML = '';
 
         graphNodesDataSet = new vis.DataSet(nodesArray);
         graphEdgesDataSet = new vis.DataSet(edgesArray);
@@ -577,9 +1018,10 @@ document.addEventListener('DOMContentLoaded', () => {
         let options = {
             interaction: { hover: true, tooltipDelay: 150, hideEdgesOnDrag: true, hideEdgesOnZoom: true },
             edges: { smooth: { enabled: true, type: 'continuous', roundness: 0.15 } },
+            layout: { improvedLayout: false },
             physics: {
                 enabled: physicsEnabled,
-                stabilization: { iterations: 200, fit: true }
+                stabilization: { iterations: 150, fit: true }
             }
         };
 
@@ -588,18 +1030,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 hierarchical: {
                     direction: 'DU',
                     sortMethod: 'directed',
-                    levelSeparation: 150,
-                    nodeSpacing: 150
+                    levelSeparation: springLength,
+                    nodeSpacing: springLength
                 }
             };
             options.physics = {
                 enabled: physicsEnabled,
-                stabilization: { iterations: 200, fit: true },
+                stabilization: { iterations: 150, fit: true },
                 solver: 'hierarchicalRepulsion',
                 hierarchicalRepulsion: {
-                    nodeDistance: 200,
+                    nodeDistance: springLength,
                     centralGravity: 0.0,
-                    springLength: 150,
+                    springLength: springLength,
                     springConstant: 0.01,
                     damping: 0.12,
                     avoidOverlap: 1
@@ -608,19 +1050,34 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (solver === 'forceAtlas2Based') {
             options.physics = {
                 enabled: physicsEnabled,
-                stabilization: { iterations: 200, fit: true },
+                stabilization: { iterations: 150, fit: true },
                 solver: 'forceAtlas2Based',
                 forceAtlas2Based: {
-                    gravitationalConstant: -50,
-                    centralGravity: 0.01,
+                    gravitationalConstant: -60,
+                    centralGravity: 0.008,
                     springLength: springLength,
-                    springConstant: 0.08
+                    springConstant: 0.06,
+                    damping: 0.4,
+                    avoidOverlap: 1
+                }
+            };
+        } else if (solver === 'repulsion') {
+            options.physics = {
+                enabled: physicsEnabled,
+                stabilization: { iterations: 150, fit: true },
+                solver: 'repulsion',
+                repulsion: {
+                    nodeDistance: springLength,
+                    centralGravity: 0.05,
+                    springLength: springLength,
+                    springConstant: 0.05,
+                    damping: 0.12
                 }
             };
         } else {
             options.physics = {
                 enabled: physicsEnabled,
-                stabilization: { iterations: 300, fit: true },
+                stabilization: { iterations: 200, fit: true },
                 solver: 'barnesHut',
                 barnesHut: {
                     gravitationalConstant: -18000,
@@ -628,7 +1085,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     springLength: springLength,
                     springConstant: 0.04,
                     damping: 0.15,
-                    avoidOverlap: 0.5
+                    avoidOverlap: 0.8
                 }
             };
         }
@@ -663,13 +1120,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
+        // Automatically center the entire graph once loaded without forcing physics to freeze
         graphNetwork.once('stabilizationIterationsDone', () => {
             graphNetwork.fit({ animation: { duration: 600, easingFunction: 'easeInOutQuad' } });
-            graphNetwork.setOptions({ physics: { enabled: false } });
-            const physicsToggle = document.getElementById('graph-physics-toggle');
-            const physicsStatus = document.getElementById('physics-toggle-status');
-            if (physicsToggle) physicsToggle.checked = false;
-            if (physicsStatus) physicsStatus.textContent = 'Frozen';
+            const currentPhysicsState = document.getElementById('graph-physics-toggle')?.checked ?? true;
+            graphNetwork.setOptions({ physics: { enabled: currentPhysicsState } });
         });
         setTimeout(() => {
             if (graphNetwork) graphNetwork.fit({ animation: true });
@@ -687,12 +1142,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!container) return;
 
         try {
-            const data = await getVaultData();
+            const data = STATIC_MODE ? await getStaticVaultData() : await (await fetch('/api/vault')).json();
+
             container.innerHTML = '';
             const vault = data.vault || {};
 
             if (Object.keys(vault).length === 0) {
-                container.innerHTML = '<p style="color: var(--text-muted);">No notes found in vault index.</p>';
+                container.innerHTML = '<p style="color: var(--text-muted);">No notes found in vault yet. Ingest a PDF to get started!</p>';
                 return;
             }
 
@@ -712,6 +1168,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Event delegation: note-item cards are re-created on every refresh, so
+    // bind once on the stable container rather than per-item.
     const vaultListContainer = document.getElementById('vault-list-container');
     if (vaultListContainer) {
         vaultListContainer.addEventListener('click', (e) => {
@@ -721,26 +1179,43 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // =====================================================================
-    // Settings Tab & Info
+    // Settings Tab
     // =====================================================================
+    const btnRebuildGraph   = document.getElementById('btn-rebuild-graph');
+    const btnRebuildVectors = document.getElementById('btn-rebuild-vectors');
+    const rebuildResult     = document.getElementById('rebuild-result');
+
     async function loadSystemSettings() {
         try {
-            const [vaultData, graphData] = await Promise.all([
-                getVaultData(),
-                fetch('data/graph.json').then(r => r.json()).catch(() => ({ nodes: [], edges: [] }))
-            ]);
+            if (STATIC_MODE) {
+                const [vaultData, graphData] = await Promise.all([
+                    getStaticVaultData(),
+                    fetch('data/graph.json').then(r => r.json()).catch(() => ({ nodes: [], edges: [] }))
+                ]);
+                const vault = vaultData.vault || {};
+                const courses = Object.keys(vault);
+                const totalNotes = courses.reduce((sum, c) => sum + (vault[c] || []).length, 0);
 
-            const vault = vaultData.vault || {};
-            let totalNotes = 0;
-            const courses = Object.keys(vault);
-            courses.forEach(c => { totalNotes += (vault[c] || []).length; });
+                setText('stat-vault-notes', totalNotes.toString());
+                setText('stat-graph-nodes', (graphData.nodes || []).length.toString());
+                setText('stat-graph-edges', (graphData.edges || []).length.toString());
+                setText('stat-courses', courses.length > 0 ? courses.join(', ') : 'None');
+                return;
+            }
 
-            setText('stat-vault-notes', totalNotes.toString());
-            setText('stat-graph-nodes', (graphData.nodes || []).length.toString());
-            setText('stat-graph-edges', (graphData.edges || []).length.toString());
+            const res = await fetch('/api/settings');
+            const data = await res.json();
+
+            setText('stat-gemini-model', data.gemini_model || '—');
+            setText('stat-embed-model', data.embed_model || '—');
+            setText('stat-vector-chunks', data.vector_store?.total_chunks ?? '—');
+            setText('stat-graph-nodes', data.graph?.total_nodes ?? '—');
+            setText('stat-graph-edges', data.graph?.total_edges ?? '—');
+
+            const courses = data.vector_store?.courses || [];
             setText('stat-courses', courses.length > 0 ? courses.join(', ') : 'None');
         } catch (e) {
-            console.warn('Could not load system settings:', e);
+            console.warn('Could not load settings:', e);
         }
     }
 
@@ -749,14 +1224,86 @@ document.addEventListener('DOMContentLoaded', () => {
         if (el) el.textContent = val;
     }
 
+    if (btnRebuildGraph) {
+        btnRebuildGraph.addEventListener('click', async () => {
+            btnRebuildGraph.disabled = true;
+            btnRebuildGraph.textContent = '⏳ Rebuilding...';
+            rebuildResult.classList.add('hidden');
+
+            try {
+                const res = await fetch('/api/rebuild/graph', { method: 'POST' });
+                const data = await res.json();
+                rebuildResult.className = 'alert-box success';
+                rebuildResult.innerHTML = `<strong>Graph Rebuilt!</strong> ${data.nodes} nodes, ${data.edges} edges.`;
+                rebuildResult.classList.remove('hidden');
+                loadSystemSettings();
+            } catch (e) {
+                rebuildResult.className = 'alert-box error';
+                rebuildResult.innerHTML = `<strong>Error:</strong> ${e.message}`;
+                rebuildResult.classList.remove('hidden');
+            } finally {
+                btnRebuildGraph.disabled = false;
+                btnRebuildGraph.textContent = '🕸️ Rebuild Knowledge Graph';
+            }
+        });
+    }
+
+    if (btnRebuildVectors) {
+        btnRebuildVectors.addEventListener('click', async () => {
+            btnRebuildVectors.disabled = true;
+            btnRebuildVectors.textContent = '⏳ Re-embedding...';
+            rebuildResult.classList.add('hidden');
+
+            try {
+                const res = await fetch('/api/rebuild/vectors', { method: 'POST' });
+                const data = await res.json();
+                rebuildResult.className = 'alert-box success';
+                rebuildResult.innerHTML = `<strong>Vector Index Rebuilt!</strong> ${data.chunks} chunks indexed.`;
+                rebuildResult.classList.remove('hidden');
+                loadSystemSettings();
+            } catch (e) {
+                rebuildResult.className = 'alert-box error';
+                rebuildResult.innerHTML = `<strong>Error:</strong> ${e.message}`;
+                rebuildResult.classList.remove('hidden');
+            } finally {
+                btnRebuildVectors.disabled = false;
+                btnRebuildVectors.textContent = '📊 Rebuild Vector Index';
+            }
+        });
+    }
+
     // =====================================================================
     // Backend & Entity Catalog Inspector
     // =====================================================================
     const btnRefreshBackend = document.getElementById('btn-refresh-backend');
+    const btnClearAllDbs   = document.getElementById('btn-clear-all-dbs');
     const searchInput      = document.getElementById('backend-search-input');
 
     if (btnRefreshBackend) btnRefreshBackend.addEventListener('click', loadBackendCatalog);
     if (searchInput) searchInput.addEventListener('input', filterBackendTable);
+
+    if (btnClearAllDbs) {
+        btnClearAllDbs.addEventListener('click', async () => {
+            if (!confirm('Are you sure you want to clear all databases (Knowledge Graph, KùzuDB, LanceDB Vector Store, Vault Tracker)?')) {
+                return;
+            }
+            btnClearAllDbs.disabled = true;
+            btnClearAllDbs.textContent = '⏳ Clearing...';
+
+            try {
+                const res = await fetch('/api/clear', { method: 'POST' });
+                const data = await res.json();
+                alert(data.message || 'All databases cleared successfully.');
+                loadBackendCatalog();
+                loadSystemSettings();
+            } catch (e) {
+                alert('Failed to clear databases: ' + e.message);
+            } finally {
+                btnClearAllDbs.disabled = false;
+                btnClearAllDbs.textContent = '🗑️ Clear All Databases';
+            }
+        });
+    }
 
     let currentBackendNodes = [];
 
@@ -767,12 +1314,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!tableBody) return;
 
         try {
-            const res = await fetch('data/graph.json');
+            const res = await fetch(STATIC_MODE ? 'data/graph.json' : '/api/graph');
             const data = await res.json();
             currentBackendNodes = data.nodes || [];
 
             if (countSpan) countSpan.textContent = currentBackendNodes.length.toString();
 
+            // Compute tag summary frequencies
             const tagCounts = {};
             currentBackendNodes.forEach(n => {
                 const role = n.type || n.entity_type || 'Concept';
@@ -787,7 +1335,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (tagsContainer) {
                 tagsContainer.innerHTML = '';
                 if (Object.keys(tagCounts).length === 0) {
-                    tagsContainer.innerHTML = '<span style="color: var(--text-muted); font-size: 0.85rem;">No tags extracted yet.</span>';
+                    tagsContainer.innerHTML = '<span style="color: var(--text-muted); font-size: 0.85rem;">No tags extracted yet. Ingest a note to populate.</span>';
                 } else {
                     for (const [tag, count] of Object.entries(tagCounts)) {
                         const badge = document.createElement('span');
@@ -805,7 +1353,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             renderBackendTable(currentBackendNodes);
         } catch (e) {
-            console.error('Failed to load entity catalog:', e);
+            console.error('Failed to load backend catalog:', e);
             if (tableBody) {
                 tableBody.innerHTML = `<tr><td colspan="4" style="padding: 1.5rem; text-align: center; color: #ef4444;">Error loading catalog: ${e.message}</td></tr>`;
             }
@@ -818,7 +1366,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         tableBody.innerHTML = '';
         if (nodes.length === 0) {
-            tableBody.innerHTML = '<tr><td colspan="4" style="padding: 1.5rem; text-align: center; color: var(--text-muted);">Catalog is empty.</td></tr>';
+            tableBody.innerHTML = '<tr><td colspan="4" style="padding: 1.5rem; text-align: center; color: var(--text-muted);">Database is clean and empty. Ingest a note to populate!</td></tr>';
             return;
         }
 
@@ -852,3 +1400,25 @@ document.addEventListener('DOMContentLoaded', () => {
         renderBackendTable(filtered);
     }
 });
+
+// =====================================================================
+// Global Helpers
+// =====================================================================
+function setQueryPrompt(text) {
+    const input = document.getElementById('query-input');
+    if (input) input.value = text;
+}
+
+function copyResponseText() {
+    const content = document.getElementById('response-content');
+    if (content) {
+        navigator.clipboard.writeText(content.innerText);
+        // Show brief feedback instead of alert
+        const btn = content.closest('.response-card')?.querySelector('.btn-icon');
+        if (btn) {
+            const orig = btn.textContent;
+            btn.textContent = '✅';
+            setTimeout(() => { btn.textContent = orig; }, 1500);
+        }
+    }
+}
