@@ -1,3 +1,18 @@
+// Feather-style icon set (matches the inline SVGs already hand-written into
+// index.html's nav/chips) for the handful of icons app.js builds into
+// dynamic HTML strings — keeps emoji out of generated markup too.
+const ICONS = {
+    folder: '<svg class="icon-inline" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>',
+    fileText: '<svg class="icon-inline" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>',
+    checkCircle: '<svg class="icon-inline" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>',
+    check: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>',
+    square: '<svg class="icon-inline" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>',
+    checkSquare: '<svg class="icon-inline" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>',
+    shareGraph: '<svg class="icon-inline" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>',
+    barChart: '<svg class="icon-inline" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>',
+    trash: '<svg class="icon-inline" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>',
+};
+
 document.addEventListener('DOMContentLoaded', () => {
     // --- State Variables (declared first to prevent TDZ ReferenceErrors) ---
     let currentGraphData = null;
@@ -154,7 +169,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const isChecked = prevChecked.has(c) ? prevChecked.get(c) : true;
                     const label = document.createElement('label');
                     label.className = 'chip-check';
-                    label.innerHTML = `<input type="checkbox" value="${escapeHtml(c)}" ${isChecked ? 'checked' : ''} class="graph-course-filter"><span class="chip">📁 ${escapeHtml(c)}</span>`;
+                    label.innerHTML = `<input type="checkbox" value="${escapeHtml(c)}" ${isChecked ? 'checked' : ''} class="graph-course-filter"><span class="chip">${ICONS.folder} ${escapeHtml(c)}</span>`;
                     const input = label.querySelector('input');
                     input.addEventListener('change', () => {
                         if (currentGraphData) renderGraphWithFilters();
@@ -339,8 +354,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (res.ok && data.status === 'success') {
                     let successMsg = `<strong>Successfully Ingested!</strong><br>Note saved: <code>${data.note_path}</code>`;
-                    if (data.graph_indexed) successMsg += '<br>✅ Knowledge graph updated';
-                    if (data.vector_chunks > 0) successMsg += `<br>✅ ${data.vector_chunks} chunks indexed in vector store`;
+                    if (data.graph_indexed) successMsg += `<br>${ICONS.checkCircle} Knowledge graph updated`;
+                    if (data.vector_chunks > 0) successMsg += `<br>${ICONS.checkCircle} ${data.vector_chunks} chunks indexed in vector store`;
                     ingestResult.className = 'alert-box success';
                     ingestResult.innerHTML = successMsg;
                     ingestResult.classList.remove('hidden');
@@ -397,7 +412,7 @@ document.addEventListener('DOMContentLoaded', () => {
             isMultiSelectMode = !isMultiSelectMode;
             btnMultiSelectToggle.classList.toggle('btn-multiselect-active', isMultiSelectMode);
             const icon = btnMultiSelectToggle.querySelector('.multiselect-status-icon');
-            if (icon) icon.textContent = isMultiSelectMode ? '☑' : '☐';
+            if (icon) icon.innerHTML = isMultiSelectMode ? ICONS.checkSquare : ICONS.square;
         });
     }
 
@@ -1156,9 +1171,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const card = document.createElement('div');
                 card.className = 'course-card';
                 card.innerHTML = `
-                    <h3>📁 ${course}</h3>
+                    <h3>${ICONS.folder} ${course}</h3>
                     <div class="note-list">
-                        ${notes.map(n => `<div class="note-item note-item-clickable" data-path="${escapeHtml(n.path)}" data-title="${escapeHtml(n.title)}.md">📄 <span>${escapeHtml(n.title)}.md</span></div>`).join('')}
+                        ${notes.map(n => `<div class="note-item note-item-clickable" data-path="${escapeHtml(n.path)}" data-title="${escapeHtml(n.title)}.md">${ICONS.fileText} <span>${escapeHtml(n.title)}.md</span></div>`).join('')}
                     </div>
                 `;
                 container.appendChild(card);
@@ -1227,7 +1242,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnRebuildGraph) {
         btnRebuildGraph.addEventListener('click', async () => {
             btnRebuildGraph.disabled = true;
-            btnRebuildGraph.textContent = '⏳ Rebuilding...';
+            btnRebuildGraph.textContent = 'Rebuilding...';
             rebuildResult.classList.add('hidden');
 
             try {
@@ -1243,7 +1258,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 rebuildResult.classList.remove('hidden');
             } finally {
                 btnRebuildGraph.disabled = false;
-                btnRebuildGraph.textContent = '🕸️ Rebuild Knowledge Graph';
+                btnRebuildGraph.innerHTML = `${ICONS.shareGraph} Rebuild Knowledge Graph`;
             }
         });
     }
@@ -1251,7 +1266,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnRebuildVectors) {
         btnRebuildVectors.addEventListener('click', async () => {
             btnRebuildVectors.disabled = true;
-            btnRebuildVectors.textContent = '⏳ Re-embedding...';
+            btnRebuildVectors.textContent = 'Re-embedding...';
             rebuildResult.classList.add('hidden');
 
             try {
@@ -1267,7 +1282,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 rebuildResult.classList.remove('hidden');
             } finally {
                 btnRebuildVectors.disabled = false;
-                btnRebuildVectors.textContent = '📊 Rebuild Vector Index';
+                btnRebuildVectors.innerHTML = `${ICONS.barChart} Rebuild Vector Index`;
             }
         });
     }
@@ -1288,7 +1303,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             btnClearAllDbs.disabled = true;
-            btnClearAllDbs.textContent = '⏳ Clearing...';
+            btnClearAllDbs.textContent = 'Clearing...';
 
             try {
                 const res = await fetch('/api/clear', { method: 'POST' });
@@ -1300,7 +1315,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 alert('Failed to clear databases: ' + e.message);
             } finally {
                 btnClearAllDbs.disabled = false;
-                btnClearAllDbs.textContent = '🗑️ Clear All Databases';
+                btnClearAllDbs.innerHTML = `${ICONS.trash} Clear All Databases`;
             }
         });
     }
@@ -1335,16 +1350,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (tagsContainer) {
                 tagsContainer.innerHTML = '';
                 if (Object.keys(tagCounts).length === 0) {
-                    tagsContainer.innerHTML = '<span style="color: var(--text-muted); font-size: 0.85rem;">No tags extracted yet. Ingest a note to populate.</span>';
+                    tagsContainer.innerHTML = '<span class="catalog-table-empty">No tags extracted yet. Ingest a note to populate.</span>';
                 } else {
                     for (const [tag, count] of Object.entries(tagCounts)) {
                         const badge = document.createElement('span');
-                        badge.className = 'chip';
-                        badge.style.backgroundColor = 'var(--surface-color)';
-                        badge.style.border = '1px solid var(--border-color)';
-                        badge.style.padding = '0.25rem 0.6rem';
-                        badge.style.borderRadius = '12px';
-                        badge.style.fontSize = '0.8rem';
+                        badge.className = 'tag-badge';
                         badge.textContent = `${tag}: ${count}`;
                         tagsContainer.appendChild(badge);
                     }
@@ -1355,7 +1365,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (e) {
             console.error('Failed to load backend catalog:', e);
             if (tableBody) {
-                tableBody.innerHTML = `<tr><td colspan="4" style="padding: 1.5rem; text-align: center; color: #ef4444;">Error loading catalog: ${e.message}</td></tr>`;
+                tableBody.innerHTML = `<tr><td colspan="4" class="catalog-table-empty">Error loading catalog: ${escapeHtml(e.message)}</td></tr>`;
             }
         }
     }
@@ -1366,23 +1376,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
         tableBody.innerHTML = '';
         if (nodes.length === 0) {
-            tableBody.innerHTML = '<tr><td colspan="4" style="padding: 1.5rem; text-align: center; color: var(--text-muted);">Database is clean and empty. Ingest a note to populate!</td></tr>';
+            tableBody.innerHTML = '<tr><td colspan="4" class="catalog-table-empty">Database is clean and empty. Ingest a note to populate!</td></tr>';
             return;
         }
 
         nodes.forEach(n => {
             const tr = document.createElement('tr');
-            tr.style.borderBottom = '1px solid var(--border-color)';
 
             const role = n.type || n.entity_type || 'Concept';
             const domain = n.taxonomy ? `${n.taxonomy.domain} › ${n.taxonomy.subdomain}` : 'General';
             const desc = n.description || '—';
 
             tr.innerHTML = `
-                <td style="padding: 0.75rem; font-weight: 500; color: var(--text-primary);">${n.label || n.name || n.id}</td>
-                <td style="padding: 0.75rem;"><span class="chip" style="font-size: 0.75rem; background: var(--surface-color); padding: 0.15rem 0.4rem; border-radius: 4px; border: 1px solid var(--border-color);">${role}</span></td>
-                <td style="padding: 0.75rem; color: var(--text-secondary); font-size: 0.85rem;">${domain}</td>
-                <td style="padding: 0.75rem; color: var(--text-muted); font-size: 0.85rem;">${desc}</td>
+                <td class="catalog-entity-name">${escapeHtml(n.label || n.name || n.id)}</td>
+                <td><span class="catalog-role-chip">${escapeHtml(role)}</span></td>
+                <td class="catalog-domain">${escapeHtml(domain)}</td>
+                <td class="catalog-description" title="${escapeHtml(desc)}">${escapeHtml(desc)}</td>
             `;
             tableBody.appendChild(tr);
         });
@@ -1416,9 +1425,9 @@ function copyResponseText() {
         // Show brief feedback instead of alert
         const btn = content.closest('.response-card')?.querySelector('.btn-icon');
         if (btn) {
-            const orig = btn.textContent;
-            btn.textContent = '✅';
-            setTimeout(() => { btn.textContent = orig; }, 1500);
+            const orig = btn.innerHTML;
+            btn.innerHTML = ICONS.check;
+            setTimeout(() => { btn.innerHTML = orig; }, 1500);
         }
     }
 }

@@ -110,7 +110,7 @@
 
                     <!-- Retrieval Settings Panel -->
                     <details class="settings-panel" id="retrieval-settings">
-                        <summary class="settings-toggle">⚙ Retrieval Settings</summary>
+                        <summary class="settings-toggle"><svg class="icon-inline" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg> Retrieval Settings</summary>
                         <div class="settings-grid">
                             <div class="setting-item">
                                 <label for="query-topk">Top-K Chunks</label>
@@ -162,7 +162,7 @@
                     <div id="query-response-card" class="response-card hidden">
                         <div class="card-header">
                             <h3>Assistant Explanation & Derivation</h3>
-                            <button class="btn-icon" onclick="copyResponseText()" title="Copy Response">📋</button>
+                            <button class="btn-icon" onclick="copyResponseText()" title="Copy Response"><svg class="icon-inline" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>
                         </div>
                         <div id="response-content" class="markdown-body"></div>
                     </div>
@@ -186,14 +186,14 @@
                         <div class="form-group">
                             <label for="ocr-mode-select">OCR Ingestion Engine</label>
                             <select id="ocr-mode-select" class="custom-select">
-                                <option value="local_handwriting" selected>🟢 Local Qwen2.5-VL 3B (Ollama - 100% Offline, ~2GB VRAM)</option>
-                                <option value="gemini_vision">⚡ Cloud Gemini 2.0 Flash Vision (Online API)</option>
+                                <option value="local_handwriting" selected>Local Qwen2.5-VL 3B (Ollama - 100% Offline, ~2GB VRAM)</option>
+                                <option value="gemini_vision">Cloud Gemini 2.0 Flash Vision (Online API)</option>
                             </select>
                         </div>
 
                         <!-- Processing Options -->
                         <details class="settings-panel" id="ingest-settings">
-                            <summary class="settings-toggle">⚙ Processing Options</summary>
+                            <summary class="settings-toggle"><svg class="icon-inline" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg> Processing Options</summary>
                             <div class="settings-grid">
                                 <div class="setting-item">
                                     <label for="ingest-dpi">Render DPI</label>
@@ -214,7 +214,7 @@
                         </details>
 
                         <div id="drop-zone" class="drop-zone">
-                            <div class="drop-icon">📄</div>
+                            <div class="drop-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"></path><polyline points="16 16 12 12 8 16"></polyline><line x1="12" y1="12" x2="12" y2="21"></line></svg></div>
                             <h3>Drag & Drop Course PDF here</h3>
                             <p>or click to browse local files</p>
                             <input type="file" id="pdf-file-input" accept=".pdf" class="hidden">
@@ -258,10 +258,10 @@
                         </div>
                         <div class="header-actions">
                             <button id="btn-multiselect-toggle" class="btn-secondary" title="Toggle multi-select mode (for touch/mobile)">
-                                <span class="multiselect-status-icon">☐</span> Multi-Select
+                                <span class="multiselect-status-icon"><svg class="icon-inline" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg></span> Multi-Select
                             </button>
                             <button id="btn-clear-selection" class="btn-secondary hidden" title="Clear current node selection">
-                                ✕ Clear (<span id="selected-count">0</span>)
+                                <svg class="icon-inline" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg> Clear (<span id="selected-count">0</span>)
                             </button>
                             <button id="btn-fit-graph" class="btn-secondary">Center View</button>
                             <button id="btn-refresh-graph" class="btn-secondary">Refresh</button>
@@ -274,13 +274,13 @@
                 <div class="graph-filters" id="graph-filters">
                     <div class="filter-group">
                         <span class="filter-label">Filter by Type:</span>
-                        <label class="chip-check"><input type="checkbox" value="Object" checked class="graph-type-filter"><span class="chip">💡 Objects</span></label>
-                        <label class="chip-check"><input type="checkbox" value="Statement" checked class="graph-type-filter"><span class="chip">📐 Statements</span></label>
-                        <label class="chip-check"><input type="checkbox" value="Definition" checked class="graph-type-filter"><span class="chip">📖 Definitions</span></label>
-                        <label class="chip-check"><input type="checkbox" value="Method" checked class="graph-type-filter"><span class="chip">⚙️ Methods</span></label>
-                        <label class="chip-check"><input type="checkbox" value="Formula" checked class="graph-type-filter"><span class="chip">🔣 Formulas</span></label>
-                        <label class="chip-check"><input type="checkbox" value="Proof" checked class="graph-type-filter"><span class="chip">✏️ Proofs</span></label>
-                        <label class="chip-check"><input type="checkbox" value="Example" checked class="graph-type-filter"><span class="chip">🧪 Examples</span></label>
+                        <label class="chip-check"><input type="checkbox" value="Object" checked class="graph-type-filter"><span class="chip"><svg class="icon-inline" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg> Objects</span></label>
+                        <label class="chip-check"><input type="checkbox" value="Statement" checked class="graph-type-filter"><span class="chip"><svg class="icon-inline" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg> Statements</span></label>
+                        <label class="chip-check"><input type="checkbox" value="Definition" checked class="graph-type-filter"><span class="chip"><svg class="icon-inline" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg> Definitions</span></label>
+                        <label class="chip-check"><input type="checkbox" value="Method" checked class="graph-type-filter"><span class="chip"><svg class="icon-inline" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg> Methods</span></label>
+                        <label class="chip-check"><input type="checkbox" value="Formula" checked class="graph-type-filter"><span class="chip"><svg class="icon-inline" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="9" x2="20" y2="9"></line><line x1="4" y1="15" x2="20" y2="15"></line><line x1="10" y1="3" x2="8" y2="21"></line><line x1="16" y1="3" x2="14" y2="21"></line></svg> Formulas</span></label>
+                        <label class="chip-check"><input type="checkbox" value="Proof" checked class="graph-type-filter"><span class="chip"><svg class="icon-inline" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> Proofs</span></label>
+                        <label class="chip-check"><input type="checkbox" value="Example" checked class="graph-type-filter"><span class="chip"><svg class="icon-inline" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg> Examples</span></label>
                         <!-- Legacy types for backward compatibility -->
                         <label class="chip-check" style="display:none;"><input type="checkbox" value="Concept" checked class="graph-type-filter"></label>
                         <label class="chip-check" style="display:none;"><input type="checkbox" value="Theorem" checked class="graph-type-filter"></label>
@@ -297,7 +297,7 @@
 
                 <!-- Runtime Graph Physics & Layout Customization Panel -->
                 <details class="settings-panel" id="graph-layout-settings" style="margin-bottom: 1rem;">
-                    <summary class="settings-toggle">⚙️ Graph Layout & Decluttering Controls</summary>
+                    <summary class="settings-toggle"><svg class="icon-inline" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg> Graph Layout &amp; Decluttering Controls</summary>
                     <div class="settings-grid">
                         <div class="setting-item">
                             <label for="graph-layout-solver">Layout Solver</label>
@@ -396,38 +396,44 @@
                             <p>Inspect extracted mathematical entities, domain taxonomy tags, and database health.</p>
                         </div>
                         <div class="header-actions">
-                            <button id="btn-refresh-backend" class="btn-secondary">🔄 Refresh Catalog</button>
-                            <button id="btn-clear-all-dbs" class="btn-secondary" style="background-color: #ef4444; color: white;" data-build="live-only">🗑️ Clear All Databases</button>
+                            <button id="btn-refresh-backend" class="btn-secondary"><svg class="icon-inline" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg> Refresh Catalog</button>
+                            <button id="btn-clear-all-dbs" class="btn-secondary" style="background-color: #ef4444; color: white;" data-build="live-only"><svg class="icon-inline" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg> Clear All Databases</button>
                         </div>
                     </div>
                 </header>
 
                 <div class="backend-container">
                     <!-- Tag Summary Chips -->
-                    <div class="form-card" style="margin-bottom: 1.5rem;">
+                    <div class="form-card backend-section">
                         <h3>Active Role & Domain Tags Summary</h3>
-                        <div id="backend-tags-container" class="tag-badges-grid" style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem;"></div>
+                        <div id="backend-tags-container" class="tag-badges-grid"></div>
                     </div>
 
                     <!-- Entity Catalog Table Card -->
                     <div class="form-card">
-                        <div class="header-flex" style="margin-bottom: 1rem;">
+                        <div class="header-flex backend-section">
                             <h3>Extracted Entity Catalog (<span id="backend-entity-count">0</span> Entities)</h3>
-                            <input type="text" id="backend-search-input" placeholder="Search entity name, tag, or description..." class="custom-select" style="max-width: 300px;">
+                            <input type="text" id="backend-search-input" placeholder="Search entity name, tag, or description..." class="custom-select backend-search-input">
                         </div>
 
-                        <div class="table-scroll-container" style="overflow-x: auto;">
-                            <table class="catalog-table" style="width: 100%; border-collapse: collapse; text-align: left;">
+                        <div class="table-scroll-container">
+                            <table class="catalog-table">
+                                <colgroup>
+                                    <col style="width: 18%">
+                                    <col style="width: 12%">
+                                    <col style="width: 24%">
+                                    <col style="width: 46%">
+                                </colgroup>
                                 <thead>
-                                    <tr style="border-bottom: 1px solid var(--border-color); color: var(--text-muted); font-size: 0.85rem;">
-                                        <th style="padding: 0.75rem;">Entity Name</th>
-                                        <th style="padding: 0.75rem;">Role / Type</th>
-                                        <th style="padding: 0.75rem;">Domain Taxonomy</th>
-                                        <th style="padding: 0.75rem;">Description</th>
+                                    <tr>
+                                        <th>Entity Name</th>
+                                        <th>Role / Type</th>
+                                        <th>Domain Taxonomy</th>
+                                        <th>Description</th>
                                     </tr>
                                 </thead>
                                 <tbody id="backend-entity-table-body">
-                                    <tr><td colspan="4" style="padding: 1.5rem; text-align: center; color: var(--text-muted);">Click Refresh to load entity catalog...</td></tr>
+                                    <tr><td colspan="4" class="catalog-table-empty">Click Refresh to load entity catalog...</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -481,10 +487,10 @@
                         <p class="rebuild-desc">Re-index vault notes if the graph or vector store seems out of date.</p>
                         <div class="rebuild-actions">
                             <button id="btn-rebuild-graph" class="btn-secondary">
-                                🕸️ Rebuild Knowledge Graph
+                                <svg class="icon-inline" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg> Rebuild Knowledge Graph
                             </button>
                             <button id="btn-rebuild-vectors" class="btn-secondary">
-                                📊 Rebuild Vector Index
+                                <svg class="icon-inline" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg> Rebuild Vector Index
                             </button>
                         </div>
                         <div id="rebuild-result" class="alert-box hidden"></div>
