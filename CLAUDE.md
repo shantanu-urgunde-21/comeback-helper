@@ -107,14 +107,20 @@ Deeper: [docs/flow.md](docs/flow.md) (data shapes), [docs/structure.md](docs/str
 
 ## Known defects
 
-Graph identity is fixed (75 nodes, 0 duplicate groups). [docs/diagnosis.md](docs/diagnosis.md)
-records the history — node identity used to be the LLM's display name, so one concept got
-re-coined under several spellings.
+Graph identity is fixed (0 duplicate groups, 225 nodes and growing).
+[docs/diagnosis.md](docs/diagnosis.md) records the history — node identity used to be the
+LLM's display name, so one concept got re-coined under several spellings.
 
-Still open, specified in [docs/vocabulary-diagnosis.md](docs/vocabulary-diagnosis.md):
-**type and relation vocabulary have collapsed** (76% `Concept`, 78.5% `DEPENDS_ON`), and the
-graph is **not a DAG** (29 cycles). Plan:
-[vocabulary-redesign](docs/superpowers/plans/2026-08-24-vocabulary-redesign.md).
+Two-axis `kind`/`role` typing and the 12-relation vocabulary
+([docs/vocabulary-diagnosis.md](docs/vocabulary-diagnosis.md),
+[plan.md](plan.md) Phase 8) and write-time DAG enforcement (Phase 9) are shipped and running
+— **not** still-open work, despite what an earlier version of this section said. Current
+state, re-measured (not the Phase-7 baseline the diagnosis doc cites): the graph **is** a DAG
+(0 cycles — `graph_health.py`), node `kind` is no longer collapsed (`Object` 44%, spread
+across 10 kind/role combinations). Relation vocabulary has improved sharply but hasn't
+crossed Phase 8's own exit bar yet: `DEPENDS_ON` is 61.1% of edges, down from 78.5%, still
+above the ~50% target. A handful of edges (`USES_LEMMA`) also predate the
+retired-name-canonicalization in `_normalize_relation` and haven't been migrated.
 
 One trap: **a full `rebuild-graph` is not a repair.** It re-rolls every naming decision,
 changing which duplicates exist rather than whether they exist.

@@ -2,6 +2,36 @@
 
 All notable changes, refactorings, and architectural improvements to **Comeback Helper** are documented in this file.
 
+## [Unreleased] - 2026-09-04 (Backend Readability Cleanup)
+
+### 🚀 Highlights
+- **Split `graph/app/indexer.py`** (945 → 560 lines): `MathGraphIndexer` is now orchestration
+  only. Extraction logic moved to new sibling modules — `prompts.py` (LLM prompt templates),
+  `extraction_filters.py` (noise/validity filtering), `block_extractor.py` (the deterministic
+  no-LLM fallback tier), and `llm_extraction.py` (Pass 1/2 LLM calls).
+- **Split `src/server.py`** (470 → 69 lines) into `src/routes/{ingest,query,vault,admin}.py`,
+  one `APIRouter` per HTTP concern. Handlers now read shared singletons off `request.app.state`
+  instead of a closed-over module-level `app`.
+- **Deduplicated the Gemini → Ollama fallback ladder**: the same "try each Gemini candidate,
+  then each Ollama model" loop was hand-rolled in three places (both extraction passes and
+  `retrieval/app/engine.py`'s answer synthesis). Now one function,
+  `shared/llm/fallback.with_gemini_then_ollama`, used by all three.
+- **Deleted confirmed-dead code**: `ingestion/app/handwriting/{segmenter,ocr_engine}.py`
+  (~276 lines, unreferenced), an unused `will_create_cycle` import, and a duplicate
+  `import shutil`.
+- **Fixed a latent retrieval bug**: `retrieval/app/engine.py` was reading
+  `node.get("entity_type", "Concept")` for the type shown in retrieved graph context, but
+  nodes carry `kind`, not `entity_type` (renamed in the vocabulary redesign — this call site
+  was never updated), so it always fell back to `"Concept"`. Now reads `kind`.
+- **Docs**: corrected `docs/SETUP.md` (told contributors to run `pytest`, which isn't a
+  dependency — tests are `unittest`), rewrote README's Project Structure section (still
+  described the pre-`services/` layout), and updated `private_docs/` to match the current
+  SQLite-is-store-of-record persistence model and the two-axis `kind`/`role` node typing.
+- No behavior change: full test suite, the real CLI, a FastAPI `TestClient` run through every
+  router, and `scripts/graph_health.py` all verified identical output before/after.
+
+---
+
 ## [2.4.0] - 2026-08-08 (Real-Time Graph Layout Controls & Decluttering Suite)
 
 ### 🚀 Highlights

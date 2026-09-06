@@ -7,9 +7,12 @@ historical), [docs/vocabulary-diagnosis.md](docs/vocabulary-diagnosis.md) (what 
 *now*), [docs/flow.md](docs/flow.md) (how data moves), [docs/structure.md](docs/structure.md)
 (call chains), [services/README.md](services/README.md) (module layout).
 
-**Status:** Phases 0–9 are done — identity is deterministic, SQLite is the store of record,
-the app runs as one process, node typing is two-axis (kind + role) with an 11-relation
-vocabulary, and the concept graph is a strict DAG (0 cycles) with write-time acyclicity guards.
+**Status:** Phases 0–9 are shipped — identity is deterministic, SQLite is the store of
+record, the app runs as one process, node typing is two-axis (kind + role) with a 12-relation
+vocabulary, and the concept graph is currently a DAG (0 cycles) with write-time acyclicity
+guards. One caveat: Phase 8's own exit bar (no relation over ~50% of edges) isn't fully met
+yet — `DEPENDS_ON` is at 61.1%, down sharply from the pre-Phase-8 78.5% but not there yet. See
+Phase 8 below for the current numbers.
 
 ---
 
@@ -351,7 +354,19 @@ Pass-2 candidate context, and the graph container's `main.py` constructed
 **Exit:** the app runs as one process; `services/README.md` and `CLAUDE.md` describe that
 topology, not a staged microservice split.
 
-### Phase 8 — Vocabulary: two-axis typing and a mathematical relation set — **PLANNED**
+### Phase 8 — Vocabulary: two-axis typing and a mathematical relation set — **SHIPPED, exit bar not yet met**
+
+The mechanism is built, tested, and running: `kind`/`role` two-axis typing
+(`services/graph/app/schema.py`), the 12-relation vocabulary, and symmetric-relation
+canonicalization are all live in `MathGraphIndexer`. What follows describes the diagnosis
+that motivated it and is otherwise historical — the numbers it cites are the **Phase 7**
+baseline, not current. Re-measured on the live graph (`python -m src.cli graph-stats
+--json` for kinds; edge relations via a `SELECT relation, COUNT(*) FROM edges GROUP BY
+relation` against `.storage/concepts.db`): kind is no longer collapsed (`Object` 44%, spread
+across 10 kind/role combinations, under the ~55% exit bar) but relation is not yet under its
+~50% exit bar (`DEPENDS_ON` 61.1% — down sharply from 78.5%, not yet at target). Re-running
+`rebuild-graph` on notes extracted before Phase 8 shipped should keep moving this down; it
+has not been re-run project-wide since.
 
 Spec: [docs/vocabulary-diagnosis.md](docs/vocabulary-diagnosis.md).
 Plan: [2026-08-24-vocabulary-redesign.md](docs/superpowers/plans/2026-08-24-vocabulary-redesign.md).
@@ -434,9 +449,9 @@ with the actual numbers recorded in the spec.
 | Free-text `domain` / `subdomain` | MSC2020 codes (6,603 seeded; nothing reads them yet) | Not started |
 | `graph → vector` dependency | Resolution no longer needs embeddings | Done (Phase 7) — dead `vector_store` param removed from `MathGraphIndexer` |
 | Container-per-service deployment | Never actually run; single process is simpler for one user | Done (Phase 7) |
-| Single-axis `entity_type` | Conflated three orthogonal questions; 76% collapsed to `Concept` | Planned (Phase 8) |
-| `Lemma`/`Corollary`/`Axiom` as node types | Argument roles, not intrinsic types — edges already carry them | Planned (Phase 8) |
-| `USES_AXIOM` | 0 uses; redundant with `USES_IN_PROOF` at a node whose role is `Axiom` | Planned (Phase 8) |
+| Single-axis `entity_type` | Conflated three orthogonal questions; was 76% collapsed to `Concept` | Shipped (Phase 8) |
+| `Lemma`/`Corollary`/`Axiom` as node types | Argument roles, not intrinsic types — edges already carry them | Shipped (Phase 8) |
+| `USES_AXIOM` | 0 uses; redundant with `USES_IN_PROOF` at a node whose role is `Axiom` | Shipped (Phase 8) |
 
 ---
 
@@ -475,3 +490,34 @@ with the actual numbers recorded in the spec.
    resolution: definitions may not be enough, and the model may still collapse to the
    broadest available relation. Phase 8's final task measures this directly. If it fails,
    the next move is fewer relations with sharper definitions, not more.
+
+---
+
+## Backlog — not yet planned
+
+Raised 2026-09-04, not scheduled as a phase yet. Recommendation given at the time, not
+approved or built — revisit and confirm the approach before implementing either one.
+
+**1. Slide images/diagrams are silently dropped during ingestion.** OCR (`gemini_ocr.py`,
+`handwriting_provider.py`) only ever produces Markdown+LaTeX text — no instruction anywhere
+in the prompts for non-text visual content, so a figure or plot on a slide either vanishes or
+gets narrated as prose. `HandwritingOCRProvider.__init__`
+(`services/ingestion/app/handwriting_provider.py`) already accepts a `vault_attachments_dir`
+param, passed in from `src/routes/ingest.py` — but never stores or uses it. A dead, half-built
+hook someone anticipated and never wired up.
+
+Candidate direction: save each rendered page image to `vault/<course>/attachments/`, have the
+OCR prompt emit `![...](attachments/pageN.png)` inline when it sees a non-text figure —
+reuses the page image `pdf_to_images` already renders, finally wires up
+`vault_attachments_dir`. Tradeoff: whole-page images are coarser than cropping just the
+figure region; region-detection to crop would be a much bigger lift for a modest gain.
+
+**2. Build-up/progressive-reveal slides produce near-duplicate consecutive pages.** A deck
+that reveals one new bullet per slide OCRs as 3-5 nearly-identical pages — bloats the vault
+note, wastes LLM budget re-extracting the same concepts in graph indexing, and pollutes
+vector search with near-duplicate chunks.
+
+Candidate direction: compare consecutive *rendered page images* (perceptual hash) before OCR
+runs (`pdf_to_images` already produces the full list up front), skip near-duplicates to save
+OCR cost too, not just downstream bloat. Keep the *last* slide in a duplicate run (usually
+most complete), and log what got dropped so it's checkable rather than silently lossy.

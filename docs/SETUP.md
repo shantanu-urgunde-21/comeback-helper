@@ -114,9 +114,11 @@ python -m src.cli query --prompt "What is an integrating factor?" --course "Diff
 
 ## Testing & Verification
 
-Run tests:
+Run tests (`unittest`, not pytest — pytest is not a dependency of this project):
 
 ```bash
-# Run pytest test suite
-python -m pytest tests/
+python -m unittest discover -s tests -v
+
+# One module
+python -m unittest tests.test_graph_indexer -v
 ```

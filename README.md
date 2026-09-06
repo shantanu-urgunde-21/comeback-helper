@@ -19,6 +19,28 @@
 
 ---
 
+## What this actually is
+
+This builds a **visual atlas of mathematics**: one knowledge graph across every course you've
+taken, typing the *specific relationship* between concepts — including across courses (a
+result in Machine Learning might be a straightforward generalization of one from Linear
+Algebra, or merely borrow a definition from it; two theorems that look unrelated may turn out
+to be characterized by the same underlying property). This is deliberately about relations,
+not a prerequisite tree — dependency is one relation among a dozen typed ones, not the goal;
+see the architecture doc below for why that distinction matters. Math is hard to hold onto
+not because any one idea is hard, but because concepts differ by small, easy-to-lose
+distinctions — the same symbol meaning two different things in two courses, two results that
+look unrelated until you see how they actually relate. A wall of search results doesn't
+surface that; a typed graph does.
+
+**The graph is the product.** OCR, the Obsidian vault, the vector search, and the chat
+interface below all exist to build and query it — they're the supply chain, not the point.
+Everything past this point in the README is how those supporting pieces work; for the
+reasoning behind *why* they're built this way, see
+[`private_docs/ARCHITECTURE_DEEP_DIVE.md`](private_docs/ARCHITECTURE_DEEP_DIVE.md).
+
+---
+
 ## Architecture
 
 ```
@@ -59,7 +81,7 @@
 | **2-Pass Math PropertyGraph** | Decoupled 2-pass LLM pipeline: Pass 1 extracts concept nodes & SKOS taxonomy; Pass 2 links relationship edges |
 | **Local Vector & BM25 Search** | LanceDB + FastEmbed with native BM25 hybrid search, CUDA GPU acceleration, and course-scoped filtering |
 | **Math-Aware Chunking** | Splits on page markers → headings → paragraphs while preserving `$$...$$` blocks intact with overlap for theorem→proof continuity |
-| **Hybrid RAG Synthesis** | Combines vector similarity + semantic graph node matching + candidate model fallback loop (`gemini-3.6-flash` $\rightarrow$ `gemini-flash-latest` $\rightarrow$ `gemini-flash-lite-latest` $\rightarrow$ `Ollama`) |
+| **Hybrid RAG Synthesis** | Combines vector similarity + semantic graph node matching + candidate model fallback loop (your configured `GEMINI_MODEL` $\rightarrow$ `gemini-flash-latest` $\rightarrow$ `gemini-flash-lite-latest` $\rightarrow$ `Ollama`) |
 | **Interactive Graph Controls** | Vis.js UI with real-time layout solvers (`Barnes-Hut`, `Force-Atlas 2`, `Hierarchical`), node distance sliders, physics toggle, and edge label decluttering |
 | **Obsidian Compatible** | Notes saved as standard Markdown with YAML frontmatter, SHA-256 state tracking, and `[[wikilinks]]` |
 
@@ -139,34 +161,37 @@ Full API docs available at **http://127.0.0.1:8000/docs** (auto-generated Swagge
 
 ## Project Structure
 
+The implementation lives in `services/`, one package per concern; `src/` holds only the two
+process entry points plus the composition root that wires the packages together. See
+[services/README.md](services/README.md) and [docs/structure.md](docs/structure.md) for the
+full module map.
+
 ```
 comeback_helper/
 ├── src/
-│   ├── server.py            # FastAPI app with lifespan singletons
-│   ├── config.py            # Pydantic settings (.env driven)
-│   ├── logger.py            # Loguru centralized logging
-│   ├── cli.py               # Click CLI (ingest, query, graph-stats, graph-preview, rebuild)
-│   ├── chunker.py           # Math-aware Markdown chunking
-│   ├── llm/                 # Centralized LLM clients
-│   │   ├── gemini.py        # Gemini client singleton & candidate model fallbacks
-│   │   └── ollama.py        # Ollama client (text + vision + health)
-│   ├── ingestion/           # OCR providers & pipeline
-│   │   ├── pipeline.py      # PDF → page images → batched OCR → vault
-│   │   ├── gemini_ocr.py    # Gemini Vision provider (3-page batching + 4s pacing)
-│   │   ├── handwriting_provider.py
-│   │   └── handwriting/     # Local Qwen VLM pipeline
-│   ├── graph/               # Knowledge graph
-│   │   ├── schema.py        # Pydantic entity/relation models & 2-pass schemas
-│   │   └── indexer.py       # Decoupled 2-pass extraction → NetworkX
-│   ├── vector/
-│   │   └── store.py         # LanceDB + FastEmbed store (native BM25 FTS)
-│   ├── retrieval/
-│   │   └── engine.py        # Hybrid RAG engine with model candidate fallbacks
-│   └── vault/
-│       └── manager.py       # Vault file parsing & SHA-256 state tracker
+│   ├── server.py             # FastAPI app factory + lifespan singletons; mounts routers
+│   ├── routes/                # One APIRouter per HTTP concern
+│   │   ├── ingest.py          # POST /api/ingest
+│   │   ├── query.py           # POST /api/query
+│   │   ├── vault.py           # GET /api/vault, /api/vault/note, /api/graph
+│   │   └── admin.py           # health, settings, courses, rebuild, clear
+│   ├── cli.py                 # Click CLI (ingest, query, graph-stats, graph-preview, ...)
+│   └── wiring.py               # Composition root — builds the real classes, one process
+├── services/
+│   ├── shared/                 # config, logger, LLM clients (Gemini/Ollama + shared fallback)
+│   ├── vault/app/manager.py    # Vault file parsing & SHA-256 state tracker
+│   ├── ingestion/app/          # PDF → Markdown: pipeline.py + OCR providers (gemini/handwriting/marker/local)
+│   ├── vector/app/             # chunker.py (math-aware) + store.py (LanceDB + FastEmbed + BM25)
+│   ├── graph/app/              # schema, authority (identity), graph_store (SQLite), and the indexer:
+│   │   ├── indexer.py          #   MathGraphIndexer — graph I/O, index_note, build_or_update_index
+│   │   ├── llm_extraction.py   #   Pass 1/2 LLM calls (Gemini → Ollama fallback)
+│   │   ├── block_extractor.py  #   deterministic no-LLM fallback (LaTeX envs, headings, wikilinks)
+│   │   └── prompts.py          #   the two extraction prompt templates
+│   └── retrieval/app/engine.py # Hybrid RAG engine (vector + graph context, LLM synthesis)
 ├── static/                  # Web dashboard (HTML/JS/CSS with Vis.js Graph Controls)
-├── tests/                   # Unit tests
+├── tests/                   # Unit tests (unittest, not pytest)
 ├── docs/                    # Public documentation
+├── private_docs/            # Internal design notes
 └── requirements.txt
 ```
 
