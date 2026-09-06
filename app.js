@@ -1355,6 +1355,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     for (const [tag, count] of Object.entries(tagCounts)) {
                         const badge = document.createElement('span');
                         badge.className = 'tag-badge';
+                        const roleColor = ROLE_BORDER_COLORS[tag];
+                        if (roleColor) {
+                            badge.style.setProperty('--chip-color', roleColor);
+                            badge.classList.add('tag-badge-role');
+                        }
                         badge.textContent = `${tag}: ${count}`;
                         tagsContainer.appendChild(badge);
                     }
@@ -1384,14 +1389,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const tr = document.createElement('tr');
 
             const role = n.type || n.entity_type || 'Concept';
+            const roleColor = ROLE_BORDER_COLORS[role] || '#94a3b8';
             const domain = n.taxonomy ? `${n.taxonomy.domain} › ${n.taxonomy.subdomain}` : 'General';
             const desc = n.description || '—';
 
             tr.innerHTML = `
-                <td class="catalog-entity-name">${escapeHtml(n.label || n.name || n.id)}</td>
-                <td><span class="catalog-role-chip">${escapeHtml(role)}</span></td>
-                <td class="catalog-domain">${escapeHtml(domain)}</td>
-                <td class="catalog-description" title="${escapeHtml(desc)}">${escapeHtml(desc)}</td>
+                <td class="catalog-entity-name" data-label="Entity Name">${escapeHtml(n.label || n.name || n.id)}</td>
+                <td data-label="Role / Type"><span class="catalog-role-chip" style="--chip-color: ${roleColor};">${escapeHtml(role)}</span></td>
+                <td class="catalog-domain" data-label="Domain Taxonomy">${escapeHtml(domain)}</td>
+                <td class="catalog-description" data-label="Description" title="${escapeHtml(desc)}">${escapeHtml(desc)}</td>
             `;
             tableBody.appendChild(tr);
         });
